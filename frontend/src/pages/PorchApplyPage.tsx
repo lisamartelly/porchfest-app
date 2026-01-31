@@ -1,96 +1,73 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { api } from '../../lib/supabase'
-import { useAuthStore } from '../../stores/authStore'
-import type { Porch } from '../../types'
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../lib/supabase";
 
-export default function PorchApplicationForm() {
-  const { user } = useAuthStore()
-  const navigate = useNavigate()
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [existingPorch, setExistingPorch] = useState<Porch | null>(null)
-  
+export default function PorchApplyPage() {
+  const navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
-    owner_name: '',
-    address: '',
-    city: '',
+    owner_name: "",
+    email: "",
+    address: "",
+    city: "",
     capacity: 20,
     has_power: false,
-    parking_notes: '',
-    accessibility_notes: '',
-  })
-
-  useEffect(() => {
-    if (user) {
-      fetchExistingPorch()
-    }
-  }, [user])
-
-  const fetchExistingPorch = async () => {
-    try {
-      const data = await api.get('/api/porches/me')
-      if (data) {
-        setExistingPorch(data)
-        setFormData({
-          owner_name: data.owner_name || '',
-          address: data.address || '',
-          city: data.city || '',
-          capacity: data.capacity || 20,
-          has_power: data.has_power || false,
-          parking_notes: data.parking_notes || '',
-          accessibility_notes: data.accessibility_notes || '',
-        })
-      }
-    } catch {
-      // No existing porch, that's fine
-    } finally {
-      setLoading(false)
-    }
-  }
+    parking_notes: "",
+    accessibility_notes: "",
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
 
     try {
-      await api.post('/api/porches', formData)
-      navigate('/dashboard/porch')
-    } catch (error) {
-      console.error('Error saving porch:', error)
+      await api.post("/api/porches/apply", formData);
+      setSubmitted(true);
+    } catch (err) {
+      setError((err as Error).message || "Failed to submit application");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
-  if (loading) {
+  if (submitted) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-porch-600"></div>
+      <div className="max-w-2xl mx-auto text-center py-20 px-4">
+        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <span className="text-5xl">✓</span>
+        </div>
+        <h1 className="font-display text-3xl font-bold text-gray-900 mb-4">
+          Application Submitted!
+        </h1>
+        <p className="text-gray-600 mb-8">
+          Thanks for offering your porch for Porchfest! We'll review your
+          application and get back to you at <strong>{formData.email}</strong>.
+        </p>
+        <button onClick={() => navigate("/")} className="btn-primary">
+          Back to Home
+        </button>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto py-12 px-4">
       <div className="mb-8">
         <h1 className="font-display text-3xl font-bold text-gray-900">
-          {existingPorch ? 'Edit Porch Details' : 'Porch Application'}
+          Offer Your Porch
         </h1>
         <p className="text-gray-600 mt-1">
-          {existingPorch 
-            ? 'Update your porch information' 
-            : 'Tell us about your porch to host performances'}
+          Tell us about your porch to host performances
         </p>
       </div>
 
-      {existingPorch?.status === 'rejected' && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-700 font-medium">Your application was not approved.</p>
-          {existingPorch.admin_notes && (
-            <p className="text-red-600 text-sm mt-1">Feedback: {existingPorch.admin_notes}</p>
-          )}
-          <p className="text-red-600 text-sm mt-2">You can update your application and resubmit.</p>
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          {error}
         </div>
       )}
 
@@ -102,9 +79,27 @@ export default function PorchApplicationForm() {
           <input
             type="text"
             value={formData.owner_name}
-            onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, owner_name: e.target.value })
+            }
             className="input-field"
             placeholder="Jane Smith"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Contact Email *
+          </label>
+          <input
+            type="email"
+            value={formData.email}
+            onChange={(e) =>
+              setFormData({ ...formData, email: e.target.value })
+            }
+            className="input-field"
+            placeholder="you@example.com"
             required
           />
         </div>
@@ -116,7 +111,9 @@ export default function PorchApplicationForm() {
           <input
             type="text"
             value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, address: e.target.value })
+            }
             className="input-field"
             placeholder="123 Main Street"
             required
@@ -149,7 +146,12 @@ export default function PorchApplicationForm() {
             min="5"
             max="200"
             value={formData.capacity}
-            onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 20 })}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                capacity: parseInt(e.target.value) || 20,
+              })
+            }
             className="input-field w-32"
           />
         </div>
@@ -159,12 +161,18 @@ export default function PorchApplicationForm() {
             <input
               type="checkbox"
               checked={formData.has_power}
-              onChange={(e) => setFormData({ ...formData, has_power: e.target.checked })}
+              onChange={(e) =>
+                setFormData({ ...formData, has_power: e.target.checked })
+              }
               className="w-5 h-5 text-porch-600 rounded border-gray-300 focus:ring-porch-500"
             />
             <div>
-              <span className="font-medium text-gray-700">Power outlet available</span>
-              <p className="text-sm text-gray-500">Can bands plug in amplifiers or equipment?</p>
+              <span className="font-medium text-gray-700">
+                Power outlet available
+              </span>
+              <p className="text-sm text-gray-500">
+                Can bands plug in amplifiers or equipment?
+              </p>
             </div>
           </label>
         </div>
@@ -175,7 +183,9 @@ export default function PorchApplicationForm() {
           </label>
           <textarea
             value={formData.parking_notes}
-            onChange={(e) => setFormData({ ...formData, parking_notes: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, parking_notes: e.target.value })
+            }
             className="input-field min-h-[80px]"
             placeholder="Street parking available, nearby lot at..."
           />
@@ -187,7 +197,9 @@ export default function PorchApplicationForm() {
           </label>
           <textarea
             value={formData.accessibility_notes}
-            onChange={(e) => setFormData({ ...formData, accessibility_notes: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, accessibility_notes: e.target.value })
+            }
             className="input-field min-h-[80px]"
             placeholder="Steps to porch, wheelchair accessibility, etc."
           />
@@ -199,11 +211,11 @@ export default function PorchApplicationForm() {
             disabled={saving}
             className="btn-secondary disabled:opacity-50"
           >
-            {saving ? 'Saving...' : existingPorch ? 'Save Changes' : 'Submit Application'}
+            {saving ? "Submitting..." : "Submit Application"}
           </button>
           <button
             type="button"
-            onClick={() => navigate('/dashboard/porch')}
+            onClick={() => navigate("/")}
             className="btn-outline"
           >
             Cancel
@@ -211,5 +223,5 @@ export default function PorchApplicationForm() {
         </div>
       </form>
     </div>
-  )
+  );
 }

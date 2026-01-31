@@ -1,42 +1,13 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
-import { useAuthStore } from '../../stores/authStore'
+import { Outlet, Link, useLocation } from "react-router-dom";
+import { useAuthStore } from "../../stores/authStore";
 
 export default function DashboardLayout() {
-  const { user, signOut } = useAuthStore()
-  const location = useLocation()
+  const { user, signOut } = useAuthStore();
+  const location = useLocation();
 
-  const getNavItems = () => {
-    if (!user) return []
-    
-    switch (user.role) {
-      case 'band':
-        return [
-          { to: '/dashboard/band', label: 'Overview', icon: '🏠' },
-          { to: '/dashboard/band/apply', label: 'Application', icon: '📝' },
-          { to: '/dashboard/band/availability', label: 'Availability', icon: '📅' },
-          { to: '/dashboard/band/messages', label: 'Messages', icon: '💬' },
-        ]
-      case 'porch':
-        return [
-          { to: '/dashboard/porch', label: 'Overview', icon: '🏠' },
-          { to: '/dashboard/porch/apply', label: 'Application', icon: '📝' },
-          { to: '/dashboard/porch/availability', label: 'Availability', icon: '📅' },
-          { to: '/dashboard/porch/messages', label: 'Messages', icon: '💬' },
-        ]
-      case 'admin':
-        return [
-          { to: '/dashboard/admin', label: 'Overview', icon: '🏠' },
-          { to: '/dashboard/admin/bands', label: 'Bands', icon: '🎸' },
-          { to: '/dashboard/admin/porches', label: 'Porches', icon: '🏡' },
-          { to: '/dashboard/admin/events', label: 'Events', icon: '🎉' },
-          { to: '/dashboard/admin/schedule', label: 'Schedule', icon: '📅' },
-        ]
-      default:
-        return []
-    }
-  }
-
-  const navItems = getNavItems()
+  const navItems = [
+    { to: "/admin", label: "Overview", icon: "🏠" },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -47,8 +18,16 @@ export default function DashboardLayout() {
             <div className="w-10 h-10 bg-gradient-to-br from-porch-500 to-porch-700 rounded-lg flex items-center justify-center">
               <span className="text-white text-xl">🎵</span>
             </div>
-            <span className="font-display text-xl font-bold text-porch-800">Porchfest</span>
+            <span className="font-display text-xl font-bold text-porch-800">
+              Porchfest
+            </span>
           </Link>
+        </div>
+
+        <div className="px-4 py-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            Admin Panel
+          </p>
         </div>
 
         <nav className="px-4 space-y-1">
@@ -58,8 +37,8 @@ export default function DashboardLayout() {
               to={item.to}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 location.pathname === item.to
-                  ? 'bg-porch-100 text-porch-700'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? "bg-porch-100 text-porch-700"
+                  : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               <span>{item.icon}</span>
@@ -76,7 +55,9 @@ export default function DashboardLayout() {
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p>
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {user?.email}
+              </p>
               <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
             </div>
           </div>
@@ -96,6 +77,5 @@ export default function DashboardLayout() {
         </div>
       </main>
     </div>
-  )
+  );
 }
-

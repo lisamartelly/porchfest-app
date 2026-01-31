@@ -1,36 +1,38 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '../../stores/authStore'
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../../stores/authStore";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  
-  const { signIn, error, clearError } = useAuthStore()
-  const navigate = useNavigate()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { signIn, error, clearError } = useAuthStore();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    clearError()
+    e.preventDefault();
+    setIsSubmitting(true);
+    clearError();
 
     try {
-      await signIn(email, password)
-      navigate('/dashboard/band') // Will redirect based on role
+      await signIn(email, password);
+      navigate("/admin");
     } catch {
       // Error is handled by the store
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="font-display text-4xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-          <p className="text-gray-600">Sign in to your Porchfest account</p>
+          <h1 className="font-display text-4xl font-bold text-gray-900 mb-2">
+            Admin Login
+          </h1>
+          <p className="text-gray-600">Sign in to manage Porchfest</p>
         </div>
 
         <div className="card p-8">
@@ -42,7 +44,10 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Email Address
               </label>
               <input
@@ -51,13 +56,16 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="input-field"
-                placeholder="you@example.com"
+                placeholder="admin@example.com"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Password
               </label>
               <input
@@ -76,21 +84,20 @@ export default function LoginPage() {
               disabled={isSubmitting}
               className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Signing In...' : 'Sign In'}
+              {isSubmitting ? "Signing In..." : "Sign In"}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-porch-600 hover:text-porch-700 font-medium">
-                Sign up
-              </Link>
-            </p>
+            <Link
+              to="/"
+              className="text-porch-600 hover:text-porch-700 font-medium"
+            >
+              ← Back to Home
+            </Link>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
-

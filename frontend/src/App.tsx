@@ -1,34 +1,31 @@
-import { Routes, Route } from 'react-router-dom'
-import { useAuthStore } from './stores/authStore'
-import { useEffect } from 'react'
+import { Routes, Route } from "react-router-dom";
+import { useAuthStore } from "./stores/authStore";
+import { useEffect } from "react";
 
 // Layouts
-import PublicLayout from './components/layouts/PublicLayout'
-import DashboardLayout from './components/layouts/DashboardLayout'
+import PublicLayout from "./components/layouts/PublicLayout";
+import DashboardLayout from "./components/layouts/DashboardLayout";
 
 // Public Pages
-import HomePage from './pages/HomePage'
-import SchedulePage from './pages/SchedulePage'
-import MapPage from './pages/MapPage'
-import LoginPage from './pages/auth/LoginPage'
-import RegisterPage from './pages/auth/RegisterPage'
+import HomePage from "./pages/HomePage";
+import SchedulePage from "./pages/SchedulePage";
+import MapPage from "./pages/MapPage";
+import BandApplyPage from "./pages/BandApplyPage";
+import PorchApplyPage from "./pages/PorchApplyPage";
+import LoginPage from "./pages/auth/LoginPage";
 
-// Dashboard Pages
-import BandDashboard from './pages/dashboard/BandDashboard'
-import PorchDashboard from './pages/dashboard/PorchDashboard'
-import AdminDashboard from './pages/dashboard/AdminDashboard'
-import BandApplicationForm from './pages/dashboard/BandApplicationForm'
-import PorchApplicationForm from './pages/dashboard/PorchApplicationForm'
+// Dashboard Pages (Admin only)
+import AdminDashboard from "./pages/dashboard/AdminDashboard";
 
 // Components
-import ProtectedRoute from './components/ProtectedRoute'
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
-  const { initialize, loading } = useAuthStore()
+  const { initialize, loading } = useAuthStore();
 
   useEffect(() => {
-    initialize()
-  }, [initialize])
+    initialize();
+  }, [initialize]);
 
   if (loading) {
     return (
@@ -38,7 +35,7 @@ function App() {
           <p className="mt-4 text-porch-700 font-medium">Loading...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -48,26 +45,23 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/map" element={<MapPage />} />
+        <Route path="/apply/band" element={<BandApplyPage />} />
+        <Route path="/apply/porch" element={<PorchApplyPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
       </Route>
 
-      {/* Protected Dashboard Routes */}
-      <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-        {/* Band Routes */}
-        <Route path="/dashboard/band" element={<BandDashboard />} />
-        <Route path="/dashboard/band/apply" element={<BandApplicationForm />} />
-        
-        {/* Porch Owner Routes */}
-        <Route path="/dashboard/porch" element={<PorchDashboard />} />
-        <Route path="/dashboard/porch/apply" element={<PorchApplicationForm />} />
-        
-        {/* Admin Routes */}
-        <Route path="/dashboard/admin" element={<AdminDashboard />} />
+      {/* Protected Admin Routes */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/admin" element={<AdminDashboard />} />
       </Route>
     </Routes>
-  )
+  );
 }
 
-export default App
-
+export default App;
