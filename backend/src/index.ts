@@ -1,0 +1,61 @@
+import express from 'express'
+import cors from 'cors'
+import helmet from 'helmet'
+import morgan from 'morgan'
+import dotenv from 'dotenv'
+
+import { authRouter } from './routes/auth.js'
+import { bandsRouter } from './routes/bands.js'
+import { porchesRouter } from './routes/porches.js'
+import { eventsRouter } from './routes/events.js'
+import { adminRouter } from './routes/admin.js'
+import { authMiddleware } from './middleware/auth.js'
+
+dotenv.config()
+
+const app = express()
+const PORT = process.env.PORT || 8080
+
+// Middleware
+app.use(helmet())
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+}))
+app.use(morgan('combined'))
+app.use(express.json())
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+// Auth routes (public)
+app.use('/api/auth', authRouter)
+
+// Public routes
+app.get('/api/schedule', async (req, res) => {
+  // TODO: Implement with real database
+  res.json({ performances: [], timeSlots: [] })
+})
+
+app.get('/api/venues', async (req, res) => {
+  // TODO: Implement with real database
+  res.json([])
+})
+
+// Protected routes
+app.use('/api/bands', authMiddleware, bandsRouter)
+app.use('/api/porches', authMiddleware, porchesRouter)
+app.use('/api/events', authMiddleware, eventsRouter)
+app.use('/api/admin', authMiddleware, adminRouter)
+
+// Error handler
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(err.stack)
+  res.status(500).json({ error: 'Something went wrong!' })
+})
+
+app.listen(PORT, () => {
+  console.log(`🚀 Porchfest API running on port ${PORT}`)
+})

@@ -1,0 +1,101 @@
+import { Outlet, Link, useLocation } from 'react-router-dom'
+import { useAuthStore } from '../../stores/authStore'
+
+export default function DashboardLayout() {
+  const { user, signOut } = useAuthStore()
+  const location = useLocation()
+
+  const getNavItems = () => {
+    if (!user) return []
+    
+    switch (user.role) {
+      case 'band':
+        return [
+          { to: '/dashboard/band', label: 'Overview', icon: '🏠' },
+          { to: '/dashboard/band/apply', label: 'Application', icon: '📝' },
+          { to: '/dashboard/band/availability', label: 'Availability', icon: '📅' },
+          { to: '/dashboard/band/messages', label: 'Messages', icon: '💬' },
+        ]
+      case 'porch':
+        return [
+          { to: '/dashboard/porch', label: 'Overview', icon: '🏠' },
+          { to: '/dashboard/porch/apply', label: 'Application', icon: '📝' },
+          { to: '/dashboard/porch/availability', label: 'Availability', icon: '📅' },
+          { to: '/dashboard/porch/messages', label: 'Messages', icon: '💬' },
+        ]
+      case 'admin':
+        return [
+          { to: '/dashboard/admin', label: 'Overview', icon: '🏠' },
+          { to: '/dashboard/admin/bands', label: 'Bands', icon: '🎸' },
+          { to: '/dashboard/admin/porches', label: 'Porches', icon: '🏡' },
+          { to: '/dashboard/admin/events', label: 'Events', icon: '🎉' },
+          { to: '/dashboard/admin/schedule', label: 'Schedule', icon: '📅' },
+        ]
+      default:
+        return []
+    }
+  }
+
+  const navItems = getNavItems()
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-gray-200 fixed h-full">
+        <div className="p-6">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-gradient-to-br from-porch-500 to-porch-700 rounded-lg flex items-center justify-center">
+              <span className="text-white text-xl">🎵</span>
+            </div>
+            <span className="font-display text-xl font-bold text-porch-800">Porchfest</span>
+          </Link>
+        </div>
+
+        <nav className="px-4 space-y-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                location.pathname === item.to
+                  ? 'bg-porch-100 text-porch-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <span>{item.icon}</span>
+              <span className="font-medium">{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-porch-200 rounded-full flex items-center justify-center">
+              <span className="text-porch-700 font-semibold">
+                {user?.email?.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p>
+              <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+            </div>
+          </div>
+          <button
+            onClick={signOut}
+            className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 ml-64">
+        <div className="p-8">
+          <Outlet />
+        </div>
+      </main>
+    </div>
+  )
+}
+
