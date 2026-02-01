@@ -25,6 +25,14 @@ interface Selection {
   endIndex: number;
 }
 
+interface DragState {
+  bandId: string;
+  porchId: string;
+  originalStartIndex: number;
+  bandSpan: number; // number of slots the band takes
+  currentStartIndex: number; // where the band would be placed
+}
+
 interface ScheduledBand {
   band: BandApplication;
   startIndex: number;
@@ -70,6 +78,7 @@ export default function VisualScheduler({
   const [bandSearch, setBandSearch] = useState("");
   const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
   const [saving, setSaving] = useState(false);
+  const [dragState, setDragState] = useState<DragState | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -193,14 +202,18 @@ export default function VisualScheduler({
     );
 
     if (clickedBand) {
-      // Start selection at this band's range
-      setSelection({
+      // Start dragging the band
+      const bandSpan = clickedBand.endIndex - clickedBand.startIndex;
+      setDragState({
+        bandId: clickedBand.band.id,
         porchId,
-        startIndex: clickedBand.startIndex,
-        endIndex: clickedBand.endIndex - 1,
+        originalStartIndex: clickedBand.startIndex,
+        bandSpan,
+        currentStartIndex: clickedBand.startIndex,
       });
       setIsSelecting(true);
     } else {
+      // Start selecting empty slots
       setSelection({
         porchId,
         startIndex: slotIndex,
@@ -211,9 +224,30 @@ export default function VisualScheduler({
     setShowBandPicker(false);
   };
 
-  // Handle mouse enter on a cell during selection
+  // Handle mouse enter on a cell during selection or drag
   const handleCellMouseEnter = (porchId: string, slotIndex: number) => {
-    if (!isSelecting || !selection) return;
+    if (!isSelecting) return;
+
+    // Handle band dragging
+    if (dragState) {
+      if (porchId !== dragState.porchId) return; // Only allow dragging within same porch
+      
+      // Calculate new start position, ensuring band stays within bounds
+      const maxStartIndex = timeSlots.length - dragState.bandSpan;
+      const newStartIndex = Math.max(0, Math.min(slotIndex, maxStartIndex));
+      
+      setDragState((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          currentStartIndex: newStartIndex,
+        };
+      });
+      return;
+    }
+
+    // Handle empty slot selection
+    if (!selection) return;
     if (porchId !== selection.porchId) return;
 
     setSelection((prev) => {
@@ -225,9 +259,49 @@ export default function VisualScheduler({
     });
   };
 
-  // Handle mouse up to complete selection
-  const handleMouseUp = useCallback(() => {
-    if (isSelecting && selection) {
+  // Handle mouse up to complete selection or drag
+  const handleMouseUp = useCallback(async () => {
+    if (!isSelecting) return;
+
+    // Handle completing a drag operation
+    if (dragState) {
+      const { bandId, porchId, originalStartIndex, currentStartIndex, bandSpan } = dragState;
+      
+      // If position changed, save the new position
+      if (currentStartIndex !== originalStartIndex) {
+        const newStartTime = timeSlots[currentStartIndex].time;
+        const newEndTime = timeSlots[Math.min(currentStartIndex + bandSpan, timeSlots.length - 1)].time;
+        
+        setSaving(true);
+        try {
+          await onScheduleBand(bandId, porchId, newStartTime, newEndTime);
+        } catch (error) {
+          console.error("Failed to move band:", error);
+        } finally {
+          setSaving(false);
+        }
+        setDragState(null);
+        setIsSelecting(false);
+      } else {
+        // Position didn't change - user just clicked, show the picker for editing
+        setSelection({
+          porchId,
+          startIndex: originalStartIndex,
+          endIndex: originalStartIndex + bandSpan - 1,
+        });
+        setDragState(null);
+        setIsSelecting(false);
+        
+        setTimeout(() => {
+          setShowBandPicker(true);
+          setBandSearch("");
+        }, 10);
+      }
+      return;
+    }
+
+    // Handle completing a selection
+    if (selection) {
       // Normalize start/end (in case user dragged backwards)
       const start = Math.min(selection.startIndex, selection.endIndex);
       const end = Math.max(selection.startIndex, selection.endIndex);
@@ -241,7 +315,7 @@ export default function VisualScheduler({
       }, 10);
     }
     setIsSelecting(false);
-  }, [isSelecting, selection]);
+  }, [isSelecting, selection, dragState, timeSlots, onScheduleBand]);
 
   // Position the picker near the selection
   useEffect(() => {
@@ -344,26 +418,72 @@ export default function VisualScheduler({
     return slotIndex >= start && slotIndex <= end;
   };
 
-  // Get the band at a specific slot
+  // Get the band at a specific slot (accounting for drag state)
   const getBandAtSlot = (porchId: string, slotIndex: number): BandApplication | null => {
     const scheduledBands = getScheduledBandsForPorch(porchId);
-    const found = scheduledBands.find(
-      (sb) => slotIndex >= sb.startIndex && slotIndex < sb.endIndex
-    );
-    return found?.band || null;
+    
+    for (const sb of scheduledBands) {
+      // If this band is being dragged, use the drag position instead
+      if (dragState && dragState.bandId === sb.band.id && dragState.porchId === porchId) {
+        const dragStart = dragState.currentStartIndex;
+        const dragEnd = dragStart + dragState.bandSpan;
+        if (slotIndex >= dragStart && slotIndex < dragEnd) {
+          return sb.band;
+        }
+        continue; // Skip checking original position
+      }
+      
+      // Normal check for non-dragging bands
+      if (slotIndex >= sb.startIndex && slotIndex < sb.endIndex) {
+        return sb.band;
+      }
+    }
+    return null;
   };
 
-  // Check if this is the first slot of a band
+  // Check if this is the first slot of a band (accounting for drag state)
   const isFirstSlotOfBand = (porchId: string, slotIndex: number): boolean => {
     const scheduledBands = getScheduledBandsForPorch(porchId);
-    return scheduledBands.some((sb) => sb.startIndex === slotIndex);
+    
+    for (const sb of scheduledBands) {
+      // If this band is being dragged, check the drag position
+      if (dragState && dragState.bandId === sb.band.id && dragState.porchId === porchId) {
+        if (slotIndex === dragState.currentStartIndex) {
+          return true;
+        }
+        continue;
+      }
+      
+      if (sb.startIndex === slotIndex) {
+        return true;
+      }
+    }
+    return false;
   };
 
-  // Get band span (number of slots)
+  // Get band span (number of slots) - accounting for drag state
   const getBandSpan = (porchId: string, slotIndex: number): number => {
     const scheduledBands = getScheduledBandsForPorch(porchId);
-    const found = scheduledBands.find((sb) => sb.startIndex === slotIndex);
-    return found ? found.endIndex - found.startIndex : 0;
+    
+    for (const sb of scheduledBands) {
+      // If this band is being dragged
+      if (dragState && dragState.bandId === sb.band.id && dragState.porchId === porchId) {
+        if (slotIndex === dragState.currentStartIndex) {
+          return dragState.bandSpan;
+        }
+        continue;
+      }
+      
+      if (sb.startIndex === slotIndex) {
+        return sb.endIndex - sb.startIndex;
+      }
+    }
+    return 0;
+  };
+  
+  // Check if a band is currently being dragged
+  const isBandBeingDragged = (bandId: string): boolean => {
+    return dragState?.bandId === bandId;
   };
 
   // Get selected band for picker context
@@ -395,7 +515,7 @@ export default function VisualScheduler({
         </div>
         <span className="text-gray-400 mx-2">|</span>
         <span className="text-gray-600 italic">
-          Click and drag to select time slots, then choose a band
+          Click and drag to select time slots • Drag existing bands to move them
         </span>
       </div>
 
@@ -477,6 +597,7 @@ export default function VisualScheduler({
 
                     // If this is the first slot of a band, render the band block
                     if (band && isFirstSlot && color) {
+                      const isDragging = isBandBeingDragged(band.id);
                       return (
                         <div
                           key={slot.time}
@@ -484,9 +605,16 @@ export default function VisualScheduler({
                           style={{ width: `${bandSpan * 48}px` }}
                         >
                           <div
-                            className={`absolute inset-y-1 inset-x-0 ${color.bg} ${color.border} border-2 rounded-md shadow-sm cursor-pointer hover:shadow-md transition-shadow flex items-center px-2 overflow-hidden`}
+                            className={`absolute inset-y-1 inset-x-0 ${color.bg} ${color.border} border-2 rounded-md shadow-sm flex items-center px-2 overflow-hidden transition-all ${
+                              isDragging 
+                                ? "cursor-grabbing opacity-80 shadow-lg scale-[1.02] ring-2 ring-white" 
+                                : "cursor-grab hover:shadow-md"
+                            }`}
                             onMouseDown={() =>
                               handleCellMouseDown(porch.id, index)
+                            }
+                            onMouseEnter={() =>
+                              handleCellMouseEnter(porch.id, index)
                             }
                           >
                             <span
@@ -494,6 +622,11 @@ export default function VisualScheduler({
                             >
                               {band.band_name}
                             </span>
+                            {isDragging && (
+                              <span className="ml-auto text-xs opacity-70">
+                                ↔
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
