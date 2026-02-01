@@ -1,183 +1,217 @@
 import { Outlet, Link } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
+import { useState } from "react";
+import footerImg from "../../assets/img/wedge-footer.png";
 
 export default function PublicLayout() {
   const { user, signOut } = useAuthStore();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const toggleMenu = () => setMobileMenuOpen(!mobileMenuOpen);
+  const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-porch-50 via-white to-forest-50">
+    <div className="min-h-screen" style={{ backgroundColor: '#a5d7f3' }}>
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-porch-100 sticky top-0 z-50">
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+      <header className="border-b-2 border-black" style={{ backgroundColor: '#a5d7f3' }}>
+        <nav className="max-w-[2000px] mx-auto">
+          <div className="flex justify-between items-center">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-porch-500 to-porch-700 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl">🎵</span>
-              </div>
-              <span className="font-display text-2xl font-bold text-porch-800">
-                Porchfest
-              </span>
-            </Link>
-
-            {/* Navigation */}
-            <div className="hidden md:flex items-center gap-8">
-              <Link
-                to="/schedule"
-                className="text-gray-600 hover:text-porch-600 transition-colors font-medium"
-              >
-                Schedule
+            <div className="flex items-center">
+              <Link to="/" className="block py-2 px-5 no-underline">
+                <p className="text-2xl md:text-3xl mb-0 text-black" style={{ fontFamily: 'Carena, Pacifico, cursive' }}>
+                  Uptown Porchfest
+                </p>
+                <p className="text-sm mt-0 text-black font-medium">
+                  Aug 16, 2025
+                </p>
               </Link>
-              <Link
-                to="/map"
-                className="text-gray-600 hover:text-porch-600 transition-colors font-medium"
+              
+              {/* Instagram icon (mobile) */}
+              <a 
+                href="https://www.instagram.com/uptownporchfest/" 
+                target="_blank" 
+                rel="noreferrer"
+                className="md:hidden ml-2 text-black"
               >
-                Map
-              </Link>
-              <Link
-                to="/apply/band"
-                className="text-gray-600 hover:text-porch-600 transition-colors font-medium"
-              >
-                Apply as Band
-              </Link>
-              <Link
-                to="/apply/porch"
-                className="text-gray-600 hover:text-porch-600 transition-colors font-medium"
-              >
-                Offer Porch
-              </Link>
-
-              {user?.role === "admin" && (
-                <Link
-                  to="/admin"
-                  className="text-gray-600 hover:text-porch-600 transition-colors font-medium"
-                >
-                  Admin
-                </Link>
-              )}
-
-              {user ? (
-                <button
-                  onClick={signOut}
-                  className="btn-outline text-sm py-2 px-4"
-                >
-                  Sign Out
-                </button>
-              ) : (
-                <Link
-                  to="/login"
-                  className="text-gray-600 hover:text-porch-600 transition-colors font-medium"
-                >
-                  Admin Login
-                </Link>
-              )}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 0C5.829 0 5.556.01 4.703.048 3.85.088 3.269.222 2.76.42a3.917 3.917 0 0 0-1.417.923A3.927 3.927 0 0 0 .42 2.76C.222 3.268.087 3.85.048 4.7.01 5.555 0 5.827 0 8.001c0 2.172.01 2.444.048 3.297.04.852.174 1.433.372 1.942.205.526.478.972.923 1.417.444.445.89.719 1.416.923.51.198 1.09.333 1.942.372C5.555 15.99 5.827 16 8 16s2.444-.01 3.298-.048c.851-.04 1.434-.174 1.943-.372a3.916 3.916 0 0 0 1.416-.923c.445-.445.718-.891.923-1.417.197-.509.332-1.09.372-1.942C15.99 10.445 16 10.173 16 8s-.01-2.445-.048-3.299c-.04-.851-.175-1.433-.372-1.941a3.926 3.926 0 0 0-.923-1.417A3.911 3.911 0 0 0 13.24.42c-.51-.198-1.092-.333-1.943-.372C10.443.01 10.172 0 7.998 0h.003zm-.717 1.442h.718c2.136 0 2.389.007 3.232.046.78.035 1.204.166 1.486.275.373.145.64.319.92.599.28.28.453.546.598.92.11.281.24.705.275 1.485.039.843.047 1.096.047 3.231s-.008 2.389-.047 3.232c-.035.78-.166 1.203-.275 1.485a2.47 2.47 0 0 1-.599.919c-.28.28-.546.453-.92.598-.28.11-.704.24-1.485.276-.843.038-1.096.047-3.232.047s-2.39-.009-3.233-.047c-.78-.036-1.203-.166-1.485-.276a2.478 2.478 0 0 1-.92-.598 2.48 2.48 0 0 1-.6-.92c-.109-.281-.24-.705-.275-1.485-.038-.843-.046-1.096-.046-3.233 0-2.136.008-2.388.046-3.231.036-.78.166-1.204.276-1.486.145-.373.319-.64.599-.92.28-.28.546-.453.92-.598.282-.11.705-.24 1.485-.276.738-.034 1.024-.044 2.515-.045v.002zm4.988 1.328a.96.96 0 1 0 0 1.92.96.96 0 0 0 0-1.92zm-4.27 1.122a4.109 4.109 0 1 0 0 8.217 4.109 4.109 0 0 0 0-8.217zm0 1.441a2.667 2.667 0 1 1 0 5.334 2.667 2.667 0 0 1 0-5.334z"/>
+                </svg>
+              </a>
             </div>
 
-            {/* Mobile menu button */}
-            <button className="md:hidden p-2 text-gray-600 hover:text-porch-600">
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
+            {/* Mobile menu toggle */}
+            <button 
+              className="md:hidden p-4 text-black"
+              onClick={toggleMenu}
+            >
+              <span className="material-symbols-outlined text-2xl">
+                {mobileMenuOpen ? '✕' : '☰'}
+              </span>
             </button>
+
+            {/* Desktop Navigation */}
+            <ul className="hidden md:flex items-center list-none m-0 p-0 gap-6 pr-6">
+              <li>
+                <Link onClick={closeMenu} to="/bands" className="text-black no-underline hover:font-bold transition-all">
+                  Bands Playing
+                </Link>
+              </li>
+              <li>
+                <Link onClick={closeMenu} to="/schedule" className="text-black no-underline hover:font-bold transition-all">
+                  Schedule
+                </Link>
+              </li>
+              <li>
+                <Link onClick={closeMenu} to="/map" className="text-black no-underline hover:font-bold transition-all">
+                  Map
+                </Link>
+              </li>
+              <li>
+                <Link onClick={closeMenu} to="/for-bands" className="text-black no-underline hover:font-bold transition-all">
+                  Band Signup
+                </Link>
+              </li>
+              <li>
+                <Link onClick={closeMenu} to="/for-hosts" className="text-black no-underline hover:font-bold transition-all">
+                  Porch Signup
+                </Link>
+              </li>
+              <li>
+                <Link onClick={closeMenu} to="/faq" className="text-black no-underline hover:font-bold transition-all">
+                  FAQ
+                </Link>
+              </li>
+              {user?.role === "admin" && (
+                <li>
+                  <Link onClick={closeMenu} to="/admin" className="text-black no-underline hover:font-bold transition-all">
+                    Admin
+                  </Link>
+                </li>
+              )}
+              <li>
+                <a 
+                  href="https://www.instagram.com/uptownporchfest/" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="text-black"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 0C5.829 0 5.556.01 4.703.048 3.85.088 3.269.222 2.76.42a3.917 3.917 0 0 0-1.417.923A3.927 3.927 0 0 0 .42 2.76C.222 3.268.087 3.85.048 4.7.01 5.555 0 5.827 0 8.001c0 2.172.01 2.444.048 3.297.04.852.174 1.433.372 1.942.205.526.478.972.923 1.417.444.445.89.719 1.416.923.51.198 1.09.333 1.942.372C5.555 15.99 5.827 16 8 16s2.444-.01 3.298-.048c.851-.04 1.434-.174 1.943-.372a3.916 3.916 0 0 0 1.416-.923c.445-.445.718-.891.923-1.417.197-.509.332-1.09.372-1.942C15.99 10.445 16 10.173 16 8s-.01-2.445-.048-3.299c-.04-.851-.175-1.433-.372-1.941a3.926 3.926 0 0 0-.923-1.417A3.911 3.911 0 0 0 13.24.42c-.51-.198-1.092-.333-1.943-.372C10.443.01 10.172 0 7.998 0h.003zm-.717 1.442h.718c2.136 0 2.389.007 3.232.046.78.035 1.204.166 1.486.275.373.145.64.319.92.599.28.28.453.546.598.92.11.281.24.705.275 1.485.039.843.047 1.096.047 3.231s-.008 2.389-.047 3.232c-.035.78-.166 1.203-.275 1.485a2.47 2.47 0 0 1-.599.919c-.28.28-.546.453-.92.598-.28.11-.704.24-1.485.276-.843.038-1.096.047-3.232.047s-2.39-.009-3.233-.047c-.78-.036-1.203-.166-1.485-.276a2.478 2.478 0 0 1-.92-.598 2.48 2.48 0 0 1-.6-.92c-.109-.281-.24-.705-.275-1.485-.038-.843-.046-1.096-.046-3.233 0-2.136.008-2.388.046-3.231.036-.78.166-1.204.276-1.486.145-.373.319-.64.599-.92.28-.28.546-.453.92-.598.282-.11.705-.24 1.485-.276.738-.034 1.024-.044 2.515-.045v.002zm4.988 1.328a.96.96 0 1 0 0 1.92.96.96 0 0 0 0-1.92zm-4.27 1.122a4.109 4.109 0 1 0 0 8.217 4.109 4.109 0 0 0 0-8.217zm0 1.441a2.667 2.667 0 1 1 0 5.334 2.667 2.667 0 0 1 0-5.334z"/>
+                  </svg>
+                </a>
+              </li>
+              {user ? (
+                <li>
+                  <button onClick={signOut} className="text-black no-underline hover:font-bold transition-all bg-transparent border-none cursor-pointer">
+                    Sign Out
+                  </button>
+                </li>
+              ) : (
+                <li>
+                  <Link to="/login" className="text-black no-underline hover:font-bold transition-all">
+                    Admin Login
+                  </Link>
+                </li>
+              )}
+            </ul>
           </div>
+
+          {/* Mobile Navigation */}
+          {mobileMenuOpen && (
+            <ul className="md:hidden list-none m-0 p-0">
+              <li className="border-b border-[#dfff9c] text-center py-2 hover:bg-[blanchedalmond]">
+                <Link onClick={closeMenu} to="/bands" className="text-black no-underline block">
+                  Bands Playing
+                </Link>
+              </li>
+              <li className="border-b border-[#dfff9c] text-center py-2 hover:bg-[blanchedalmond]">
+                <Link onClick={closeMenu} to="/schedule" className="text-black no-underline block">
+                  Schedule
+                </Link>
+              </li>
+              <li className="border-b border-[#dfff9c] text-center py-2 hover:bg-[blanchedalmond]">
+                <Link onClick={closeMenu} to="/map" className="text-black no-underline block">
+                  Map
+                </Link>
+              </li>
+              <li className="border-b border-[#dfff9c] text-center py-2 hover:bg-[blanchedalmond]">
+                <Link onClick={closeMenu} to="/for-bands" className="text-black no-underline block">
+                  Band Signup
+                </Link>
+              </li>
+              <li className="border-b border-[#dfff9c] text-center py-2 hover:bg-[blanchedalmond]">
+                <Link onClick={closeMenu} to="/for-hosts" className="text-black no-underline block">
+                  Porch Signup
+                </Link>
+              </li>
+              <li className="border-b border-[#dfff9c] text-center py-2 hover:bg-[blanchedalmond]">
+                <Link onClick={closeMenu} to="/faq" className="text-black no-underline block">
+                  FAQ
+                </Link>
+              </li>
+              {user?.role === "admin" && (
+                <li className="border-b border-[#dfff9c] text-center py-2 hover:bg-[blanchedalmond]">
+                  <Link onClick={closeMenu} to="/admin" className="text-black no-underline block">
+                    Admin
+                  </Link>
+                </li>
+              )}
+              {user ? (
+                <li className="border-b border-[#dfff9c] text-center py-2 hover:bg-[blanchedalmond]">
+                  <button onClick={() => { signOut(); closeMenu(); }} className="text-black no-underline bg-transparent border-none cursor-pointer">
+                    Sign Out
+                  </button>
+                </li>
+              ) : (
+                <li className="border-b border-[#dfff9c] text-center py-2 hover:bg-[blanchedalmond]">
+                  <Link onClick={closeMenu} to="/login" className="text-black no-underline block">
+                    Admin Login
+                  </Link>
+                </li>
+              )}
+            </ul>
+          )}
         </nav>
       </header>
 
       {/* Main Content */}
-      <main>
+      <main className="max-w-[2000px] mx-auto">
         <Outlet />
       </main>
 
-      {/* Footer */}
-      <footer className="bg-forest-900 text-white py-12 mt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-porch-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white">🎵</span>
-                </div>
-                <span className="font-display text-xl font-bold">
-                  Porchfest
-                </span>
-              </div>
-              <p className="text-forest-300 text-sm">
-                Bringing live music to neighborhoods, one porch at a time.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Quick Links</h4>
-              <ul className="space-y-2 text-sm text-forest-300">
-                <li>
-                  <Link
-                    to="/schedule"
-                    className="hover:text-white transition-colors"
-                  >
-                    Schedule
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/map" className="hover:text-white transition-colors">
-                    Map
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Get Involved</h4>
-              <ul className="space-y-2 text-sm text-forest-300">
-                <li>
-                  <Link
-                    to="/apply/band"
-                    className="hover:text-white transition-colors"
-                  >
-                    Apply as a Band
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/apply/porch"
-                    className="hover:text-white transition-colors"
-                  >
-                    Offer Your Porch
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Connect</h4>
-              <ul className="space-y-2 text-sm text-forest-300">
-                <li>
-                  <a href="#" className="hover:text-white transition-colors">
-                    Contact Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-white transition-colors">
-                    FAQ
-                  </a>
-                </li>
-              </ul>
-            </div>
+      {/* Footer - with cityscape image background */}
+      <footer 
+        className="relative h-[300px] md:h-[750px] bg-cover bg-bottom flex flex-col-reverse"
+        style={{ 
+          background: `linear-gradient(180deg, #a5d7f3 12%, rgba(255,255,255,0) 47%), 
+                       url(${footerImg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center bottom',
+        }}
+      >
+        <div 
+          className="flex flex-wrap justify-around items-end gap-5 px-4 py-3 text-xs"
+          style={{ backgroundColor: 'rgba(14,6,9,0.54)', color: 'blanchedalmond' }}
+        >
+          <div>
+            Contact:{" "}
+            <a href="mailto:uptownporchfest@gmail.com" className="text-[blanchedalmond]">
+              uptownporchfest @ gmail.com
+            </a>
           </div>
-
-          <div className="border-t border-forest-700 mt-8 pt-8 text-center text-forest-400 text-sm">
-            <p>
-              © {new Date().getFullYear()} Porchfest. Made with ♥ for the
-              community.
+          <div className="text-center">
+            <p className="mb-0">
+              Website design, development, and hosting donated by{" "}
+              <a href="mailto:martelly.lisa@gmail.com" className="text-[blanchedalmond]">
+                Martelly Media
+              </a>
+            </p>
+            <p className="mb-0 mt-1">
+              Footer image by{" "}
+              <a href="http://chrisdummer.com/" className="text-[blanchedalmond]">
+                Chris Dummer
+              </a>
             </p>
           </div>
         </div>

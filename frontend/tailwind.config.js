@@ -7,6 +7,15 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Uptown Porchfest color palette
+        'sky-blue': '#a5d7f3',
+        'neon': '#dfff9c',
+        'cream': '#fafb9d',
+        'almond': 'blanchedalmond',
+        'teal': {
+          DEFAULT: 'rgb(21, 172, 172)',
+          dark: 'rgb(18, 145, 145)',
+        },
         'porch': {
           50: '#fdf8f3',
           100: '#faeee1',
@@ -35,11 +44,14 @@ export default {
         },
       },
       fontFamily: {
-        'display': ['Fraunces', 'serif'],
-        'body': ['Source Sans 3', 'sans-serif'],
+        'display': ['Carena', 'serif'],
+        'body': ['Montserrat', 'sans-serif'],
+      },
+      borderRadius: {
+        'fancy': '60px 20px',
+        'fancy-top': '60px 20px 0 0',
       },
     },
   },
   plugins: [],
 }
-

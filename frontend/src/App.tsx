@@ -13,6 +13,10 @@ import MapPage from "./pages/MapPage";
 import BandApplyPage from "./pages/BandApplyPage";
 import PorchApplyPage from "./pages/PorchApplyPage";
 import LoginPage from "./pages/auth/LoginPage";
+import FAQPage from "./pages/FAQPage";
+import BandsPage from "./pages/BandsPage";
+import ForBandsPage from "./pages/ForBandsPage";
+import ForHostsPage from "./pages/ForHostsPage";
 
 // Dashboard Pages (Admin only)
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
@@ -43,10 +47,14 @@ function App() {
       {/* Public Routes */}
       <Route element={<PublicLayout />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/bands" element={<BandsPage />} />
         <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/map" element={<MapPage />} />
+        <Route path="/for-bands" element={<ForBandsPage />} />
+        <Route path="/for-hosts" element={<ForHostsPage />} />
         <Route path="/apply/band" element={<BandApplyPage />} />
         <Route path="/apply/porch" element={<PorchApplyPage />} />
+        <Route path="/faq" element={<FAQPage />} />
         <Route path="/login" element={<LoginPage />} />
       </Route>
 

@@ -1,162 +1,222 @@
 import { Link } from "react-router-dom";
 
+// Import images
+import heroImg from "../assets/img/somerville_porchfest_2021.jpg";
+import bingImg from "../assets/img/bing-porchfest.png";
+import kinfolkImg from "../assets/img/Kinfolk-7.jpg";
+import replacementsImg from "../assets/img/replacements2.jpg";
+
 export default function HomePage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-porch-100 via-transparent to-forest-100 opacity-50" />
-        <div className="absolute top-20 right-10 w-72 h-72 bg-porch-200 rounded-full blur-3xl opacity-40" />
-        <div className="absolute bottom-10 left-10 w-96 h-96 bg-forest-200 rounded-full blur-3xl opacity-30" />
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
-          <div className="text-center max-w-4xl mx-auto">
-            <h1 className="font-display text-5xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
-              Music on Every
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-porch-600 to-forest-600">
-                {" "}
-                Porch
-              </span>
-            </h1>
-            <p className="text-xl lg:text-2xl text-gray-600 mb-10 max-w-2xl mx-auto">
-              Join the community celebration where local bands perform on
-              neighborhood porches. Discover live music just a walk away.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/apply/band" className="btn-primary text-lg">
-                Apply as a Band
-              </Link>
-              <Link to="/apply/porch" className="btn-outline text-lg">
-                Offer Your Porch
-              </Link>
-            </div>
-          </div>
+      <section 
+        className="relative h-[250px] sm:h-[350px] md:h-[500px] bg-cover bg-center"
+        style={{
+          background: `linear-gradient(180deg, rgba(78,79,84,0.8) 0%, rgba(255,255,255,0) 90%), 
+                       url(${heroImg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="flex flex-col items-center justify-start pt-4 md:pt-8">
+          <h2 
+            className="text-xl md:text-2xl mb-0 mt-0"
+            style={{ color: '#dfff9c', fontFamily: 'Carena, Pacifico, cursive' }}
+          >
+            another year of...
+          </h2>
+          <h1 
+            className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl text-center m-0"
+            style={{ 
+              color: '#dfff9c', 
+              fontFamily: 'Carena, Pacifico, cursive',
+              textShadow: '-1px 0 black, 0 1px black, 1px 0 black, 0 -1px black',
+            }}
+          >
+            Uptown Porchfest
+          </h1>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="font-display text-4xl font-bold text-gray-900 mb-4">
-              How It Works
+      {/* Page Content */}
+      <div className="flex flex-col max-w-[2000px] mx-auto">
+        {/* Info Banner */}
+        <div className="px-4 md:px-12 py-6">
+          <div className="almond-box">
+            <h2 className="text-center text-2xl md:text-3xl mb-4" style={{ fontFamily: 'Carena, Pacifico, cursive' }}>
+              It's Time to Porchfest!
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Simple steps to bring live music to your neighborhood
+            <p className="text-center">
+              We have <b>87</b> amazing bands across 35 porches all excited to
+              put on a great show for the neighborhood. Here are some last
+              minute reminders to make sure everyone has a great day:
             </p>
-          </div>
+            <ul className="sun-list max-w-3xl mx-auto">
+              <li>
+                <b>We are not scared of lingering rain and the show will go on!</b>
+              </li>
+              <li>
+                This event is run entirely by volunteers, including the bands!
+                Show your appreciation and{" "}
+                <b><Link to="/tipthebands" className="text-black">tip them generously</Link></b>
+              </li>
+              <li>
+                Check out the <Link to="/map" className="text-black">event map</Link> and download a copy before you arrive
+              </li>
+              <li>
+                There will be musical activities <b>for kids of all ages</b> in Mueller Park from 4:00-5:00
+              </li>
+              <li>
+                Trying to park in Uptown is a bad idea! Take the bus, rideshare, or bike!
+              </li>
+              <li>
+                There will be <b>food and drink vendors</b> all day in Mueller Park!
+              </li>
+              <li>
+                <b>Be respectful</b> of the neighborhood. There are portapotties and park bathrooms - check the map!
+              </li>
+            </ul>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Step 1 */}
-            <div className="text-center p-8">
-              <div className="w-20 h-20 bg-porch-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl">🎸</span>
-              </div>
-              <h3 className="font-display text-2xl font-bold text-gray-900 mb-3">
-                Bands Apply
-              </h3>
-              <p className="text-gray-600">
-                Musicians and bands sign up with their info, genre, and music
-                samples for review.
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="text-center p-8">
-              <div className="w-20 h-20 bg-forest-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl">🏡</span>
-              </div>
-              <h3 className="font-display text-2xl font-bold text-gray-900 mb-3">
-                Porches Sign Up
-              </h3>
-              <p className="text-gray-600">
-                Homeowners offer their porches as venues, sharing details about
-                space and amenities.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="text-center p-8">
-              <div className="w-20 h-20 bg-porch-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl">🎉</span>
-              </div>
-              <h3 className="font-display text-2xl font-bold text-gray-900 mb-3">
-                We Match & Schedule
-              </h3>
-              <p className="text-gray-600">
-                Our team reviews applications and creates the perfect lineup for
-                the festival day.
-              </p>
+            <div className="flex flex-wrap justify-center gap-4 mt-6">
+              <Link to="/map" className="btn-primary">
+                Download the event map
+              </Link>
             </div>
           </div>
         </div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-gradient-to-br from-porch-600 to-porch-800 rounded-3xl p-12 lg:p-16 text-center text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl transform -translate-x-1/2 translate-y-1/2" />
+        {/* What/When/Where Section */}
+        <div className="px-4 md:px-12 py-6">
+          <div className="flex flex-col lg:flex-row gap-8 items-center">
+            <div className="flex-1">
+              <div className="white-box">
+                <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+                  <div className="md:w-1/3">
+                    <h2 className="text-2xl md:text-3xl m-0" style={{ fontFamily: 'Carena, Pacifico, cursive', color: '#f60' }}>What?</h2>
+                  </div>
+                  <div className="md:w-2/3">
+                    <h3 className="m-0 text-center md:text-left text-lg">A free and fun neighborhood music festival</h3>
+                  </div>
+                </div>
 
-            <div className="relative z-10">
-              <h2 className="font-display text-4xl lg:text-5xl font-bold mb-6">
-                Ready to Join?
-              </h2>
-              <p className="text-xl text-porch-100 mb-8 max-w-2xl mx-auto">
-                Whether you're a musician looking for a stage or a homeowner
-                with a porch to share, we'd love to have you!
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
-                  to="/apply/band"
-                  className="bg-white text-porch-700 font-semibold py-3 px-8 rounded-lg hover:bg-porch-50 transition-colors"
-                >
-                  Apply as a Band
-                </Link>
-                <Link
-                  to="/apply/porch"
-                  className="bg-transparent border-2 border-white text-white font-semibold py-3 px-8 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  Offer Your Porch
-                </Link>
+                <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+                  <div className="md:w-1/3">
+                    <h2 className="text-2xl md:text-3xl m-0" style={{ fontFamily: 'Carena, Pacifico, cursive', color: '#f60' }}>When?</h2>
+                  </div>
+                  <div className="md:w-2/3">
+                    <h3 className="m-0 text-center md:text-left text-lg">August 16, 2025</h3>
+                    <h3 className="m-0 text-center md:text-left text-lg">1pm - 5pm</h3>
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                  <div className="md:w-1/3">
+                    <h2 className="text-2xl md:text-3xl m-0" style={{ fontFamily: 'Carena, Pacifico, cursive', color: '#f60' }}>Where?</h2>
+                  </div>
+                  <div className="md:w-2/3">
+                    <h3 className="m-0 text-center md:text-left text-lg">Porches and yards across Uptown, Minneapolis</h3>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap justify-center gap-4 mt-8">
+                  <Link to="/for-bands" className="btn-primary">
+                    Band Signup
+                  </Link>
+                  <Link to="/for-hosts" className="btn-primary">
+                    Porch Signup
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1">
+              <img 
+                src={bingImg} 
+                alt="Music on porch" 
+                className="fancy-img w-full"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Porch-WHAT Section */}
+        <div className="px-4 md:px-12 py-6">
+          <div className="flex flex-col lg:flex-row gap-8 items-center">
+            <div className="flex-1 order-2 lg:order-1">
+              <img 
+                src={kinfolkImg} 
+                alt="Live music performance" 
+                className="fancy-img w-full"
+              />
+            </div>
+
+            <div className="flex-1 order-1 lg:order-2">
+              <div className="neon-box">
+                <h2 className="text-center text-2xl md:text-3xl mb-4" style={{ fontFamily: 'Carena, Pacifico, cursive' }}>
+                  Porch-WHAT?
+                </h2>
+                <p>
+                  Porchfest will feature{" "}
+                  <b>multiple, spread-out, overlapping concerts during a single afternoon</b>{" "}
+                  that attendees can enjoy while wandering the neighborhood.
+                </p>
+                <div className="sun-divider"></div>
+                <p>
+                  It provides an opportunity to explore the Wedge neighborhood of
+                  Uptown in an intimate and novel way. Attendees can discover new
+                  musicians, support local businesses, and celebrate the diverse,
+                  eclectic history of this neighborhood.
+                </p>
+                <div className="flex flex-wrap justify-center gap-4 mt-6">
+                  <Link to="/for-bands" className="btn-primary">
+                    Band Signup
+                  </Link>
+                  <Link to="/for-hosts" className="btn-primary">
+                    Porch Signup
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </section>
 
-      {/* Stats Section */}
-      <section className="py-20 bg-forest-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="font-display text-5xl font-bold text-porch-400 mb-2">
-                50+
+        {/* Musical Mainstay Section */}
+        <div className="px-4 md:px-12 py-6">
+          <div className="flex flex-col lg:flex-row gap-8 items-center">
+            <div className="flex-1">
+              <div className="white-box">
+                <h2 className="text-center text-2xl md:text-3xl mb-4" style={{ fontFamily: 'Carena, Pacifico, cursive' }}>
+                  A Musical Mainstay
+                </h2>
+                <p>
+                  Countless musicians have found their footing in this neighborhood.
+                </p>
+                <p>
+                  Uptown has a history of diversity, creativity, and community. It
+                  is both a destination and a home for artists and those that
+                  appreciate them.
+                </p>
+                <p>
+                  The Replacements (famously pictured here at their home in the Wedge) got their start here, Rhymesayers was rooted here
+                  for decades, and musical shoutouts from Prince (and countless
+                  others) highlight the true fashion of Uptown as a place where
+                  anybody can be themselves and find support and community along
+                  the way.
+                </p>
               </div>
-              <p className="text-forest-300">Bands Registered</p>
             </div>
-            <div>
-              <div className="font-display text-5xl font-bold text-porch-400 mb-2">
-                30+
-              </div>
-              <p className="text-forest-300">Porch Venues</p>
-            </div>
-            <div>
-              <div className="font-display text-5xl font-bold text-porch-400 mb-2">
-                8
-              </div>
-              <p className="text-forest-300">Neighborhoods</p>
-            </div>
-            <div>
-              <div className="font-display text-5xl font-bold text-porch-400 mb-2">
-                1000+
-              </div>
-              <p className="text-forest-300">Happy Attendees</p>
+
+            <div className="flex-1">
+              <img 
+                src={replacementsImg} 
+                alt="The Replacements" 
+                className="fancy-img w-full"
+              />
             </div>
           </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

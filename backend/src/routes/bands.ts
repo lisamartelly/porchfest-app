@@ -1,8 +1,52 @@
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
-import { bands } from "../data/db.js";
+import { bands, porches } from "../data/db.js";
 
 export const bandsRouter = Router();
+
+// Public: Get all approved bands for public display
+bandsRouter.get("/public", async (req, res) => {
+  try {
+    const allBands = Array.from(bands.values());
+    
+    // Only return approved bands with public-safe info
+    const approvedBands = allBands
+      .filter(band => band.status === "approved")
+      .map(band => {
+        // Get porch address if assigned
+        let porch_address = null;
+        if (band.assigned_porch_id) {
+          const porch = porches.get(band.assigned_porch_id);
+          if (porch) {
+            porch_address = porch.address;
+          }
+        }
+        
+        return {
+          id: band.id,
+          band_name: band.band_name,
+          genre: band.genre,
+          member_count: band.member_count,
+          bio: band.bio,
+          set_start_time: band.set_start_time || null,
+          set_end_time: band.set_end_time || null,
+          venmo_handle: band.venmo_handle || null,
+          instagram: band.instagram || null,
+          spotify: band.spotify || null,
+          soundcloud: band.soundcloud || null,
+          bandcamp: band.bandcamp || null,
+          facebook: band.facebook || null,
+          website: band.website || null,
+          porch_address,
+        };
+      });
+    
+    res.json(approvedBands);
+  } catch (error) {
+    console.error("Error fetching public bands:", error);
+    res.status(500).json({ error: "Failed to fetch bands" });
+  }
+});
 
 // Public: Submit band application (no auth required)
 bandsRouter.post(
