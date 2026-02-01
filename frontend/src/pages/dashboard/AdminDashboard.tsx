@@ -10,6 +10,7 @@ import StatsGrid from "./components/StatsGrid";
 import BandCard from "./components/BandCard";
 import PorchCard from "./components/PorchCard";
 import EventSettingsComponent from "./components/EventSettings";
+import VisualScheduler from "./components/VisualScheduler";
 
 type FilterStatus =
   | "all"
@@ -28,7 +29,9 @@ export default function AdminDashboard() {
     null
   );
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"bands" | "porches">("bands");
+  const [activeTab, setActiveTab] = useState<"bands" | "porches" | "scheduler">(
+    "bands"
+  );
   const [filter, setFilter] = useState<FilterStatus>("pending");
   const [schedulingError, setSchedulingError] = useState<string | null>(null);
 
@@ -206,62 +209,103 @@ export default function AdminDashboard() {
           >
             Porches ({porches.length})
           </button>
+          <button
+            onClick={() => setActiveTab("scheduler")}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === "scheduler"
+                ? "bg-forest-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            📅 Visual Scheduler
+          </button>
         </div>
 
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as FilterStatus)}
-          className="input-field w-48"
-        >
-          <option value="all">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="under_review">Under Review</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
+        {activeTab !== "scheduler" && (
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as FilterStatus)}
+            className="input-field w-48"
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="under_review">Under Review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        )}
       </div>
 
       {/* Content */}
-      <div className="card overflow-hidden">
-        {activeTab === "bands" ? (
-          filteredBands.length === 0 ? (
+      {activeTab === "scheduler" ? (
+        <div className="bg-white rounded-xl shadow-md p-6 overflow-hidden">
+          <div className="mb-4">
+            <h2 className="font-display text-xl font-bold text-gray-900">
+              Visual Schedule Builder
+            </h2>
+            <p className="text-gray-600 text-sm mt-1">
+              Drag to select time slots on a porch row, then choose a band from
+              the dropdown. Click on existing bands to reschedule or remove
+              them.
+            </p>
+          </div>
+          {approvedPorches.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              No bands to display
+              No approved porches available. Approve some porches first to start
+              scheduling.
+            </div>
+          ) : (
+            <VisualScheduler
+              bands={bands}
+              porches={approvedPorches}
+              eventStartTime={eventSettings?.start_time || "12:00"}
+              eventEndTime={eventSettings?.end_time || "18:00"}
+              onScheduleBand={scheduleBand}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="card overflow-hidden">
+          {activeTab === "bands" ? (
+            filteredBands.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                No bands to display
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {filteredBands.map((band) => (
+                  <BandCard
+                    key={band.id}
+                    band={band}
+                    approvedPorches={approvedPorches}
+                    eventStartTime={eventSettings?.start_time || "12:00"}
+                    eventEndTime={eventSettings?.end_time || "18:00"}
+                    onStatusChange={updateBandStatus}
+                    onSchedule={scheduleBand}
+                    getPorchAddress={getPorchAddress}
+                    schedulingError={schedulingError}
+                  />
+                ))}
+              </div>
+            )
+          ) : filteredPorches.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No porches to display
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {filteredBands.map((band) => (
-                <BandCard
-                  key={band.id}
-                  band={band}
-                  approvedPorches={approvedPorches}
-                  eventStartTime={eventSettings?.start_time || "12:00"}
-                  eventEndTime={eventSettings?.end_time || "18:00"}
-                  onStatusChange={updateBandStatus}
-                  onSchedule={scheduleBand}
-                  getPorchAddress={getPorchAddress}
-                  schedulingError={schedulingError}
+              {filteredPorches.map((porch) => (
+                <PorchCard
+                  key={porch.id}
+                  porch={porch}
+                  scheduledBands={getBandsAtPorch(porch.id)}
+                  onStatusChange={updatePorchStatus}
                 />
               ))}
             </div>
-          )
-        ) : filteredPorches.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No porches to display
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {filteredPorches.map((porch) => (
-              <PorchCard
-                key={porch.id}
-                porch={porch}
-                scheduledBands={getBandsAtPorch(porch.id)}
-                onStatusChange={updatePorchStatus}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
