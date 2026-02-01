@@ -1,13 +1,26 @@
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 
 export default function DashboardLayout() {
   const { user, signOut } = useAuthStore();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const currentSection = searchParams.get("section") || "overview";
 
   const navItems = [
-    { to: "/admin", label: "Overview", icon: "🏠" },
+    { to: "/admin", section: "overview", label: "Overview", icon: "🏠" },
+    { to: "/admin?section=bands", section: "bands", label: "Bands", icon: "🎸" },
+    { to: "/admin?section=porches", section: "porches", label: "Porches", icon: "🏡" },
+    { to: "/admin?section=scheduler", section: "scheduler", label: "Scheduler", icon: "📅" },
+    { to: "/admin?section=settings", section: "settings", label: "Event Settings", icon: "⚙️" },
   ];
+
+  const isActive = (item: typeof navItems[0]) => {
+    if (item.section === "overview") {
+      return location.pathname === "/admin" && !searchParams.get("section");
+    }
+    return currentSection === item.section;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -33,10 +46,10 @@ export default function DashboardLayout() {
         <nav className="px-4 space-y-1">
           {navItems.map((item) => (
             <Link
-              key={item.to}
+              key={item.section}
               to={item.to}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                location.pathname === item.to
+                isActive(item)
                   ? "bg-porch-100 text-porch-700"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
