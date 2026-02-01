@@ -1,12 +1,11 @@
 import { Router } from 'express'
 import { body, validationResult } from 'express-validator'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { generateToken, authMiddleware, AuthRequest } from '../middleware/auth.js'
+import { users } from '../data/db.js'
 
 export const authRouter = Router()
-
-// In-memory store for development - replace with real database
-const users: Map<string, { id: string; email: string; password: string; role: string }> = new Map()
 
 // Register
 authRouter.post(

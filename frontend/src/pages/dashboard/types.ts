@@ -1,0 +1,55 @@
+export interface BandApplication {
+  id: string;
+  band_name: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  genre: string;
+  member_count: string;
+  music_sample_link: string;
+  bio: string;
+  set_length: string;
+  venmo_handle: string | null;
+  instagram: string | null;
+  spotify: string | null;
+  soundcloud: string | null;
+  bandcamp: string | null;
+  facebook: string | null;
+  website: string | null;
+  scheduling_notes: string | null;
+  has_photo: boolean;
+  questions_comments: string | null;
+  status: string;
+  admin_notes: string | null;
+  created_at: string;
+  assigned_porch_id: string | null;
+  set_start_time: string | null;
+  set_end_time: string | null;
+}
+
+export interface PorchApplication {
+  id: string;
+  owner_name: string;
+  email: string;
+  address: string;
+  city: string;
+  capacity: number | null;
+  has_power: boolean;
+  parking_notes: string | null;
+  accessibility_notes: string | null;
+  status: string;
+  admin_notes: string | null;
+  created_at: string;
+}
+
+export type Status = "pending" | "under_review" | "approved" | "rejected";
+
+export interface EventSettings {
+  id: string;
+  name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  description: string | null;
+  is_active: boolean;
+}

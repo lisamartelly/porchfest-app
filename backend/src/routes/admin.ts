@@ -1,9 +1,7 @@
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
 import { adminOnly, AuthRequest } from "../middleware/auth.js";
-import { bands } from "./bands.js";
-import { porches } from "./porches.js";
-import { events, timeSlots } from "./events.js";
+import { bands, porches, events, timeSlots } from "../data/db.js";
 
 export const adminRouter = Router();
 
@@ -114,10 +112,57 @@ adminRouter.patch(
   }
 );
 
+// Get active event settings
+adminRouter.get("/event", async (req, res) => {
+  try {
+    const activeEvent = Array.from(events.values()).find((e) => e.is_active);
+    if (!activeEvent) {
+      return res.status(404).json({ error: "No active event found" });
+    }
+    res.json(activeEvent);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch event" });
+  }
+});
+
+// Update active event settings
+adminRouter.patch(
+  "/event",
+  [
+    body("name").optional().trim().notEmpty(),
+    body("date").optional().isString(),
+    body("start_time").optional().isString(),
+    body("end_time").optional().isString(),
+    body("description").optional(),
+  ],
+  async (req, res) => {
+    try {
+      const activeEvent = Array.from(events.values()).find((e) => e.is_active);
+      if (!activeEvent) {
+        return res.status(404).json({ error: "No active event found" });
+      }
+
+      const { name, date, start_time, end_time, description } = req.body;
+
+      if (name !== undefined) activeEvent.name = name;
+      if (date !== undefined) activeEvent.date = date;
+      if (start_time !== undefined) activeEvent.start_time = start_time;
+      if (end_time !== undefined) activeEvent.end_time = end_time;
+      if (description !== undefined) activeEvent.description = description;
+
+      events.set(activeEvent.id, activeEvent);
+
+      res.json(activeEvent);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update event" });
+    }
+  }
+);
+
 // Create event
 adminRouter.post(
   "/events",
-  [body("name").trim().notEmpty(), body("date").isISO8601()],
+  [body("name").trim().notEmpty(), body("date").isString()],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -125,12 +170,14 @@ adminRouter.post(
     }
 
     try {
-      const { name, date, description } = req.body;
+      const { name, date, start_time, end_time, description } = req.body;
 
       const event = {
         id: crypto.randomUUID(),
         name,
         date,
+        start_time: start_time || "12:00",
+        end_time: end_time || "18:00",
         description: description || null,
         is_active: true,
         created_at: new Date().toISOString(),
@@ -193,5 +240,123 @@ adminRouter.get("/scheduling", async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch scheduling data" });
+  }
+});
+
+// Helper to convert HH:mm to minutes for comparison
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+// Helper to format time for display (HH:mm to h:mm AM/PM)
+function formatTimeDisplay(time: string): string {
+  const [hours, minutes] = time.split(":").map(Number);
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${minutes.toString().padStart(2, "0")} ${period}`;
+}
+
+// Schedule a band (assign porch and set times)
+adminRouter.patch(
+  "/bands/:id/schedule",
+  [
+    body("assigned_porch_id").optional({ nullable: true }).isString(),
+    body("set_start_time").optional({ nullable: true }).isString(),
+    body("set_end_time").optional({ nullable: true }).isString(),
+  ],
+  async (req: AuthRequest, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const { assigned_porch_id, set_start_time, set_end_time } = req.body;
+
+      const band = bands.get(id);
+      if (!band) {
+        return res.status(404).json({ error: "Band not found" });
+      }
+
+      // Validate porch exists and is approved
+      if (assigned_porch_id) {
+        const porch = porches.get(assigned_porch_id);
+        if (!porch) {
+          return res.status(400).json({ error: "Porch not found" });
+        }
+        if (porch.status !== "approved") {
+          return res
+            .status(400)
+            .json({ error: "Porch must be approved to schedule bands" });
+        }
+      }
+
+      // Check for overlapping sets at the same porch
+      if (assigned_porch_id && set_start_time && set_end_time) {
+        const newStart = timeToMinutes(set_start_time);
+        const newEnd = timeToMinutes(set_end_time);
+
+        if (newEnd <= newStart) {
+          return res
+            .status(400)
+            .json({ error: "End time must be after start time" });
+        }
+
+        // Find any bands scheduled at the same porch with overlapping times
+        const overlappingBand = Array.from(bands.values()).find((b) => {
+          // Skip the current band being updated
+          if (b.id === id) return false;
+          // Skip bands not assigned to this porch
+          if (b.assigned_porch_id !== assigned_porch_id) return false;
+          // Skip bands without scheduled times
+          if (!b.set_start_time || !b.set_end_time) return false;
+
+          const existingStart = timeToMinutes(b.set_start_time);
+          const existingEnd = timeToMinutes(b.set_end_time);
+
+          // Check for overlap: new set starts before existing ends AND new set ends after existing starts
+          return newStart < existingEnd && newEnd > existingStart;
+        });
+
+        if (overlappingBand) {
+          const porch = porches.get(assigned_porch_id);
+          return res.status(400).json({
+            error: `Time conflict: "${
+              overlappingBand.band_name
+            }" is already scheduled at ${
+              porch?.address
+            } from ${formatTimeDisplay(
+              overlappingBand.set_start_time!
+            )} to ${formatTimeDisplay(overlappingBand.set_end_time!)}`,
+          });
+        }
+      }
+
+      // Update band scheduling
+      band.assigned_porch_id = assigned_porch_id || null;
+      band.set_start_time = set_start_time || null;
+      band.set_end_time = set_end_time || null;
+      bands.set(id, band);
+
+      res.json(band);
+    } catch (error) {
+      console.error("Error scheduling band:", error);
+      res.status(500).json({ error: "Failed to schedule band" });
+    }
+  }
+);
+
+// Get approved porches (for scheduling dropdown)
+adminRouter.get("/porches/approved", async (req, res) => {
+  try {
+    const approvedPorches = Array.from(porches.values())
+      .filter((p) => p.status === "approved")
+      .sort((a, b) => a.address.localeCompare(b.address));
+
+    res.json(approvedPorches);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch approved porches" });
   }
 });

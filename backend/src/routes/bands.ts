@@ -1,50 +1,8 @@
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
+import { bands } from "../data/db.js";
 
 export const bandsRouter = Router();
-
-// In-memory store for development - replace with real database
-const bands: Map<
-  string,
-  {
-    id: string;
-    // Basic Info
-    band_name: string;
-    contact_name: string;
-    contact_email: string;
-    contact_phone: string;
-    genre: string;
-    member_count: string;
-    music_sample_link: string;
-    // Bio
-    bio: string;
-    // Performance Details
-    set_length: string;
-    venmo_handle: string | null;
-    // Social Media
-    instagram: string | null;
-    spotify: string | null;
-    soundcloud: string | null;
-    bandcamp: string | null;
-    facebook: string | null;
-    website: string | null;
-    // Scheduling
-    scheduling_notes: string | null;
-    // Consent
-    equipment_consent: string;
-    payment_consent: string;
-    timeline_consent: string;
-    // Photo
-    has_photo: boolean;
-    photo_filename: string | null;
-    // Questions
-    questions_comments: string | null;
-    // Status
-    status: string;
-    admin_notes: string | null;
-    created_at: string;
-  }
-> = new Map();
 
 // Public: Submit band application (no auth required)
 bandsRouter.post(
@@ -138,5 +96,4 @@ bandsRouter.post(
   }
 );
 
-// Export bands map for admin routes
-export { bands };
+// bands is exported from ../data/db.js

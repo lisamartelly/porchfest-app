@@ -1,28 +1,8 @@
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
+import { porches } from "../data/db.js";
 
 export const porchesRouter = Router();
-
-// In-memory store for development - replace with real database
-const porches: Map<
-  string,
-  {
-    id: string;
-    owner_name: string;
-    email: string;
-    address: string;
-    city: string;
-    lat: number | null;
-    lng: number | null;
-    capacity: number | null;
-    has_power: boolean;
-    parking_notes: string | null;
-    accessibility_notes: string | null;
-    status: string;
-    admin_notes: string | null;
-    created_at: string;
-  }
-> = new Map();
 
 // Public: Submit porch application (no auth required)
 porchesRouter.post(
@@ -77,5 +57,4 @@ porchesRouter.post(
   }
 );
 
-// Export porches map for admin routes
-export { porches };
+// porches is exported from ../data/db.js

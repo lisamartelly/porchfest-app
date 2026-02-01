@@ -1,22 +1,7 @@
 import { Router } from 'express'
+import { events, timeSlots } from '../data/db.js'
 
 export const eventsRouter = Router()
-
-const events: Map<string, {
-  id: string
-  name: string
-  date: string
-  description: string | null
-  is_active: boolean
-  created_at: string
-}> = new Map()
-
-const timeSlots: Map<string, {
-  id: string
-  event_id: string
-  start_time: string
-  end_time: string
-}> = new Map()
 
 eventsRouter.get('/', async (req, res) => {
   try {
@@ -64,4 +49,4 @@ eventsRouter.get('/:eventId/slots', async (req, res) => {
   }
 })
 
-export { events, timeSlots }
+// events and timeSlots are exported from ../data/db.js
