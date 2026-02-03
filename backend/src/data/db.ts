@@ -46,6 +46,11 @@ export interface Band {
   assigned_porch_id: string | null;
   set_start_time: string | null;
   set_end_time: string | null;
+  // Reviewer fields
+  assigned_reviewer_id: string | null;
+  assigned_reviewer_email: string | null;
+  reviewer_rating: number | null;
+  reviewer_notes: string | null;
 }
 
 export interface Porch {
@@ -74,6 +79,14 @@ export interface Event {
   description: string | null;
   is_active: boolean;
   created_at: string;
+  // Application date fields
+  band_applications_open: string | null;
+  band_applications_close: string | null;
+  porch_applications_open: string | null;
+  porch_applications_close: string | null;
+  // Reviewer assignment fields
+  reviewer_emails: string[];
+  reviewers_assigned: boolean;
 }
 
 export interface TimeSlot {

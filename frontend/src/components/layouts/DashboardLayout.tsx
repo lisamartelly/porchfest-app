@@ -11,6 +11,8 @@ export default function DashboardLayout() {
     { to: "/admin", section: "overview", label: "Overview", icon: "🏠" },
     { to: "/admin?section=bands", section: "bands", label: "Bands", icon: "🎸" },
     { to: "/admin?section=porches", section: "porches", label: "Porches", icon: "🏡" },
+    { to: "/admin?section=assignments", section: "assignments", label: "Assignments", icon: "👥" },
+    { to: "/admin?section=my-reviews", section: "my-reviews", label: "My Reviews", icon: "⭐" },
     { to: "/admin?section=scheduler", section: "scheduler", label: "Scheduler", icon: "📅" },
     { to: "/admin?section=settings", section: "settings", label: "Event Settings", icon: "⚙️" },
   ];

@@ -13,6 +13,10 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
   const [date, setDate] = useState(event.date);
   const [startTime, setStartTime] = useState(event.start_time);
   const [endTime, setEndTime] = useState(event.end_time);
+  const [bandAppsOpen, setBandAppsOpen] = useState(event.band_applications_open || "");
+  const [bandAppsClose, setBandAppsClose] = useState(event.band_applications_close || "");
+  const [porchAppsOpen, setPorchAppsOpen] = useState(event.porch_applications_open || "");
+  const [porchAppsClose, setPorchAppsClose] = useState(event.porch_applications_close || "");
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -20,7 +24,11 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
     name !== event.name ||
     date !== event.date ||
     startTime !== event.start_time ||
-    endTime !== event.end_time;
+    endTime !== event.end_time ||
+    bandAppsOpen !== (event.band_applications_open || "") ||
+    bandAppsClose !== (event.band_applications_close || "") ||
+    porchAppsOpen !== (event.porch_applications_open || "") ||
+    porchAppsClose !== (event.porch_applications_close || "");
 
   const handleSave = async () => {
     setSaving(true);
@@ -30,6 +38,10 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
         date,
         start_time: startTime,
         end_time: endTime,
+        band_applications_open: bandAppsOpen || null,
+        band_applications_close: bandAppsClose || null,
+        porch_applications_open: porchAppsOpen || null,
+        porch_applications_close: porchAppsClose || null,
       });
     } finally {
       setSaving(false);
@@ -111,6 +123,71 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
               maxTime="23:00"
               stepMinutes={30}
             />
+          </div>
+
+          {/* Application Periods */}
+          <div className="mt-6 pt-6 border-t border-gray-100">
+            <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
+              📋 Application Periods
+            </h3>
+
+            {/* Band Applications */}
+            <div className="mb-4">
+              <p className="text-sm font-medium text-gray-700 mb-2">🎸 Band Applications</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Opens
+                  </label>
+                  <input
+                    type="date"
+                    value={bandAppsOpen}
+                    onChange={(e) => setBandAppsOpen(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Closes
+                  </label>
+                  <input
+                    type="date"
+                    value={bandAppsClose}
+                    onChange={(e) => setBandAppsClose(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Porch Applications */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">🏡 Porch Applications</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Opens
+                  </label>
+                  <input
+                    type="date"
+                    value={porchAppsOpen}
+                    onChange={(e) => setPorchAppsOpen(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Closes
+                  </label>
+                  <input
+                    type="date"
+                    value={porchAppsClose}
+                    onChange={(e) => setPorchAppsClose(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

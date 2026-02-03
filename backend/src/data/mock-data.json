@@ -38,7 +38,11 @@
       "created_at": "2026-01-15T10:00:00.000Z",
       "assigned_porch_id": "porch-003",
       "set_start_time": "14:00",
-      "set_end_time": "14:45"
+      "set_end_time": "14:45",
+      "assigned_reviewer_id": null,
+      "assigned_reviewer_email": null,
+      "reviewer_rating": null,
+      "reviewer_notes": null
     },
     {
       "id": "band-002",
@@ -70,7 +74,11 @@
       "created_at": "2026-01-16T14:30:00.000Z",
       "assigned_porch_id": "porch-001",
       "set_start_time": "12:00",
-      "set_end_time": "12:30"
+      "set_end_time": "12:30",
+      "assigned_reviewer_id": null,
+      "assigned_reviewer_email": null,
+      "reviewer_rating": null,
+      "reviewer_notes": null
     },
     {
       "id": "band-003",
@@ -102,7 +110,11 @@
       "created_at": "2026-01-20T09:15:00.000Z",
       "assigned_porch_id": null,
       "set_start_time": null,
-      "set_end_time": null
+      "set_end_time": null,
+      "assigned_reviewer_id": null,
+      "assigned_reviewer_email": null,
+      "reviewer_rating": null,
+      "reviewer_notes": null
     },
     {
       "id": "band-004",
@@ -134,7 +146,11 @@
       "created_at": "2026-01-22T16:45:00.000Z",
       "assigned_porch_id": null,
       "set_start_time": null,
-      "set_end_time": null
+      "set_end_time": null,
+      "assigned_reviewer_id": null,
+      "assigned_reviewer_email": null,
+      "reviewer_rating": null,
+      "reviewer_notes": null
     },
     {
       "id": "band-005",
@@ -166,7 +182,11 @@
       "created_at": "2026-01-25T11:00:00.000Z",
       "assigned_porch_id": null,
       "set_start_time": null,
-      "set_end_time": null
+      "set_end_time": null,
+      "assigned_reviewer_id": null,
+      "assigned_reviewer_email": null,
+      "reviewer_rating": null,
+      "reviewer_notes": null
     }
   ],
   "porches": [
@@ -260,7 +280,13 @@
       "end_time": "18:00",
       "description": "Annual neighborhood music festival featuring local bands on porches throughout Somerville.",
       "is_active": true,
-      "created_at": "2026-01-01T00:00:00.000Z"
+      "created_at": "2026-01-01T00:00:00.000Z",
+      "band_applications_open": "2026-04-01",
+      "band_applications_close": "2026-06-01",
+      "porch_applications_open": "2026-02-01",
+      "porch_applications_close": "2026-07-01",
+      "reviewer_emails": [],
+      "reviewers_assigned": false
     }
   ],
   "timeSlots": [
