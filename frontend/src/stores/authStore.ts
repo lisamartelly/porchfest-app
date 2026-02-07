@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api } from "../lib/supabase";
+import { api } from "../lib/api";
 import type { Profile, UserRole } from "../types";
 
 interface AuthState {

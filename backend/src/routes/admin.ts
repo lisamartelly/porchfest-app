@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
 import { adminOnly, AuthRequest } from "../middleware/auth.js";
-import { bands, porches, events, timeSlots } from "../data/db.js";
+import { db } from "../data/db.js";
 
 export const adminRouter = Router();
 
@@ -12,20 +12,10 @@ adminRouter.use(adminOnly);
 adminRouter.get("/bands", async (req, res) => {
   try {
     const { status } = req.query;
-
-    let allBands = Array.from(bands.values());
-
-    if (status) {
-      allBands = allBands.filter((b) => b.status === status);
-    }
-
-    allBands.sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-
+    const allBands = await db.bands.findAll(status as string | undefined);
     res.json(allBands);
   } catch (error) {
+    console.error("Error fetching bands:", error);
     res.status(500).json({ error: "Failed to fetch bands" });
   }
 });
@@ -44,17 +34,14 @@ adminRouter.patch(
       const { id } = req.params;
       const { status, admin_notes } = req.body;
 
-      const band = bands.get(id);
+      const band = await db.bands.updateStatus(id, status, admin_notes);
       if (!band) {
         return res.status(404).json({ error: "Band not found" });
       }
 
-      band.status = status;
-      band.admin_notes = admin_notes || null;
-      bands.set(id, band);
-
       res.json(band);
     } catch (error) {
+      console.error("Error updating band status:", error);
       res.status(500).json({ error: "Failed to update band status" });
     }
   }
@@ -64,20 +51,10 @@ adminRouter.patch(
 adminRouter.get("/porches", async (req, res) => {
   try {
     const { status } = req.query;
-
-    let allPorches = Array.from(porches.values());
-
-    if (status) {
-      allPorches = allPorches.filter((p) => p.status === status);
-    }
-
-    allPorches.sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-
+    const allPorches = await db.porches.findAll(status as string | undefined);
     res.json(allPorches);
   } catch (error) {
+    console.error("Error fetching porches:", error);
     res.status(500).json({ error: "Failed to fetch porches" });
   }
 });
@@ -96,17 +73,14 @@ adminRouter.patch(
       const { id } = req.params;
       const { status, admin_notes } = req.body;
 
-      const porch = porches.get(id);
+      const porch = await db.porches.updateStatus(id, status, admin_notes);
       if (!porch) {
         return res.status(404).json({ error: "Porch not found" });
       }
 
-      porch.status = status;
-      porch.admin_notes = admin_notes || null;
-      porches.set(id, porch);
-
       res.json(porch);
     } catch (error) {
+      console.error("Error updating porch status:", error);
       res.status(500).json({ error: "Failed to update porch status" });
     }
   }
@@ -115,12 +89,13 @@ adminRouter.patch(
 // Get active event settings
 adminRouter.get("/event", async (req, res) => {
   try {
-    const activeEvent = Array.from(events.values()).find((e) => e.is_active);
+    const activeEvent = await db.events.findActive();
     if (!activeEvent) {
       return res.status(404).json({ error: "No active event found" });
     }
     res.json(activeEvent);
   } catch (error) {
+    console.error("Error fetching event:", error);
     res.status(500).json({ error: "Failed to fetch event" });
   }
 });
@@ -142,44 +117,27 @@ adminRouter.patch(
   ],
   async (req, res) => {
     try {
-      const activeEvent = Array.from(events.values()).find((e) => e.is_active);
+      const activeEvent = await db.events.findActive();
       if (!activeEvent) {
         return res.status(404).json({ error: "No active event found" });
       }
 
-      const {
-        name,
-        date,
-        start_time,
-        end_time,
-        description,
-        band_applications_open,
-        band_applications_close,
-        porch_applications_open,
-        porch_applications_close,
-        reviewer_emails,
-      } = req.body;
+      const updatedEvent = await db.events.update(activeEvent.id, {
+        name: req.body.name,
+        date: req.body.date,
+        start_time: req.body.start_time,
+        end_time: req.body.end_time,
+        description: req.body.description,
+        band_applications_open: req.body.band_applications_open,
+        band_applications_close: req.body.band_applications_close,
+        porch_applications_open: req.body.porch_applications_open,
+        porch_applications_close: req.body.porch_applications_close,
+        reviewer_emails: req.body.reviewer_emails,
+      });
 
-      if (name !== undefined) activeEvent.name = name;
-      if (date !== undefined) activeEvent.date = date;
-      if (start_time !== undefined) activeEvent.start_time = start_time;
-      if (end_time !== undefined) activeEvent.end_time = end_time;
-      if (description !== undefined) activeEvent.description = description;
-      if (band_applications_open !== undefined)
-        activeEvent.band_applications_open = band_applications_open;
-      if (band_applications_close !== undefined)
-        activeEvent.band_applications_close = band_applications_close;
-      if (porch_applications_open !== undefined)
-        activeEvent.porch_applications_open = porch_applications_open;
-      if (porch_applications_close !== undefined)
-        activeEvent.porch_applications_close = porch_applications_close;
-      if (reviewer_emails !== undefined)
-        activeEvent.reviewer_emails = reviewer_emails;
-
-      events.set(activeEvent.id, activeEvent);
-
-      res.json(activeEvent);
+      res.json(updatedEvent);
     } catch (error) {
+      console.error("Error updating event:", error);
       res.status(500).json({ error: "Failed to update event" });
     }
   }
@@ -198,21 +156,18 @@ adminRouter.post(
     try {
       const { name, date, start_time, end_time, description } = req.body;
 
-      const event = {
-        id: crypto.randomUUID(),
+      const event = await db.events.create({
         name,
         date,
         start_time: start_time || "12:00",
         end_time: end_time || "18:00",
         description: description || null,
         is_active: true,
-        created_at: new Date().toISOString(),
-      };
-
-      events.set(event.id, event);
+      });
 
       res.json(event);
     } catch (error) {
+      console.error("Error creating event:", error);
       res.status(500).json({ error: "Failed to create event" });
     }
   }
@@ -232,17 +187,15 @@ adminRouter.post(
       const { eventId } = req.params;
       const { start_time, end_time } = req.body;
 
-      const slot = {
-        id: crypto.randomUUID(),
+      const slot = await db.timeSlots.create({
         event_id: eventId,
         start_time,
         end_time,
-      };
-
-      timeSlots.set(slot.id, slot);
+      });
 
       res.json(slot);
     } catch (error) {
+      console.error("Error creating time slot:", error);
       res.status(500).json({ error: "Failed to create time slot" });
     }
   }
@@ -251,13 +204,9 @@ adminRouter.post(
 // Get scheduling data
 adminRouter.get("/scheduling", async (req, res) => {
   try {
-    const approvedBands = Array.from(bands.values()).filter(
-      (b) => b.status === "approved"
-    );
-    const approvedPorches = Array.from(porches.values()).filter(
-      (p) => p.status === "approved"
-    );
-    const allSlots = Array.from(timeSlots.values());
+    const approvedBands = await db.bands.findApproved();
+    const approvedPorches = await db.porches.findApproved();
+    const allSlots = await db.timeSlots.findAll();
 
     res.json({
       bands: approvedBands,
@@ -265,15 +214,10 @@ adminRouter.get("/scheduling", async (req, res) => {
       time_slots: allSlots,
     });
   } catch (error) {
+    console.error("Error fetching scheduling data:", error);
     res.status(500).json({ error: "Failed to fetch scheduling data" });
   }
 });
-
-// Helper to convert HH:mm to minutes for comparison
-function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
 
 // Helper to format time for display (HH:mm to h:mm AM/PM)
 function formatTimeDisplay(time: string): string {
@@ -301,14 +245,14 @@ adminRouter.patch(
       const { id } = req.params;
       const { assigned_porch_id, set_start_time, set_end_time } = req.body;
 
-      const band = bands.get(id);
+      const band = await db.bands.findById(id);
       if (!band) {
         return res.status(404).json({ error: "Band not found" });
       }
 
       // Validate porch exists and is approved
       if (assigned_porch_id) {
-        const porch = porches.get(assigned_porch_id);
+        const porch = await db.porches.findById(assigned_porch_id);
         if (!porch) {
           return res.status(400).json({ error: "Porch not found" });
         }
@@ -321,33 +265,15 @@ adminRouter.patch(
 
       // Check for overlapping sets at the same porch
       if (assigned_porch_id && set_start_time && set_end_time) {
-        const newStart = timeToMinutes(set_start_time);
-        const newEnd = timeToMinutes(set_end_time);
-
-        if (newEnd <= newStart) {
-          return res
-            .status(400)
-            .json({ error: "End time must be after start time" });
-        }
-
-        // Find any bands scheduled at the same porch with overlapping times
-        const overlappingBand = Array.from(bands.values()).find((b) => {
-          // Skip the current band being updated
-          if (b.id === id) return false;
-          // Skip bands not assigned to this porch
-          if (b.assigned_porch_id !== assigned_porch_id) return false;
-          // Skip bands without scheduled times
-          if (!b.set_start_time || !b.set_end_time) return false;
-
-          const existingStart = timeToMinutes(b.set_start_time);
-          const existingEnd = timeToMinutes(b.set_end_time);
-
-          // Check for overlap: new set starts before existing ends AND new set ends after existing starts
-          return newStart < existingEnd && newEnd > existingStart;
-        });
+        const overlappingBand = await db.bands.findOverlappingAtPorch(
+          assigned_porch_id,
+          set_start_time,
+          set_end_time,
+          id
+        );
 
         if (overlappingBand) {
-          const porch = porches.get(assigned_porch_id);
+          const porch = await db.porches.findById(assigned_porch_id);
           return res.status(400).json({
             error: `Time conflict: "${
               overlappingBand.band_name
@@ -361,12 +287,13 @@ adminRouter.patch(
       }
 
       // Update band scheduling
-      band.assigned_porch_id = assigned_porch_id || null;
-      band.set_start_time = set_start_time || null;
-      band.set_end_time = set_end_time || null;
-      bands.set(id, band);
+      const updatedBand = await db.bands.updateSchedule(id, {
+        assigned_porch_id: assigned_porch_id || null,
+        set_start_time: set_start_time || null,
+        set_end_time: set_end_time || null,
+      });
 
-      res.json(band);
+      res.json(updatedBand);
     } catch (error) {
       console.error("Error scheduling band:", error);
       res.status(500).json({ error: "Failed to schedule band" });
@@ -377,12 +304,10 @@ adminRouter.patch(
 // Get approved porches (for scheduling dropdown)
 adminRouter.get("/porches/approved", async (req, res) => {
   try {
-    const approvedPorches = Array.from(porches.values())
-      .filter((p) => p.status === "approved")
-      .sort((a, b) => a.address.localeCompare(b.address));
-
+    const approvedPorches = await db.porches.findApproved();
     res.json(approvedPorches);
   } catch (error) {
+    console.error("Error fetching approved porches:", error);
     res.status(500).json({ error: "Failed to fetch approved porches" });
   }
 });
@@ -390,7 +315,7 @@ adminRouter.get("/porches/approved", async (req, res) => {
 // Assign bands to reviewers (random, equal distribution)
 adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
   try {
-    const activeEvent = Array.from(events.values()).find((e) => e.is_active);
+    const activeEvent = await db.events.findActive();
     if (!activeEvent) {
       return res.status(404).json({ error: "No active event found" });
     }
@@ -400,8 +325,8 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
       return res.status(400).json({ error: "No reviewers configured" });
     }
 
-    // Get all bands (we'll assign reviewers to all bands, not just pending ones)
-    const allBands = Array.from(bands.values());
+    // Get all bands
+    const allBands = await db.bands.findAll();
     if (allBands.length === 0) {
       return res.status(400).json({ error: "No bands to assign" });
     }
@@ -410,21 +335,25 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
     const shuffledBands = [...allBands].sort(() => Math.random() - 0.5);
 
     // Assign bands to reviewers in round-robin fashion
-    shuffledBands.forEach((band, index) => {
-      const reviewerIndex = index % reviewerEmails.length;
+    for (let i = 0; i < shuffledBands.length; i++) {
+      const band = shuffledBands[i];
+      const reviewerIndex = i % reviewerEmails.length;
       const reviewerEmail = reviewerEmails[reviewerIndex];
-      band.assigned_reviewer_id = `reviewer-${reviewerIndex}`;
-      band.assigned_reviewer_email = reviewerEmail;
-      bands.set(band.id, band);
-    });
+      await db.bands.assignReviewer(
+        band.id,
+        `reviewer-${reviewerIndex}`,
+        reviewerEmail
+      );
+    }
 
     // Mark reviewers as assigned
-    activeEvent.reviewers_assigned = true;
-    events.set(activeEvent.id, activeEvent);
+    await db.events.update(activeEvent.id, { reviewers_assigned: true });
+
+    const updatedBands = await db.bands.findAll();
 
     res.json({
       message: `Successfully assigned ${allBands.length} bands to ${reviewerEmails.length} reviewers`,
-      bands: Array.from(bands.values()),
+      bands: updatedBands,
     });
   } catch (error) {
     console.error("Error assigning reviewers:", error);
@@ -436,7 +365,9 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
 adminRouter.patch(
   "/bands/:id/review",
   [
-    body("reviewer_rating").optional({ nullable: true }).isInt({ min: 1, max: 5 }),
+    body("reviewer_rating")
+      .optional({ nullable: true })
+      .isInt({ min: 1, max: 5 }),
     body("reviewer_notes").optional({ nullable: true }).isString(),
   ],
   async (req: AuthRequest, res) => {
@@ -449,17 +380,18 @@ adminRouter.patch(
       const { id } = req.params;
       const { reviewer_rating, reviewer_notes } = req.body;
 
-      const band = bands.get(id);
+      const band = await db.bands.updateReview(id, {
+        reviewer_rating,
+        reviewer_notes,
+      });
+
       if (!band) {
         return res.status(404).json({ error: "Band not found" });
       }
 
-      if (reviewer_rating !== undefined) band.reviewer_rating = reviewer_rating;
-      if (reviewer_notes !== undefined) band.reviewer_notes = reviewer_notes;
-      bands.set(id, band);
-
       res.json(band);
     } catch (error) {
+      console.error("Error updating band review:", error);
       res.status(500).json({ error: "Failed to update band review" });
     }
   }
@@ -473,17 +405,10 @@ adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const myBands = Array.from(bands.values()).filter(
-      (b) => b.assigned_reviewer_email === userEmail
-    );
-
-    myBands.sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-
+    const myBands = await db.bands.findByReviewerEmail(userEmail);
     res.json(myBands);
   } catch (error) {
+    console.error("Error fetching assigned bands:", error);
     res.status(500).json({ error: "Failed to fetch assigned bands" });
   }
 });
@@ -491,15 +416,10 @@ adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res) => {
 // Get unique reviewer emails from assigned bands
 adminRouter.get("/reviewers", async (req, res) => {
   try {
-    const reviewerEmails = new Set<string>();
-    Array.from(bands.values()).forEach((band) => {
-      if (band.assigned_reviewer_email) {
-        reviewerEmails.add(band.assigned_reviewer_email);
-      }
-    });
-
-    res.json(Array.from(reviewerEmails));
+    const reviewerEmails = await db.bands.getReviewerEmails();
+    res.json(reviewerEmails);
   } catch (error) {
+    console.error("Error fetching reviewers:", error);
     res.status(500).json({ error: "Failed to fetch reviewers" });
   }
 });

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api } from "../../lib/supabase";
+import { api } from "../../lib/api";
 import { useAuthStore } from "../../stores/authStore";
 import {
   BandApplication,

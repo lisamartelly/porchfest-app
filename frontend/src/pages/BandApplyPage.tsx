@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../lib/supabase";
+import { api } from "../lib/api";
 
 export default function BandApplyPage() {
   const navigate = useNavigate();

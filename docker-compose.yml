@@ -1,6 +1,24 @@
-version: '3.8'
-
 services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: porchfest-db
+    environment:
+      POSTGRES_USER: porchfest
+      POSTGRES_PASSWORD: porchfest_dev
+      POSTGRES_DB: porchfest
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U porchfest -d porchfest"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # Backend API
   api:
     build:
@@ -11,12 +29,14 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8080
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - DATABASE_URL=postgresql://porchfest:porchfest_dev@db:5432/porchfest
       - FRONTEND_URL=http://localhost:5173
+      - JWT_SECRET=dev-secret-change-in-production
     volumes:
       - ./backend/src:/app/src:ro
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   # Frontend (for production builds)
@@ -30,7 +50,9 @@ services:
       - api
     restart: unless-stopped
 
+volumes:
+  postgres_data:
+
 networks:
   default:
     name: porchfest-network
-

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
-import { porches } from "../data/db.js";
+import { db } from "../data/db.js";
 
 export const porchesRouter = Router();
 
@@ -20,41 +20,24 @@ porchesRouter.post(
     }
 
     try {
-      const {
-        owner_name,
-        email,
-        address,
-        city,
-        capacity,
-        has_power,
-        parking_notes,
-        accessibility_notes,
-      } = req.body;
-
-      const porchData = {
-        id: crypto.randomUUID(),
-        owner_name,
-        email,
-        address,
-        city,
+      const porch = await db.porches.create({
+        owner_name: req.body.owner_name,
+        email: req.body.email,
+        address: req.body.address,
+        city: req.body.city,
         lat: null, // TODO: Geocode address
         lng: null,
-        capacity: capacity || null,
-        has_power: has_power || false,
-        parking_notes: parking_notes || null,
-        accessibility_notes: accessibility_notes || null,
+        capacity: req.body.capacity || null,
+        has_power: req.body.has_power || false,
+        parking_notes: req.body.parking_notes || null,
+        accessibility_notes: req.body.accessibility_notes || null,
         status: "pending",
-        admin_notes: null,
-        created_at: new Date().toISOString(),
-      };
+      });
 
-      porches.set(porchData.id, porchData);
-
-      res.json({ success: true, id: porchData.id });
+      res.json({ success: true, id: porch.id });
     } catch (error) {
+      console.error("Error submitting porch application:", error);
       res.status(500).json({ error: "Failed to submit application" });
     }
   }
 );
-
-// porches is exported from ../data/db.js

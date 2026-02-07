@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api } from "../lib/supabase";
+import { api } from "../lib/api";
 
 interface Band {
   id: string;
