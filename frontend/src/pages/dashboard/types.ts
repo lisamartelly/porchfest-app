@@ -1,5 +1,6 @@
 export interface BandApplication {
   id: string;
+  organization_id: string;
   band_name: string;
   contact_name: string;
   contact_email: string;
@@ -34,6 +35,7 @@ export interface BandApplication {
 
 export interface PorchApplication {
   id: string;
+  organization_id: string;
   owner_name: string;
   email: string;
   address: string;
@@ -51,6 +53,7 @@ export type Status = "pending" | "under_review" | "approved" | "rejected";
 
 export interface EventSettings {
   id: string;
+  organization_id: string;
   name: string;
   date: string;
   start_time: string;
