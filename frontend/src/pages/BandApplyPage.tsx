@@ -103,7 +103,7 @@ export default function BandApplyPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="font-display text-3xl font-bold text-black mb-4">
+          <h1 className="text-3xl font-bold text-black mb-4">
             Application Submitted!
           </h1>
           <p className="text-gray-700 mb-8 leading-relaxed">
@@ -113,8 +113,8 @@ export default function BandApplyPage() {
             <br />
             Remember: You will not hear a decision until June!
           </p>
-          <button onClick={() => navigate("/")} className="btn-primary">
-            Back to Home
+          <button onClick={() => navigate("/login")} className="btn-primary">
+            Done
           </button>
         </div>
       </div>
@@ -122,10 +122,10 @@ export default function BandApplyPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-12 px-4">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="max-w-2xl mx-auto">
       <div className="text-center mb-10">
-        <h1 className="font-display text-4xl font-bold text-black mb-3">
+        <h1 className="text-4xl font-bold text-black mb-3">
           Band Application
         </h1>
         <p className="text-gray-600 text-lg">
@@ -142,7 +142,7 @@ export default function BandApplyPage() {
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Basic Information */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="font-display text-2xl font-bold text-black mb-6">
+          <h2 className="text-2xl font-bold text-black mb-6">
             Basic Information
           </h2>
 
@@ -258,7 +258,7 @@ export default function BandApplyPage() {
 
         {/* Photo Upload */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="font-display text-2xl font-bold text-black mb-6">
+          <h2 className="text-2xl font-bold text-black mb-6">
             Band Photo
           </h2>
 
@@ -299,7 +299,7 @@ export default function BandApplyPage() {
 
         {/* Bio */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="font-display text-2xl font-bold text-black mb-6">
+          <h2 className="text-2xl font-bold text-black mb-6">
             Band Bio
           </h2>
 
@@ -325,7 +325,7 @@ export default function BandApplyPage() {
 
         {/* Performance Details */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="font-display text-2xl font-bold text-black mb-6">
+          <h2 className="text-2xl font-bold text-black mb-6">
             Performance Details
           </h2>
 
@@ -375,7 +375,7 @@ export default function BandApplyPage() {
 
         {/* Social Media Links */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="font-display text-2xl font-bold text-black mb-2">
+          <h2 className="text-2xl font-bold text-black mb-2">
             Social Media & Streaming Links
           </h2>
           <p className="text-sm text-gray-600 mb-6 leading-relaxed">
@@ -479,7 +479,7 @@ export default function BandApplyPage() {
 
         {/* Scheduling Notes */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="font-display text-2xl font-bold text-black mb-2">
+          <h2 className="text-2xl font-bold text-black mb-2">
             Day-of Scheduling Notes
           </h2>
           <p className="text-sm text-gray-600 mb-6 leading-relaxed">
@@ -500,7 +500,7 @@ export default function BandApplyPage() {
 
         {/* Consent Questions */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="font-display text-2xl font-bold text-black mb-6">
+          <h2 className="text-2xl font-bold text-black mb-6">
             Important Agreements
           </h2>
 
@@ -650,7 +650,7 @@ export default function BandApplyPage() {
 
         {/* Confirmation Checkboxes */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="font-display text-2xl font-bold text-black mb-2">
+          <h2 className="text-2xl font-bold text-black mb-2">
             Final Confirmation
           </h2>
           <p className="text-sm text-gray-600 mb-6 leading-relaxed">
@@ -710,7 +710,7 @@ export default function BandApplyPage() {
 
         {/* Questions/Comments */}
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-          <h2 className="font-display text-2xl font-bold text-black mb-6">
+          <h2 className="text-2xl font-bold text-black mb-6">
             Questions / Comments
           </h2>
 
@@ -735,13 +735,14 @@ export default function BandApplyPage() {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/login")}
             className="px-8 py-4 border-2 border-gray-300 text-black font-semibold rounded-xl hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
         </div>
       </form>
+    </div>
     </div>
   );
 }

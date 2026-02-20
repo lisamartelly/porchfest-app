@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 
+export type Role = 'band' | 'porch' | 'admin' | 'super-duper-admin'
+
 export interface AuthRequest extends Request {
   user?: {
     id: string
     email: string
-    role: 'band' | 'porch' | 'admin'
+    role: Role
   }
 }
 
@@ -29,7 +31,7 @@ export const authMiddleware = async (
       const decoded = jwt.verify(token, JWT_SECRET) as {
         id: string
         email: string
-        role: 'band' | 'porch' | 'admin'
+        role: Role
       }
       
       req.user = {
@@ -53,8 +55,19 @@ export const adminOnly = (
   res: Response,
   next: NextFunction
 ) => {
-  if (req.user?.role !== 'admin') {
+  if (req.user?.role !== 'admin' && req.user?.role !== 'super-duper-admin') {
     return res.status(403).json({ error: 'Admin access required' })
+  }
+  next()
+}
+
+export const superDuperAdminOnly = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  if (req.user?.role !== 'super-duper-admin') {
+    return res.status(403).json({ error: 'Super-duper-admin access required' })
   }
   next()
 }

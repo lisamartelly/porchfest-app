@@ -158,6 +158,13 @@ export const db = {
   // USERS
   // ---------------------------------------------------------------------------
   users: {
+    async findAll(): Promise<User[]> {
+      const result = await pool.query<User>(
+        "SELECT * FROM users ORDER BY created_at DESC"
+      );
+      return result.rows;
+    },
+
     async findByEmail(email: string): Promise<User | null> {
       const result = await pool.query<User>(
         "SELECT * FROM users WHERE email = $1",

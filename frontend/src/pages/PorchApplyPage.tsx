@@ -40,24 +40,25 @@ export default function PorchApplyPage() {
         <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <span className="text-5xl">✓</span>
         </div>
-        <h1 className="font-display text-3xl font-bold text-gray-900 mb-4">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">
           Application Submitted!
         </h1>
         <p className="text-gray-600 mb-8">
           Thanks for offering your porch for Porchfest! We'll review your
           application and get back to you at <strong>{formData.email}</strong>.
         </p>
-        <button onClick={() => navigate("/")} className="btn-primary">
-          Back to Home
+        <button onClick={() => navigate("/login")} className="btn-primary">
+          Done
         </button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-12 px-4">
+    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-gray-900">
           Offer Your Porch
         </h1>
         <p className="text-gray-600 mt-1">
@@ -215,13 +216,14 @@ export default function PorchApplyPage() {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/login")}
             className="btn-outline"
           >
             Cancel
           </button>
         </div>
       </form>
+    </div>
     </div>
   );
 }

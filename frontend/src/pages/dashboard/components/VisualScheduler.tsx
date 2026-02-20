@@ -39,6 +39,12 @@ interface ScheduledBand {
   endIndex: number;
 }
 
+// Normalize time to HH:MM (strip seconds if present from Postgres TIME columns)
+const normalizeTime = (t: string | null): string | null => {
+  if (!t) return null;
+  return t.substring(0, 5);
+};
+
 // Convert 24-hour time to 12-hour format
 const formatTime12Hour = (time24: string): string => {
   const [hourStr, minStr] = time24.split(":");
@@ -86,8 +92,10 @@ export default function VisualScheduler({
   // Generate time slots in 15-minute increments
   const timeSlots = useMemo((): TimeSlot[] => {
     const slots: TimeSlot[] = [];
-    const [startHour, startMin] = eventStartTime.split(":").map(Number);
-    const [endHour, endMin] = eventEndTime.split(":").map(Number);
+    const normStart = normalizeTime(eventStartTime) || "12:00";
+    const normEnd = normalizeTime(eventEndTime) || "18:00";
+    const [startHour, startMin] = normStart.split(":").map(Number);
+    const [endHour, endMin] = normEnd.split(":").map(Number);
 
     let currentHour = startHour;
     let currentMin = startMin;
@@ -176,11 +184,13 @@ export default function VisualScheduler({
       return bands
         .filter((b) => b.assigned_porch_id === porchId && b.set_start_time)
         .map((band) => {
+          const normStart = normalizeTime(band.set_start_time);
+          const normEnd = normalizeTime(band.set_end_time);
           const startIndex = timeSlots.findIndex(
-            (s) => s.time === band.set_start_time
+            (s) => s.time === normStart
           );
           const endIndex = timeSlots.findIndex(
-            (s) => s.time === band.set_end_time
+            (s) => s.time === normEnd
           );
           return {
             band,

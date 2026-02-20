@@ -1,12 +1,224 @@
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
-import { adminOnly, AuthRequest } from "../middleware/auth.js";
+import bcrypt from "bcryptjs";
+import { adminOnly, superDuperAdminOnly, AuthRequest } from "../middleware/auth.js";
 import { db } from "../data/db.js";
 
 export const adminRouter = Router();
 
-// All admin routes require admin role
+// All admin routes require admin role (admin or super-duper-admin)
 adminRouter.use(adminOnly);
+
+// =========================================================================
+// SUPER-DUPER-ADMIN ONLY: Organization management
+// =========================================================================
+
+// List all organizations
+adminRouter.get("/organizations", superDuperAdminOnly, async (req, res) => {
+  try {
+    const orgs = await db.organizations.findAll();
+    res.json(orgs);
+  } catch (error) {
+    console.error("Error fetching organizations:", error);
+    res.status(500).json({ error: "Failed to fetch organizations" });
+  }
+});
+
+// Create organization
+adminRouter.post(
+  "/organizations",
+  superDuperAdminOnly,
+  [
+    body("name").trim().notEmpty().withMessage("Name is required"),
+    body("slug")
+      .trim()
+      .notEmpty()
+      .matches(/^[a-z0-9-]+$/)
+      .withMessage("Slug must be lowercase alphanumeric with hyphens"),
+    body("city").optional().trim(),
+    body("state").optional().trim(),
+    body("description").optional().trim(),
+    body("website").optional().trim(),
+    body("contact_email").optional().isEmail(),
+  ],
+  async (req: AuthRequest, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { name, slug, city, state, description, website, contact_email } =
+        req.body;
+
+      const existingOrg = await db.organizations.findBySlug(slug);
+      if (existingOrg) {
+        return res.status(400).json({ error: "An organization with that slug already exists" });
+      }
+
+      const org = await db.organizations.create({
+        name,
+        slug,
+        city: city || null,
+        state: state || null,
+        description: description || null,
+        website: website || null,
+        contact_email: contact_email || null,
+      });
+
+      res.json(org);
+    } catch (error) {
+      console.error("Error creating organization:", error);
+      res.status(500).json({ error: "Failed to create organization" });
+    }
+  }
+);
+
+// =========================================================================
+// SUPER-DUPER-ADMIN ONLY: User management
+// =========================================================================
+
+// List all users with their org memberships
+adminRouter.get("/users", superDuperAdminOnly, async (req, res) => {
+  try {
+    const users = await db.users.findAll();
+    const usersWithOrgs = await Promise.all(
+      users.map(async (u) => {
+        const orgs = await db.userOrganizations.getOrganizationsForUser(u.id);
+        return {
+          id: u.id,
+          email: u.email,
+          role: u.role,
+          created_at: u.created_at,
+          organizations: orgs.map((o) => ({ id: o.id, name: o.name })),
+        };
+      })
+    );
+    res.json(usersWithOrgs);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+// Create admin user and assign to organization
+adminRouter.post(
+  "/users",
+  superDuperAdminOnly,
+  [
+    body("email").isEmail().withMessage("Valid email required"),
+    body("password")
+      .isLength({ min: 6 })
+      .withMessage("Password must be at least 6 characters"),
+    body("role")
+      .isIn(["admin", "reviewer"])
+      .withMessage("Role must be admin or reviewer"),
+    body("organization_id").optional().isString(),
+  ],
+  async (req: AuthRequest, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { email, password, role, organization_id } = req.body;
+
+      const existingUser = await db.users.findByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: "User already exists" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = await db.users.create({
+        email,
+        password_hash: hashedPassword,
+        role,
+      });
+
+      if (organization_id) {
+        const org = await db.organizations.findById(organization_id);
+        if (!org) {
+          return res.status(400).json({ error: "Organization not found" });
+        }
+        await db.userOrganizations.create({
+          user_id: user.id,
+          organization_id,
+          role: "admin",
+        });
+      }
+
+      const orgs = organization_id
+        ? [await db.organizations.findById(organization_id)]
+        : [];
+
+      res.json({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        created_at: user.created_at,
+        organizations: orgs
+          .filter(Boolean)
+          .map((o) => ({ id: o!.id, name: o!.name })),
+      });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  }
+);
+
+// =========================================================================
+// ADMIN: Event management (any admin in the org can create events)
+// =========================================================================
+
+// List events for the current user's organizations
+adminRouter.get("/my-events", async (req: AuthRequest, res) => {
+  try {
+    if (req.user?.role === "super-duper-admin") {
+      const allEvents = await db.events.findAll();
+      const orgs = await db.organizations.findAll();
+      const eventsWithOrgs = allEvents.map((e) => ({
+        ...e,
+        organization: orgs.find((o) => o.id === e.organization_id),
+      }));
+      return res.json(eventsWithOrgs);
+    }
+
+    const userOrgs = await db.userOrganizations.getOrganizationsForUser(
+      req.user!.id
+    );
+    const allEvents: Array<Record<string, unknown>> = [];
+    for (const org of userOrgs) {
+      const events = await db.events.findByOrganizationId(org.id);
+      for (const e of events) {
+        allEvents.push({ ...e, organization: { id: org.id, name: org.name } });
+      }
+    }
+    res.json(allEvents);
+  } catch (error) {
+    console.error("Error fetching events:", error);
+    res.status(500).json({ error: "Failed to fetch events" });
+  }
+});
+
+// Get organizations the current user belongs to (for event creation dropdown)
+adminRouter.get("/my-organizations", async (req: AuthRequest, res) => {
+  try {
+    if (req.user?.role === "super-duper-admin") {
+      const allOrgs = await db.organizations.findAll();
+      return res.json(allOrgs);
+    }
+
+    const orgs = await db.userOrganizations.getOrganizationsForUser(
+      req.user!.id
+    );
+    res.json(orgs);
+  } catch (error) {
+    console.error("Error fetching user organizations:", error);
+    res.status(500).json({ error: "Failed to fetch organizations" });
+  }
+});
 
 // Get all bands
 adminRouter.get("/bands", async (req, res) => {
@@ -143,20 +355,44 @@ adminRouter.patch(
   }
 );
 
-// Create event
+// Create event (must belong to an organization the user is part of)
 adminRouter.post(
   "/events",
-  [body("name").trim().notEmpty(), body("date").isString()],
-  async (req, res) => {
+  [
+    body("name").trim().notEmpty(),
+    body("date").isString(),
+    body("organization_id").notEmpty().withMessage("Organization is required"),
+  ],
+  async (req: AuthRequest, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
     try {
-      const { name, date, start_time, end_time, description } = req.body;
+      const { name, date, start_time, end_time, description, organization_id } =
+        req.body;
+
+      const org = await db.organizations.findById(organization_id);
+      if (!org) {
+        return res.status(400).json({ error: "Organization not found" });
+      }
+
+      // Verify user belongs to this organization (unless super-duper-admin)
+      if (req.user?.role !== "super-duper-admin") {
+        const membership = await db.userOrganizations.findByUserAndOrg(
+          req.user!.id,
+          organization_id
+        );
+        if (!membership) {
+          return res
+            .status(403)
+            .json({ error: "You are not a member of this organization" });
+        }
+      }
 
       const event = await db.events.create({
+        organization_id,
         name,
         date,
         start_time: start_time || "12:00",
@@ -169,6 +405,62 @@ adminRouter.post(
     } catch (error) {
       console.error("Error creating event:", error);
       res.status(500).json({ error: "Failed to create event" });
+    }
+  }
+);
+
+// Update event by ID
+adminRouter.patch(
+  "/events/:eventId",
+  [
+    body("name").optional().trim().notEmpty(),
+    body("date").optional().isString(),
+    body("start_time").optional().isString(),
+    body("end_time").optional().isString(),
+    body("description").optional(),
+    body("band_applications_open").optional({ nullable: true }).isString(),
+    body("band_applications_close").optional({ nullable: true }).isString(),
+    body("porch_applications_open").optional({ nullable: true }).isString(),
+    body("porch_applications_close").optional({ nullable: true }).isString(),
+    body("reviewer_emails").optional().isArray(),
+  ],
+  async (req: AuthRequest, res) => {
+    try {
+      const { eventId } = req.params;
+      const event = await db.events.findById(eventId);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      if (req.user?.role !== "super-duper-admin") {
+        const membership = await db.userOrganizations.findByUserAndOrg(
+          req.user!.id,
+          event.organization_id
+        );
+        if (!membership) {
+          return res
+            .status(403)
+            .json({ error: "You are not a member of this event's organization" });
+        }
+      }
+
+      const updatedEvent = await db.events.update(eventId, {
+        name: req.body.name,
+        date: req.body.date,
+        start_time: req.body.start_time,
+        end_time: req.body.end_time,
+        description: req.body.description,
+        band_applications_open: req.body.band_applications_open,
+        band_applications_close: req.body.band_applications_close,
+        porch_applications_open: req.body.porch_applications_open,
+        porch_applications_close: req.body.porch_applications_close,
+        reviewer_emails: req.body.reviewer_emails,
+      });
+
+      res.json(updatedEvent);
+    } catch (error) {
+      console.error("Error updating event:", error);
+      res.status(500).json({ error: "Failed to update event" });
     }
   }
 );

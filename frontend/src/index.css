@@ -2,24 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Carena font */
-@font-face {
-  font-family: "Carena";
-  src: local("Carena-Regular"),
-    url("./assets/fonts/Carena-Regular.otf") format("opentype");
-  font-display: swap;
-}
-
 @layer base {
-  html {
-    font-family: 'Montserrat', sans-serif;
-  }
-  
-  h1, h2, h3 {
-    font-family: 'Carena', 'Pacifico', cursive;
-    font-weight: 400;
-  }
-  
   body {
     margin: 0;
     -webkit-font-smoothing: antialiased;
@@ -28,134 +11,38 @@
 }
 
 @layer components {
-  /* Primary CTA button - teal with black border, bounce effect */
   .btn-primary {
-    @apply inline-block text-center font-bold py-3 px-6 rounded-[20px] transition-all duration-300 cursor-pointer;
-    background: rgb(21, 172, 172);
-    color: black;
-    box-shadow: 0 0 0 2px black;
-    transform: translateY(0);
+    @apply inline-block text-center font-bold py-3 px-6 rounded-lg transition-all duration-200 cursor-pointer bg-porch-600 text-white hover:bg-porch-700;
   }
-  
-  .btn-primary:hover {
-    box-shadow: 0 0 0 2px black, 0 6px 0 0 black;
-    transform: translateY(-6px);
-  }
-  
-  /* Secondary button - outline style */
+
   .btn-secondary {
-    @apply inline-block text-center font-bold py-3 px-6 rounded-[20px] transition-all duration-300 cursor-pointer;
-    background: #dfff9c;
-    color: black;
-    box-shadow: 0 0 0 2px black;
+    @apply inline-block text-center font-bold py-3 px-6 rounded-lg transition-all duration-200 cursor-pointer bg-gray-100 text-gray-800 hover:bg-gray-200;
   }
-  
-  .btn-secondary:hover {
-    box-shadow: 0 0 0 2px black, 0 6px 0 0 black;
-    transform: translateY(-6px);
-  }
-  
+
   .btn-outline {
-    @apply border-2 border-black text-black hover:bg-black/5 font-semibold py-3 px-6 rounded-[20px] transition-all duration-200;
+    @apply border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-lg transition-all duration-200;
   }
-  
+
   .input-field {
-    @apply w-full px-4 py-3 border-2 border-black rounded-[20px] outline-none transition-all duration-200 bg-white;
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg outline-none transition-all duration-200 bg-white focus:border-porch-500 focus:ring-2 focus:ring-porch-200;
   }
-  
-  .input-field:focus {
-    border-color: rgb(21, 172, 172);
-    box-shadow: 0 0 0 2px rgba(21, 172, 172, 0.2);
-  }
-  
-  /* Card styles matching Uptown Porchfest */
+
   .card {
     @apply bg-white rounded-xl shadow-md transition-shadow duration-200 overflow-hidden;
   }
-  
+
   .card:hover {
     @apply shadow-lg;
   }
-  
-  .neon-box {
-    @apply p-6 text-justify;
-    background-color: #dfff9c;
-    border-radius: 60px 20px;
-  }
-  
-  .white-box {
-    @apply p-6 text-justify;
-    background-color: #fafb9d;
-    border-radius: 60px 20px;
-  }
-  
-  .almond-box {
-    @apply p-6 text-justify;
-    background-color: blanchedalmond;
-    border-radius: 60px 20px;
-  }
-  
-  /* Fancy image with asymmetric rounded corners */
-  .fancy-img {
-    border-radius: 60px 20px;
-    max-width: 100%;
-  }
-  
-  /* Sun divider */
-  .sun-divider {
-    @apply relative my-8;
-    height: 1px;
-  }
-  
-  .sun-divider::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 5%;
-    right: 5%;
-    width: 90%;
-    height: 1px;
-    background-image: linear-gradient(to right, transparent, rgb(220, 117, 21), transparent);
-  }
-  
-  .sun-divider::after {
-    content: "☀️";
-    position: absolute;
-    font-size: 24px;
-    z-index: 1;
-    top: -15px;
-    left: calc(50% - 12px);
-    transform: rotate(-11.5deg);
-  }
-  
-  /* Sun bullet list */
-  .sun-list li {
-    @apply mb-3;
-    list-style: none;
-    position: relative;
-    padding-left: 2rem;
-  }
-  
-  .sun-list li::before {
-    content: "☀️";
-    position: absolute;
-    left: 0;
-    font-size: 14px;
-  }
-  
-  .sun-list {
-    @apply pl-0;
-  }
-  
-  /* Status badges */
+
   .badge-pending {
     @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800;
   }
-  
+
   .badge-approved {
     @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800;
   }
-  
+
   .badge-rejected {
     @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800;
   }
