@@ -42,8 +42,23 @@ export interface User {
   updated_at: Date;
 }
 
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  website: string | null;
+  contact_email: string | null;
+  city: string | null;
+  state: string | null;
+  logo_url: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
 export interface Band {
   id: string;
+  event_id: string;
   band_name: string;
   contact_name: string;
   contact_email: string;
@@ -82,6 +97,7 @@ export interface Band {
 
 export interface Porch {
   id: string;
+  event_id: string;
   owner_name: string;
   email: string;
   address: string;
@@ -100,6 +116,7 @@ export interface Porch {
 
 export interface Event {
   id: string;
+  organization_id: string;
   name: string;
   date: string;
   start_time: string;
@@ -114,6 +131,14 @@ export interface Event {
   reviewers_assigned: boolean;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface UserOrganization {
+  id: string;
+  user_id: string;
+  organization_id: string;
+  role: string;
+  created_at: Date;
 }
 
 export interface TimeSlot {
@@ -165,6 +190,194 @@ export const db = {
   },
 
   // ---------------------------------------------------------------------------
+  // ORGANIZATIONS
+  // ---------------------------------------------------------------------------
+  organizations: {
+    async findAll(): Promise<Organization[]> {
+      const result = await pool.query<Organization>(
+        "SELECT * FROM organizations ORDER BY name"
+      );
+      return result.rows;
+    },
+
+    async findById(id: string): Promise<Organization | null> {
+      const result = await pool.query<Organization>(
+        "SELECT * FROM organizations WHERE id = $1",
+        [id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async findBySlug(slug: string): Promise<Organization | null> {
+      const result = await pool.query<Organization>(
+        "SELECT * FROM organizations WHERE slug = $1",
+        [slug]
+      );
+      return result.rows[0] || null;
+    },
+
+    async create(data: Partial<Organization>): Promise<Organization> {
+      const result = await pool.query<Organization>(
+        `INSERT INTO organizations (name, slug, description, website, contact_email, city, state, logo_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [
+          data.name,
+          data.slug,
+          data.description || null,
+          data.website || null,
+          data.contact_email || null,
+          data.city || null,
+          data.state || null,
+          data.logo_url || null,
+        ]
+      );
+      return result.rows[0];
+    },
+
+    async update(
+      id: string,
+      data: Partial<Organization>
+    ): Promise<Organization | null> {
+      const setClauses: string[] = [];
+      const values: (string | null)[] = [];
+      let paramIndex = 1;
+
+      if (data.name !== undefined) {
+        setClauses.push(`name = $${paramIndex++}`);
+        values.push(data.name);
+      }
+      if (data.slug !== undefined) {
+        setClauses.push(`slug = $${paramIndex++}`);
+        values.push(data.slug);
+      }
+      if (data.description !== undefined) {
+        setClauses.push(`description = $${paramIndex++}`);
+        values.push(data.description);
+      }
+      if (data.website !== undefined) {
+        setClauses.push(`website = $${paramIndex++}`);
+        values.push(data.website);
+      }
+      if (data.contact_email !== undefined) {
+        setClauses.push(`contact_email = $${paramIndex++}`);
+        values.push(data.contact_email);
+      }
+      if (data.city !== undefined) {
+        setClauses.push(`city = $${paramIndex++}`);
+        values.push(data.city);
+      }
+      if (data.state !== undefined) {
+        setClauses.push(`state = $${paramIndex++}`);
+        values.push(data.state);
+      }
+      if (data.logo_url !== undefined) {
+        setClauses.push(`logo_url = $${paramIndex++}`);
+        values.push(data.logo_url);
+      }
+
+      if (setClauses.length === 0) return this.findById(id);
+
+      values.push(id);
+      const result = await pool.query<Organization>(
+        `UPDATE organizations SET ${setClauses.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      );
+      return result.rows[0] || null;
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // USER_ORGANIZATIONS (many-to-many junction)
+  // ---------------------------------------------------------------------------
+  userOrganizations: {
+    async findByUserId(userId: string): Promise<UserOrganization[]> {
+      const result = await pool.query<UserOrganization>(
+        "SELECT * FROM user_organizations WHERE user_id = $1 ORDER BY created_at DESC",
+        [userId]
+      );
+      return result.rows;
+    },
+
+    async findByOrganizationId(
+      organizationId: string
+    ): Promise<UserOrganization[]> {
+      const result = await pool.query<UserOrganization>(
+        "SELECT * FROM user_organizations WHERE organization_id = $1 ORDER BY created_at DESC",
+        [organizationId]
+      );
+      return result.rows;
+    },
+
+    async findByUserAndOrg(
+      userId: string,
+      organizationId: string
+    ): Promise<UserOrganization | null> {
+      const result = await pool.query<UserOrganization>(
+        "SELECT * FROM user_organizations WHERE user_id = $1 AND organization_id = $2",
+        [userId, organizationId]
+      );
+      return result.rows[0] || null;
+    },
+
+    async getOrganizationsForUser(userId: string): Promise<Organization[]> {
+      const result = await pool.query<Organization>(
+        `SELECT o.* FROM organizations o
+         INNER JOIN user_organizations uo ON o.id = uo.organization_id
+         WHERE uo.user_id = $1
+         ORDER BY o.name`,
+        [userId]
+      );
+      return result.rows;
+    },
+
+    async getUsersForOrganization(organizationId: string): Promise<User[]> {
+      const result = await pool.query<User>(
+        `SELECT u.* FROM users u
+         INNER JOIN user_organizations uo ON u.id = uo.user_id
+         WHERE uo.organization_id = $1
+         ORDER BY u.email`,
+        [organizationId]
+      );
+      return result.rows;
+    },
+
+    async create(data: {
+      user_id: string;
+      organization_id: string;
+      role?: string;
+    }): Promise<UserOrganization> {
+      const result = await pool.query<UserOrganization>(
+        `INSERT INTO user_organizations (user_id, organization_id, role)
+         VALUES ($1, $2, $3)
+         RETURNING *`,
+        [data.user_id, data.organization_id, data.role || "member"]
+      );
+      return result.rows[0];
+    },
+
+    async updateRole(
+      userId: string,
+      organizationId: string,
+      role: string
+    ): Promise<UserOrganization | null> {
+      const result = await pool.query<UserOrganization>(
+        `UPDATE user_organizations SET role = $1 WHERE user_id = $2 AND organization_id = $3 RETURNING *`,
+        [role, userId, organizationId]
+      );
+      return result.rows[0] || null;
+    },
+
+    async delete(userId: string, organizationId: string): Promise<boolean> {
+      const result = await pool.query(
+        "DELETE FROM user_organizations WHERE user_id = $1 AND organization_id = $2",
+        [userId, organizationId]
+      );
+      return (result.rowCount ?? 0) > 0;
+    },
+  },
+
+  // ---------------------------------------------------------------------------
   // BANDS
   // ---------------------------------------------------------------------------
   bands: {
@@ -206,17 +419,26 @@ export const db = {
       return result.rows;
     },
 
+    async findByEventId(eventId: string): Promise<Band[]> {
+      const result = await pool.query<Band>(
+        `SELECT * FROM bands WHERE event_id = $1 ORDER BY band_name`,
+        [eventId]
+      );
+      return result.rows;
+    },
+
     async create(data: Partial<Band>): Promise<Band> {
       const result = await pool.query<Band>(
         `INSERT INTO bands (
-          band_name, contact_name, contact_email, contact_phone,
+          event_id, band_name, contact_name, contact_email, contact_phone,
           genre, member_count, music_sample_link, bio, set_length,
           venmo_handle, instagram, spotify, soundcloud, bandcamp, facebook, website,
           scheduling_notes, equipment_consent, payment_consent, timeline_consent,
           has_photo, photo_filename, questions_comments, status, admin_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
         RETURNING *`,
         [
+          data.event_id,
           data.band_name,
           data.contact_name,
           data.contact_email,
@@ -378,15 +600,24 @@ export const db = {
       return result.rows;
     },
 
+    async findByEventId(eventId: string): Promise<Porch[]> {
+      const result = await pool.query<Porch>(
+        `SELECT * FROM porches WHERE event_id = $1 ORDER BY address`,
+        [eventId]
+      );
+      return result.rows;
+    },
+
     async create(data: Partial<Porch>): Promise<Porch> {
       const result = await pool.query<Porch>(
         `INSERT INTO porches (
-          owner_name, email, address, city, lat, lng,
+          event_id, owner_name, email, address, city, lat, lng,
           capacity, has_power, parking_notes, accessibility_notes,
           status, admin_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *`,
         [
+          data.event_id,
           data.owner_name,
           data.email,
           data.address,
@@ -443,12 +674,21 @@ export const db = {
       return result.rows[0] || null;
     },
 
+    async findByOrganizationId(organizationId: string): Promise<Event[]> {
+      const result = await pool.query<Event>(
+        "SELECT * FROM events WHERE organization_id = $1 ORDER BY date DESC",
+        [organizationId]
+      );
+      return result.rows;
+    },
+
     async create(data: Partial<Event>): Promise<Event> {
       const result = await pool.query<Event>(
-        `INSERT INTO events (name, date, start_time, end_time, description, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO events (organization_id, name, date, start_time, end_time, description, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
         [
+          data.organization_id,
           data.name,
           data.date,
           data.start_time || "12:00",
@@ -465,6 +705,10 @@ export const db = {
       const values: (string | boolean | string[] | null)[] = [];
       let paramIndex = 1;
 
+      if (data.organization_id !== undefined) {
+        setClauses.push(`organization_id = $${paramIndex++}`);
+        values.push(data.organization_id);
+      }
       if (data.name !== undefined) {
         setClauses.push(`name = $${paramIndex++}`);
         values.push(data.name);

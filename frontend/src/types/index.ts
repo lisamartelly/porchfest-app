@@ -10,8 +10,23 @@ export interface Profile {
   updated_at: string
 }
 
+export interface Organization {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  website: string | null
+  contact_email: string | null
+  city: string | null
+  state: string | null
+  logo_url: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Band {
   id: string
+  event_id: string
   profile_id: string
   name: string
   genre: string | null
@@ -29,6 +44,7 @@ export interface Band {
 
 export interface Porch {
   id: string
+  event_id: string
   profile_id: string
   owner_name: string
   address: string
@@ -49,10 +65,21 @@ export interface Porch {
 
 export interface Event {
   id: string
+  organization_id: string
   name: string
   date: string
   description: string | null
   is_active: boolean
+  created_at: string
+}
+
+export type OrgRole = 'owner' | 'admin' | 'member'
+
+export interface UserOrganization {
+  id: string
+  user_id: string
+  organization_id: string
+  role: OrgRole
   created_at: string
 }
 
@@ -88,6 +115,7 @@ export interface Message {
 
 // Form types
 export interface BandApplicationData {
+  organization_id: string
   name: string
   genre: string
   bio: string
@@ -97,6 +125,7 @@ export interface BandApplicationData {
 }
 
 export interface PorchApplicationData {
+  organization_id: string
   owner_name: string
   address: string
   city: string
