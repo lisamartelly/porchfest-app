@@ -1,6 +1,5 @@
 export type UserRole = 'band' | 'porch' | 'admin'
 export type ApplicationStatus = 'pending' | 'under_review' | 'approved' | 'rejected'
-export type JunctionStatus = 'pending' | 'approved' | 'rejected'
 export type PerformanceStatus = 'scheduled' | 'confirmed' | 'cancelled'
 
 export interface Profile {
@@ -27,7 +26,7 @@ export interface Organization {
 
 export interface Band {
   id: string
-  organization_id: string
+  event_id: string
   profile_id: string
   name: string
   genre: string | null
@@ -45,7 +44,7 @@ export interface Band {
 
 export interface Porch {
   id: string
-  organization_id: string
+  event_id: string
   profile_id: string
   owner_name: string
   address: string
@@ -81,22 +80,6 @@ export interface UserOrganization {
   user_id: string
   organization_id: string
   role: OrgRole
-  created_at: string
-}
-
-export interface BandEvent {
-  id: string
-  band_id: string
-  event_id: string
-  status: JunctionStatus
-  created_at: string
-}
-
-export interface PorchEvent {
-  id: string
-  porch_id: string
-  event_id: string
-  status: JunctionStatus
   created_at: string
 }
 

@@ -1,8 +1,8 @@
-import { Router } from "express";
+import { Router, type Router as ExpressRouter, type Request, type Response } from "express";
 import { body, validationResult } from "express-validator";
 import { db } from "../data/db.js";
 
-export const bandsRouter = Router();
+export const bandsRouter: ExpressRouter = Router();
 
 // Public: Get all approved bands for public display
 bandsRouter.get("/public", async (req, res) => {
@@ -52,6 +52,7 @@ bandsRouter.get("/public", async (req, res) => {
 bandsRouter.post(
   "/apply",
   [
+    body("event_id").trim().notEmpty().withMessage("Event ID is required"),
     body("band_name").trim().notEmpty().withMessage("Band name is required"),
     body("contact_name")
       .trim()
@@ -83,7 +84,7 @@ bandsRouter.post(
       .equals("agree")
       .withMessage("You must agree to the timeline"),
   ],
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -91,6 +92,7 @@ bandsRouter.post(
 
     try {
       const band = await db.bands.create({
+        event_id: req.body.event_id,
         band_name: req.body.band_name,
         contact_name: req.body.contact_name,
         contact_email: req.body.contact_email,

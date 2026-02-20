@@ -58,7 +58,7 @@ export interface Organization {
 
 export interface Band {
   id: string;
-  organization_id: string;
+  event_id: string;
   band_name: string;
   contact_name: string;
   contact_email: string;
@@ -97,7 +97,7 @@ export interface Band {
 
 export interface Porch {
   id: string;
-  organization_id: string;
+  event_id: string;
   owner_name: string;
   email: string;
   address: string;
@@ -131,22 +131,6 @@ export interface Event {
   reviewers_assigned: boolean;
   created_at: Date;
   updated_at: Date;
-}
-
-export interface BandEvent {
-  id: string;
-  band_id: string;
-  event_id: string;
-  status: string;
-  created_at: Date;
-}
-
-export interface PorchEvent {
-  id: string;
-  porch_id: string;
-  event_id: string;
-  status: string;
-  created_at: Date;
 }
 
 export interface UserOrganization {
@@ -420,14 +404,6 @@ export const db = {
       return result.rows[0] || null;
     },
 
-    async findByOrganizationId(organizationId: string): Promise<Band[]> {
-      const result = await pool.query<Band>(
-        "SELECT * FROM bands WHERE organization_id = $1 ORDER BY created_at DESC",
-        [organizationId]
-      );
-      return result.rows;
-    },
-
     async findByReviewerEmail(email: string): Promise<Band[]> {
       const result = await pool.query<Band>(
         "SELECT * FROM bands WHERE assigned_reviewer_email = $1 ORDER BY created_at DESC",
@@ -445,10 +421,7 @@ export const db = {
 
     async findByEventId(eventId: string): Promise<Band[]> {
       const result = await pool.query<Band>(
-        `SELECT b.* FROM bands b
-         INNER JOIN band_events be ON b.id = be.band_id
-         WHERE be.event_id = $1
-         ORDER BY b.band_name`,
+        `SELECT * FROM bands WHERE event_id = $1 ORDER BY band_name`,
         [eventId]
       );
       return result.rows;
@@ -457,7 +430,7 @@ export const db = {
     async create(data: Partial<Band>): Promise<Band> {
       const result = await pool.query<Band>(
         `INSERT INTO bands (
-          organization_id, band_name, contact_name, contact_email, contact_phone,
+          event_id, band_name, contact_name, contact_email, contact_phone,
           genre, member_count, music_sample_link, bio, set_length,
           venmo_handle, instagram, spotify, soundcloud, bandcamp, facebook, website,
           scheduling_notes, equipment_consent, payment_consent, timeline_consent,
@@ -465,7 +438,7 @@ export const db = {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
         RETURNING *`,
         [
-          data.organization_id,
+          data.event_id,
           data.band_name,
           data.contact_name,
           data.contact_email,
@@ -620,14 +593,6 @@ export const db = {
       return result.rows[0] || null;
     },
 
-    async findByOrganizationId(organizationId: string): Promise<Porch[]> {
-      const result = await pool.query<Porch>(
-        "SELECT * FROM porches WHERE organization_id = $1 ORDER BY created_at DESC",
-        [organizationId]
-      );
-      return result.rows;
-    },
-
     async findApproved(): Promise<Porch[]> {
       const result = await pool.query<Porch>(
         "SELECT * FROM porches WHERE status = 'approved' ORDER BY address"
@@ -637,10 +602,7 @@ export const db = {
 
     async findByEventId(eventId: string): Promise<Porch[]> {
       const result = await pool.query<Porch>(
-        `SELECT p.* FROM porches p
-         INNER JOIN porch_events pe ON p.id = pe.porch_id
-         WHERE pe.event_id = $1
-         ORDER BY p.address`,
+        `SELECT * FROM porches WHERE event_id = $1 ORDER BY address`,
         [eventId]
       );
       return result.rows;
@@ -649,13 +611,13 @@ export const db = {
     async create(data: Partial<Porch>): Promise<Porch> {
       const result = await pool.query<Porch>(
         `INSERT INTO porches (
-          organization_id, owner_name, email, address, city, lat, lng,
+          event_id, owner_name, email, address, city, lat, lng,
           capacity, has_power, parking_notes, accessibility_notes,
           status, admin_notes
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *`,
         [
-          data.organization_id,
+          data.event_id,
           data.owner_name,
           data.email,
           data.address,
@@ -800,116 +762,6 @@ export const db = {
         values
       );
       return result.rows[0] || null;
-    },
-  },
-
-  // ---------------------------------------------------------------------------
-  // BAND_EVENTS (many-to-many junction)
-  // ---------------------------------------------------------------------------
-  bandEvents: {
-    async findByBandId(bandId: string): Promise<BandEvent[]> {
-      const result = await pool.query<BandEvent>(
-        "SELECT * FROM band_events WHERE band_id = $1 ORDER BY created_at DESC",
-        [bandId]
-      );
-      return result.rows;
-    },
-
-    async findByEventId(eventId: string): Promise<BandEvent[]> {
-      const result = await pool.query<BandEvent>(
-        "SELECT * FROM band_events WHERE event_id = $1 ORDER BY created_at DESC",
-        [eventId]
-      );
-      return result.rows;
-    },
-
-    async create(data: {
-      band_id: string;
-      event_id: string;
-      status?: string;
-    }): Promise<BandEvent> {
-      const result = await pool.query<BandEvent>(
-        `INSERT INTO band_events (band_id, event_id, status)
-         VALUES ($1, $2, $3)
-         RETURNING *`,
-        [data.band_id, data.event_id, data.status || "pending"]
-      );
-      return result.rows[0];
-    },
-
-    async updateStatus(
-      bandId: string,
-      eventId: string,
-      status: string
-    ): Promise<BandEvent | null> {
-      const result = await pool.query<BandEvent>(
-        `UPDATE band_events SET status = $1 WHERE band_id = $2 AND event_id = $3 RETURNING *`,
-        [status, bandId, eventId]
-      );
-      return result.rows[0] || null;
-    },
-
-    async delete(bandId: string, eventId: string): Promise<boolean> {
-      const result = await pool.query(
-        "DELETE FROM band_events WHERE band_id = $1 AND event_id = $2",
-        [bandId, eventId]
-      );
-      return (result.rowCount ?? 0) > 0;
-    },
-  },
-
-  // ---------------------------------------------------------------------------
-  // PORCH_EVENTS (many-to-many junction)
-  // ---------------------------------------------------------------------------
-  porchEvents: {
-    async findByPorchId(porchId: string): Promise<PorchEvent[]> {
-      const result = await pool.query<PorchEvent>(
-        "SELECT * FROM porch_events WHERE porch_id = $1 ORDER BY created_at DESC",
-        [porchId]
-      );
-      return result.rows;
-    },
-
-    async findByEventId(eventId: string): Promise<PorchEvent[]> {
-      const result = await pool.query<PorchEvent>(
-        "SELECT * FROM porch_events WHERE event_id = $1 ORDER BY created_at DESC",
-        [eventId]
-      );
-      return result.rows;
-    },
-
-    async create(data: {
-      porch_id: string;
-      event_id: string;
-      status?: string;
-    }): Promise<PorchEvent> {
-      const result = await pool.query<PorchEvent>(
-        `INSERT INTO porch_events (porch_id, event_id, status)
-         VALUES ($1, $2, $3)
-         RETURNING *`,
-        [data.porch_id, data.event_id, data.status || "pending"]
-      );
-      return result.rows[0];
-    },
-
-    async updateStatus(
-      porchId: string,
-      eventId: string,
-      status: string
-    ): Promise<PorchEvent | null> {
-      const result = await pool.query<PorchEvent>(
-        `UPDATE porch_events SET status = $1 WHERE porch_id = $2 AND event_id = $3 RETURNING *`,
-        [status, porchId, eventId]
-      );
-      return result.rows[0] || null;
-    },
-
-    async delete(porchId: string, eventId: string): Promise<boolean> {
-      const result = await pool.query(
-        "DELETE FROM porch_events WHERE porch_id = $1 AND event_id = $2",
-        [porchId, eventId]
-      );
-      return (result.rowCount ?? 0) > 0;
     },
   },
 

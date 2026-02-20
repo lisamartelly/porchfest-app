@@ -1,6 +1,6 @@
 export interface BandApplication {
   id: string;
-  organization_id: string;
+  event_id: string;
   band_name: string;
   contact_name: string;
   contact_email: string;
@@ -35,7 +35,7 @@ export interface BandApplication {
 
 export interface PorchApplication {
   id: string;
-  organization_id: string;
+  event_id: string;
   owner_name: string;
   email: string;
   address: string;
