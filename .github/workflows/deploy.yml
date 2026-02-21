@@ -1,0 +1,100 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        working-directory: backend
+        run: |
+          docker build -t ${{ steps.ecr.outputs.registry }}/porchfest-api:${{ github.sha }} .
+          docker push ${{ steps.ecr.outputs.registry }}/porchfest-api:${{ github.sha }}
+
+      - name: Build and push frontend image
+        working-directory: frontend
+        run: |
+          docker build \
+            --build-arg VITE_API_URL="" \
+            -t ${{ steps.ecr.outputs.registry }}/porchfest-frontend:${{ github.sha }} .
+          docker push ${{ steps.ecr.outputs.registry }}/porchfest-frontend:${{ github.sha }}
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Login to ECR
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+              docker login --username AWS --password-stdin ${{ steps.ecr.outputs.registry }}
+
+            # Pull SSM parameters for env vars
+            export DATABASE_URL=$(aws ssm get-parameter --name /porchfest/database-url --query Parameter.Value --output text --region ${{ env.AWS_REGION }})
+            export JWT_SECRET=$(aws ssm get-parameter --name /porchfest/jwt-secret --query Parameter.Value --output text --region ${{ env.AWS_REGION }})
+            export FRONTEND_URL=$(aws ssm get-parameter --name /porchfest/frontend-url --query Parameter.Value --output text --region ${{ env.AWS_REGION }})
+            export ECR_REGISTRY=${{ steps.ecr.outputs.registry }}
+            export IMAGE_TAG=${{ github.sha }}
+
+            # Copy compose file if not present, then deploy
+            cd /opt/porchfest
+            cat > docker-compose.prod.yml << 'COMPOSE_EOF'
+            services:
+              api:
+                image: ${ECR_REGISTRY}/porchfest-api:${IMAGE_TAG:-latest}
+                environment:
+                  - NODE_ENV=production
+                  - PORT=8080
+                  - DATABASE_URL=${DATABASE_URL}
+                  - JWT_SECRET=${JWT_SECRET}
+                  - FRONTEND_URL=${FRONTEND_URL}
+                restart: always
+                healthcheck:
+                  test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+                  interval: 30s
+                  timeout: 5s
+                  retries: 3
+                  start_period: 10s
+
+              nginx:
+                image: ${ECR_REGISTRY}/porchfest-frontend:${IMAGE_TAG:-latest}
+                ports:
+                  - "80:80"
+                depends_on:
+                  api:
+                    condition: service_healthy
+                restart: always
+            COMPOSE_EOF
+
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+            docker image prune -f
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
