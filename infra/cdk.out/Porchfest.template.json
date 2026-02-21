@@ -1,0 +1,433 @@
+{
+ "Resources": {
+  "InstanceSg4966687D": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Porchfest EC2 security group",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "HTTP from anywhere",
+      "FromPort": 80,
+      "IpProtocol": "tcp",
+      "ToPort": 80
+     },
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "SSH",
+      "FromPort": 22,
+      "IpProtocol": "tcp",
+      "ToPort": 22
+     }
+    ],
+    "VpcId": "vpc-03325b6ecafa460c7"
+   },
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/InstanceSg/Resource"
+   }
+  },
+  "InstanceRole3CCE2F1D": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ec2.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonSSMReadOnlyAccess"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/InstanceRole/Resource"
+   }
+  },
+  "KeyPair1622897B": {
+   "Type": "AWS::EC2::KeyPair",
+   "Properties": {
+    "KeyFormat": "pem",
+    "KeyName": "porchfest-key",
+    "KeyType": "ed25519"
+   },
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/KeyPair/Resource"
+   }
+  },
+  "ServerInstanceProfileB511E411": {
+   "Type": "AWS::IAM::InstanceProfile",
+   "Properties": {
+    "Roles": [
+     {
+      "Ref": "InstanceRole3CCE2F1D"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/Server/InstanceProfile"
+   }
+  },
+  "Server7E7D21FA": {
+   "Type": "AWS::EC2::Instance",
+   "Properties": {
+    "AvailabilityZone": "us-east-2a",
+    "BlockDeviceMappings": [
+     {
+      "DeviceName": "/dev/xvda",
+      "Ebs": {
+       "VolumeSize": 20,
+       "VolumeType": "gp3"
+      }
+     }
+    ],
+    "IamInstanceProfile": {
+     "Ref": "ServerInstanceProfileB511E411"
+    },
+    "ImageId": {
+     "Ref": "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61arm64C96584B6F00A464EAD1953AFF4B05118Parameter"
+    },
+    "InstanceType": "t4g.micro",
+    "KeyName": {
+     "Ref": "KeyPair1622897B"
+    },
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "InstanceSg4966687D",
+       "GroupId"
+      ]
+     }
+    ],
+    "SubnetId": "subnet-0b950608d61cb323e",
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "Porchfest/Server"
+     }
+    ],
+    "UserData": {
+     "Fn::Base64": "#!/bin/bash\ndnf update -y\ndnf install -y docker\nsystemctl enable docker\nsystemctl start docker\nusermod -aG docker ec2-user\nmkdir -p /usr/local/lib/docker/cli-plugins\ncurl -SL \"https://github.com/docker/compose/releases/latest/download/docker-compose-linux-aarch64\" -o /usr/local/lib/docker/cli-plugins/docker-compose\nchmod +x /usr/local/lib/docker/cli-plugins/docker-compose\nmkdir -p /opt/porchfest\nchown ec2-user:ec2-user /opt/porchfest"
+    }
+   },
+   "DependsOn": [
+    "InstanceRole3CCE2F1D"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/Server/Resource"
+   }
+  },
+  "Eip": {
+   "Type": "AWS::EC2::EIP",
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/Eip"
+   }
+  },
+  "EipAssoc": {
+   "Type": "AWS::EC2::EIPAssociation",
+   "Properties": {
+    "AllocationId": {
+     "Fn::GetAtt": [
+      "Eip",
+      "AllocationId"
+     ]
+    },
+    "InstanceId": {
+     "Ref": "Server7E7D21FA"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/EipAssoc"
+   }
+  },
+  "ApiRepoEFA7BA97": {
+   "Type": "AWS::ECR::Repository",
+   "Properties": {
+    "EmptyOnDelete": true,
+    "LifecyclePolicy": {
+     "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Keep last 5 images\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":5},\"action\":{\"type\":\"expire\"}}]}"
+    },
+    "RepositoryName": "porchfest-api"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/ApiRepo/Resource"
+   }
+  },
+  "FrontendRepoF80FCC01": {
+   "Type": "AWS::ECR::Repository",
+   "Properties": {
+    "EmptyOnDelete": true,
+    "LifecyclePolicy": {
+     "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Keep last 5 images\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":5},\"action\":{\"type\":\"expire\"}}]}"
+    },
+    "RepositoryName": "porchfest-frontend"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/FrontendRepo/Resource"
+   }
+  },
+  "DatabaseUrl8D88187D": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Description": "Neon PostgreSQL connection string",
+    "Name": "/porchfest/database-url",
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": "PLACEHOLDER_SET_AFTER_NEON_SETUP"
+   },
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/DatabaseUrl/Resource"
+   }
+  },
+  "JwtSecretB8834B39": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Description": "JWT signing secret",
+    "Name": "/porchfest/jwt-secret",
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": "PLACEHOLDER_CHANGE_ME"
+   },
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/JwtSecret/Resource"
+   }
+  },
+  "FrontendUrl5D5FB01D": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Description": "Frontend URL for CORS",
+    "Name": "/porchfest/frontend-url",
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": "PLACEHOLDER_SET_AFTER_CLOUDFRONT"
+   },
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/FrontendUrl/Resource"
+   }
+  },
+  "Distribution830FAC52": {
+   "Type": "AWS::CloudFront::Distribution",
+   "Properties": {
+    "DistributionConfig": {
+     "CacheBehaviors": [
+      {
+       "AllowedMethods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PUT",
+        "PATCH",
+        "POST",
+        "DELETE"
+       ],
+       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+       "Compress": true,
+       "OriginRequestPolicyId": "216adef6-5c7f-47e4-b989-5492eafa07d3",
+       "PathPattern": "/api/*",
+       "TargetOriginId": "PorchfestDistributionOrigin1846D70AB",
+       "ViewerProtocolPolicy": "redirect-to-https"
+      },
+      {
+       "AllowedMethods": [
+        "GET",
+        "HEAD"
+       ],
+       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+       "Compress": true,
+       "OriginRequestPolicyId": "216adef6-5c7f-47e4-b989-5492eafa07d3",
+       "PathPattern": "/health",
+       "TargetOriginId": "PorchfestDistributionOrigin1846D70AB",
+       "ViewerProtocolPolicy": "redirect-to-https"
+      }
+     ],
+     "CustomErrorResponses": [
+      {
+       "ErrorCachingMinTTL": 0,
+       "ErrorCode": 404,
+       "ResponseCode": 200,
+       "ResponsePagePath": "/index.html"
+      }
+     ],
+     "DefaultCacheBehavior": {
+      "AllowedMethods": [
+       "GET",
+       "HEAD"
+      ],
+      "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+      "Compress": true,
+      "TargetOriginId": "PorchfestDistributionOrigin1846D70AB",
+      "ViewerProtocolPolicy": "redirect-to-https"
+     },
+     "Enabled": true,
+     "HttpVersion": "http2",
+     "IPV6Enabled": true,
+     "Origins": [
+      {
+       "CustomOriginConfig": {
+        "OriginProtocolPolicy": "http-only",
+        "OriginSSLProtocols": [
+         "TLSv1.2"
+        ]
+       },
+       "DomainName": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Ref": "Eip"
+          },
+          ".sslip.io"
+         ]
+        ]
+       },
+       "Id": "PorchfestDistributionOrigin1846D70AB"
+      }
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/Distribution/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VPy07DMBD8lt4dU8yJIwKEqh6I0g9ArrNB2ybeaHdNFUX+d+RAqvY0j52RZp11T892u/EXqUJ7rno82vmgPpxNA0KJAxh/ka8ZgrPzAUJi1OmDKY3mtYv3xh6m2iOXw0p3UdTHAMW75e+7+h9eRCigV6SYDfrBzg31S2bFtVczddhDNhDYzg2MJKjE05K9qmxEhvIDY/yuPfsBFJZNV5FN6Cm1HVNUO7+hKOMxlQUldqtzvisW8Zl0TJpNpBbsSR5+nLPu0W43J0GsOEXFAWzzh7/9hET0XwEAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "Porchfest/CDKMetadata/Default"
+   }
+  }
+ },
+ "Parameters": {
+  "SsmParameterValueawsserviceamiamazonlinuxlatestal2023amikernel61arm64C96584B6F00A464EAD1953AFF4B05118Parameter": {
+   "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
+   "Default": "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64"
+  },
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Outputs": {
+  "InstancePublicIp": {
+   "Description": "EC2 Elastic IP address",
+   "Value": {
+    "Ref": "Eip"
+   }
+  },
+  "InstanceId": {
+   "Description": "EC2 Instance ID",
+   "Value": {
+    "Ref": "Server7E7D21FA"
+   }
+  },
+  "CloudFrontUrl": {
+   "Description": "CloudFront distribution URL",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Fn::GetAtt": [
+        "Distribution830FAC52",
+        "DomainName"
+       ]
+      }
+     ]
+    ]
+   }
+  },
+  "CloudFrontDistributionId": {
+   "Description": "CloudFront distribution ID (for cache invalidation)",
+   "Value": {
+    "Ref": "Distribution830FAC52"
+   }
+  },
+  "SshKeyParameterName": {
+   "Description": "SSM parameter path for the SSH private key",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "/ec2/keypair/",
+      {
+       "Fn::GetAtt": [
+        "KeyPair1622897B",
+        "KeyPairId"
+       ]
+      }
+     ]
+    ]
+   }
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}
