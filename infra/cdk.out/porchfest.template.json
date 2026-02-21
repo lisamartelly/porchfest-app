@@ -1,0 +1,651 @@
+{
+ "Resources": {
+  "FrontendBucketEFE2E19C": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "BucketName": "porchfest-frontend-776290407496",
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "Tags": [
+     {
+      "Key": "aws-cdk:auto-delete-objects",
+      "Value": "true"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "porchfest/FrontendBucket/Resource"
+   }
+  },
+  "FrontendBucketPolicy1DFF75D9": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "FrontendBucketEFE2E19C"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:PutBucketPolicy",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::GetAtt": [
+          "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+          "Arn"
+         ]
+        }
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "FrontendBucketEFE2E19C",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "FrontendBucketEFE2E19C",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "s3:GetObject",
+       "Condition": {
+        "StringEquals": {
+         "AWS:SourceArn": {
+          "Fn::Join": [
+           "",
+           [
+            "arn:",
+            {
+             "Ref": "AWS::Partition"
+            },
+            ":cloudfront::",
+            {
+             "Ref": "AWS::AccountId"
+            },
+            ":distribution/",
+            {
+             "Ref": "Distribution830FAC52"
+            }
+           ]
+          ]
+         }
+        }
+       },
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "cloudfront.amazonaws.com"
+       },
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::GetAtt": [
+            "FrontendBucketEFE2E19C",
+            "Arn"
+           ]
+          },
+          "/*"
+         ]
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/FrontendBucket/Policy/Resource"
+   }
+  },
+  "FrontendBucketAutoDeleteObjectsCustomResourceDB860B32": {
+   "Type": "Custom::S3AutoDeleteObjects",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F",
+      "Arn"
+     ]
+    },
+    "BucketName": {
+     "Ref": "FrontendBucketEFE2E19C"
+    }
+   },
+   "DependsOn": [
+    "FrontendBucketPolicy1DFF75D9"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "porchfest/FrontendBucket/AutoDeleteObjectsCustomResource/Default"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-776290407496-us-east-1",
+     "S3Key": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip"
+    },
+    "Timeout": 900,
+    "MemorySize": 128,
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Lambda function for auto-deleting objects in ",
+       {
+        "Ref": "FrontendBucketEFE2E19C"
+       },
+       " S3 bucket."
+      ]
+     ]
+    }
+   },
+   "DependsOn": [
+    "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "porchfest/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler",
+    "aws:asset:path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
+    "aws:asset:property": "Code"
+   }
+  },
+  "AppRunnerEcrAccessRole23CA5BBD": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "build.apprunner.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess"
+       ]
+      ]
+     }
+    ],
+    "RoleName": "porchfest-apprunner-ecr-access"
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/AppRunnerEcrAccessRole/Resource"
+   }
+  },
+  "AppRunnerInstanceRole96A5A063": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "tasks.apprunner.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "RoleName": "porchfest-apprunner-instance"
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/AppRunnerInstanceRole/Resource"
+   }
+  },
+  "AppRunnerInstanceRoleDefaultPolicy35195718": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "ssm:GetParameters",
+       "Effect": "Allow",
+       "Resource": [
+        "arn:aws:ssm:us-east-1:776290407496:parameter/porchfest/database-url",
+        "arn:aws:ssm:us-east-1:776290407496:parameter/porchfest/jwt-secret"
+       ]
+      },
+      {
+       "Action": "kms:Decrypt",
+       "Condition": {
+        "StringEquals": {
+         "kms:ViaService": "ssm.us-east-1.amazonaws.com"
+        }
+       },
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AppRunnerInstanceRoleDefaultPolicy35195718",
+    "Roles": [
+     {
+      "Ref": "AppRunnerInstanceRole96A5A063"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/AppRunnerInstanceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AutoScalingConfig": {
+   "Type": "AWS::AppRunner::AutoScalingConfiguration",
+   "Properties": {
+    "AutoScalingConfigurationName": "porchfest-autoscaling",
+    "MaxConcurrency": 100,
+    "MaxSize": 2,
+    "MinSize": 1
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/AutoScalingConfig"
+   }
+  },
+  "AppRunnerService": {
+   "Type": "AWS::AppRunner::Service",
+   "Properties": {
+    "AutoScalingConfigurationArn": {
+     "Fn::GetAtt": [
+      "AutoScalingConfig",
+      "AutoScalingConfigurationArn"
+     ]
+    },
+    "HealthCheckConfiguration": {
+     "HealthyThreshold": 1,
+     "Interval": 20,
+     "Path": "/health",
+     "Protocol": "HTTP",
+     "Timeout": 5,
+     "UnhealthyThreshold": 5
+    },
+    "InstanceConfiguration": {
+     "Cpu": "0.25 vCPU",
+     "InstanceRoleArn": {
+      "Fn::GetAtt": [
+       "AppRunnerInstanceRole96A5A063",
+       "Arn"
+      ]
+     },
+     "Memory": "0.5 GB"
+    },
+    "ServiceName": "porchfest-api",
+    "SourceConfiguration": {
+     "AuthenticationConfiguration": {
+      "AccessRoleArn": {
+       "Fn::GetAtt": [
+        "AppRunnerEcrAccessRole23CA5BBD",
+        "Arn"
+       ]
+      }
+     },
+     "AutoDeploymentsEnabled": true,
+     "ImageRepository": {
+      "ImageConfiguration": {
+       "Port": "8080",
+       "RuntimeEnvironmentSecrets": [
+        {
+         "Name": "DATABASE_URL",
+         "Value": "arn:aws:ssm:us-east-1:776290407496:parameter/porchfest/database-url"
+        },
+        {
+         "Name": "JWT_SECRET",
+         "Value": "arn:aws:ssm:us-east-1:776290407496:parameter/porchfest/jwt-secret"
+        }
+       ],
+       "RuntimeEnvironmentVariables": [
+        {
+         "Name": "NODE_ENV",
+         "Value": "production"
+        },
+        {
+         "Name": "PORT",
+         "Value": "8080"
+        }
+       ]
+      },
+      "ImageIdentifier": {
+       "Fn::Join": [
+        "",
+        [
+         "776290407496.dkr.ecr.us-east-1.",
+         {
+          "Ref": "AWS::URLSuffix"
+         },
+         "/porchfest-api:latest"
+        ]
+       ]
+      },
+      "ImageRepositoryType": "ECR"
+     }
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/AppRunnerService"
+   }
+  },
+  "SpaRoutingFunction2C7EBFC4": {
+   "Type": "AWS::CloudFront::Function",
+   "Properties": {
+    "AutoPublish": true,
+    "FunctionCode": "function handler(event) {\n  var request = event.request;\n  var uri = request.uri;\n  if (uri !== \"/\" && !uri.includes(\".\")) {\n    request.uri = \"/index.html\";\n  }\n  return request;\n}",
+    "FunctionConfig": {
+     "Comment": "porchfest-spa-routing",
+     "Runtime": "cloudfront-js-2.0"
+    },
+    "Name": "porchfest-spa-routing"
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/SpaRoutingFunction/Resource"
+   }
+  },
+  "DistributionOrigin1S3OriginAccessControlEB606076": {
+   "Type": "AWS::CloudFront::OriginAccessControl",
+   "Properties": {
+    "OriginAccessControlConfig": {
+     "Name": "porchfestDistributionOrigin1S3OriginAccessControl0AB413BA",
+     "OriginAccessControlOriginType": "s3",
+     "SigningBehavior": "always",
+     "SigningProtocol": "sigv4"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/Distribution/Origin1/S3OriginAccessControl/Resource"
+   }
+  },
+  "Distribution830FAC52": {
+   "Type": "AWS::CloudFront::Distribution",
+   "Properties": {
+    "DistributionConfig": {
+     "CacheBehaviors": [
+      {
+       "AllowedMethods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PUT",
+        "PATCH",
+        "POST",
+        "DELETE"
+       ],
+       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+       "Compress": true,
+       "OriginRequestPolicyId": "b689b0a8-53d0-40ab-baf2-68738e2966ac",
+       "PathPattern": "/api/*",
+       "TargetOriginId": "porchfestDistributionOrigin2D930567D",
+       "ViewerProtocolPolicy": "redirect-to-https"
+      },
+      {
+       "AllowedMethods": [
+        "GET",
+        "HEAD"
+       ],
+       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+       "Compress": true,
+       "OriginRequestPolicyId": "b689b0a8-53d0-40ab-baf2-68738e2966ac",
+       "PathPattern": "/health",
+       "TargetOriginId": "porchfestDistributionOrigin2D930567D",
+       "ViewerProtocolPolicy": "redirect-to-https"
+      }
+     ],
+     "Comment": "porchfest distribution",
+     "DefaultCacheBehavior": {
+      "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+      "Compress": true,
+      "FunctionAssociations": [
+       {
+        "EventType": "viewer-request",
+        "FunctionARN": {
+         "Fn::GetAtt": [
+          "SpaRoutingFunction2C7EBFC4",
+          "FunctionARN"
+         ]
+        }
+       }
+      ],
+      "TargetOriginId": "porchfestDistributionOrigin189905FD0",
+      "ViewerProtocolPolicy": "redirect-to-https"
+     },
+     "DefaultRootObject": "index.html",
+     "Enabled": true,
+     "HttpVersion": "http2and3",
+     "IPV6Enabled": true,
+     "Origins": [
+      {
+       "DomainName": {
+        "Fn::GetAtt": [
+         "FrontendBucketEFE2E19C",
+         "RegionalDomainName"
+        ]
+       },
+       "Id": "porchfestDistributionOrigin189905FD0",
+       "OriginAccessControlId": {
+        "Fn::GetAtt": [
+         "DistributionOrigin1S3OriginAccessControlEB606076",
+         "Id"
+        ]
+       },
+       "S3OriginConfig": {
+        "OriginAccessIdentity": ""
+       }
+      },
+      {
+       "CustomOriginConfig": {
+        "OriginProtocolPolicy": "https-only",
+        "OriginSSLProtocols": [
+         "TLSv1.2"
+        ]
+       },
+       "DomainName": {
+        "Fn::GetAtt": [
+         "AppRunnerService",
+         "ServiceUrl"
+        ]
+       },
+       "Id": "porchfestDistributionOrigin2D930567D"
+      }
+     ],
+     "PriceClass": "PriceClass_100"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/Distribution/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/3VQy27CQAz8Fu7LloZTjyFVr0XJB1TLxokMwY5sbxCK8u8VSYH20NOM5yHLzny2ffObVbjoOtandYcHP1YW4smFi36NEMWX0LOisVx3QcHp1o+7FE9grmjohy2w5w7j9Skv8+QwnP1Ycgc3a8Zn8p4JfS+JCMSPRUN5Mq5i6JDagqnBNkkwZLo1KpABI0wudpzqRpjMjx+J4j3w4O+oJnhI81BtPwVbpDxGUC2YTLi7xf+Rf5enyRVJjc8lKCeJyyEP/sfaCw9Yg8zPylXBKgstUjvvStYnmxxxDf6oL0OW+ezVb1ZHRVxLIsMz+HLBbwGzpsKdAQAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "porchfest/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "CloudFrontURL": {
+   "Description": "Your app URL",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Fn::GetAtt": [
+        "Distribution830FAC52",
+        "DomainName"
+       ]
+      }
+     ]
+    ]
+   }
+  },
+  "CloudFrontDistributionId": {
+   "Description": "CloudFront distribution ID (for cache invalidation)",
+   "Value": {
+    "Ref": "Distribution830FAC52"
+   }
+  },
+  "S3BucketName": {
+   "Description": "S3 bucket for frontend files",
+   "Value": {
+    "Ref": "FrontendBucketEFE2E19C"
+   }
+  },
+  "EcrRepositoryUri": {
+   "Description": "ECR repository URI",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "776290407496.dkr.ecr.us-east-1.",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/porchfest-api"
+     ]
+    ]
+   }
+  },
+  "AppRunnerServiceUrl": {
+   "Description": "App Runner direct URL (backend API)",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Fn::GetAtt": [
+        "AppRunnerService",
+        "ServiceUrl"
+       ]
+      }
+     ]
+    ]
+   }
+  },
+  "AppRunnerServiceArn": {
+   "Description": "App Runner service ARN (for CI/CD deployment triggers)",
+   "Value": {
+    "Fn::GetAtt": [
+     "AppRunnerService",
+     "ServiceArn"
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

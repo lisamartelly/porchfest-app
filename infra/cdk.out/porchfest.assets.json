@@ -1,0 +1,36 @@
+{
+  "version": "50.0.0",
+  "files": {
+    "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6": {
+      "displayName": "porchfest/Custom::S3AutoDeleteObjectsCustomResourceProvider Code",
+      "source": {
+        "path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "776290407496-us-east-1-99702a46": {
+          "bucketName": "cdk-hnb659fds-assets-776290407496-us-east-1",
+          "objectKey": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::776290407496:role/cdk-hnb659fds-file-publishing-role-776290407496-us-east-1"
+        }
+      }
+    },
+    "b6b1625fb8fabfd392541e2b53398860b9e711ca0e73ad4f093e284e1120c062": {
+      "displayName": "porchfest Template",
+      "source": {
+        "path": "porchfest.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "776290407496-us-east-1-c20802a6": {
+          "bucketName": "cdk-hnb659fds-assets-776290407496-us-east-1",
+          "objectKey": "b6b1625fb8fabfd392541e2b53398860b9e711ca0e73ad4f093e284e1120c062.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::776290407496:role/cdk-hnb659fds-file-publishing-role-776290407496-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}
