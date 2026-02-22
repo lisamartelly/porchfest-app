@@ -16,7 +16,7 @@ A platform for organizing community music festivals where bands perform on neigh
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - npm or pnpm
 - PostgreSQL database (self-hosted or cloud)
 - Google Cloud account (for backend deployment)

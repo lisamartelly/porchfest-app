@@ -25,7 +25,7 @@ export class PorchfestStack extends cdk.Stack {
       allowAllOutbound: true,
     });
     sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), "HTTP from anywhere");
-    sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22), "SSH");
+    sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "HTTPS from anywhere");
 
     // --- IAM Role for EC2 ---
     const role = new iam.Role(this, "InstanceRole", {
@@ -44,9 +44,12 @@ export class PorchfestStack extends cdk.Stack {
       "systemctl enable docker",
       "systemctl start docker",
       "usermod -aG docker ec2-user",
-      // Install Docker Compose plugin
+      // Install Docker Compose plugin (pinned version + checksum verification)
+      'COMPOSE_VERSION=v2.32.4',
+      'COMPOSE_CHECKSUM="0c4591cf3b1ed039adcd803dbbeddf757375fc08c11245b0154135f838495a2f"',
       'mkdir -p /usr/local/lib/docker/cli-plugins',
-      'curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-aarch64" -o /usr/local/lib/docker/cli-plugins/docker-compose',
+      'curl -SL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-aarch64" -o /usr/local/lib/docker/cli-plugins/docker-compose',
+      'echo "${COMPOSE_CHECKSUM}  /usr/local/lib/docker/cli-plugins/docker-compose" | sha256sum -c -',
       'chmod +x /usr/local/lib/docker/cli-plugins/docker-compose',
       // Create app directory
       "mkdir -p /opt/porchfest",
@@ -90,15 +93,13 @@ export class PorchfestStack extends cdk.Stack {
     // --- ECR Repositories ---
     new ecr.Repository(this, "ApiRepo", {
       repositoryName: "porchfest-api",
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      emptyOnDelete: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
       lifecycleRules: [{ maxImageCount: 5, description: "Keep last 5 images" }],
     });
 
     new ecr.Repository(this, "FrontendRepo", {
       repositoryName: "porchfest-frontend",
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      emptyOnDelete: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
       lifecycleRules: [{ maxImageCount: 5, description: "Keep last 5 images" }],
     });
 
@@ -127,7 +128,7 @@ export class PorchfestStack extends cdk.Stack {
     // --- CloudFront Distribution ---
     // CloudFront requires a domain name, not an IP. Use sslip.io to map
     // {ip}.sslip.io -> the Elastic IP address without needing a custom domain.
-    const originDomain = `${this.eip.ref}.sslip.io`;
+    const originDomain = `${this.eip.attrPublicIp}.sslip.io`;
     const origin = new origins.HttpOrigin(originDomain, {
       protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
     });
@@ -167,7 +168,7 @@ export class PorchfestStack extends cdk.Stack {
 
     // --- Outputs ---
     new cdk.CfnOutput(this, "InstancePublicIp", {
-      value: this.eip.ref,
+      value: this.eip.attrPublicIp,
       description: "EC2 Elastic IP address",
     });
 

@@ -33,4 +33,8 @@ coverage/
 *.tgz
 .cache/
 
+# CDK
 cdk.out/
+
+# TypeScript build info
+*.tsbuildinfo
