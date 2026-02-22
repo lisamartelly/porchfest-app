@@ -1,9 +1,9 @@
-import { Router } from "express";
+import { Router, Response } from "express";
 import { body, validationResult } from "express-validator";
 import { adminOnly, AuthRequest } from "../middleware/auth.js";
 import { db } from "../data/db.js";
 
-export const adminRouter = Router();
+export const adminRouter: Router = Router();
 
 // All admin routes require admin role
 adminRouter.use(adminOnly);
@@ -24,7 +24,7 @@ adminRouter.get("/bands", async (req, res) => {
 adminRouter.patch(
   "/bands/:id/status",
   [body("status").isIn(["pending", "under_review", "approved", "rejected"])],
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -63,7 +63,7 @@ adminRouter.get("/porches", async (req, res) => {
 adminRouter.patch(
   "/porches/:id/status",
   [body("status").isIn(["pending", "under_review", "approved", "rejected"])],
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -115,7 +115,7 @@ adminRouter.patch(
     body("porch_applications_close").optional({ nullable: true }).isString(),
     body("reviewer_emails").optional().isArray(),
   ],
-  async (req, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const activeEvent = await db.events.findActive();
       if (!activeEvent) {
@@ -147,7 +147,7 @@ adminRouter.patch(
 adminRouter.post(
   "/events",
   [body("name").trim().notEmpty(), body("date").isString()],
-  async (req, res) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -177,7 +177,7 @@ adminRouter.post(
 adminRouter.post(
   "/events/:eventId/slots",
   [body("start_time").isISO8601(), body("end_time").isISO8601()],
-  async (req, res) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -235,7 +235,7 @@ adminRouter.patch(
     body("set_start_time").optional({ nullable: true }).isString(),
     body("set_end_time").optional({ nullable: true }).isString(),
   ],
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -370,7 +370,7 @@ adminRouter.patch(
       .isInt({ min: 1, max: 5 }),
     body("reviewer_notes").optional({ nullable: true }).isString(),
   ],
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });

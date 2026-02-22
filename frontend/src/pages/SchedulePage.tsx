@@ -71,7 +71,7 @@ export default function SchedulePage() {
             className="px-4 py-2 border-2 border-black rounded-lg bg-white font-medium"
           >
             {genres.map(genre => (
-              <option key={genre} value={genre}>
+              <option key={genre || ''} value={genre || ''}>
                 {genre === 'all' ? 'All Genres' : genre}
               </option>
             ))}
