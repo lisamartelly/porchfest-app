@@ -1,7 +1,7 @@
 # Build stage
 FROM node:22-alpine AS builder
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ RUN apk add --no-cache curl
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.25.0 --activate
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod

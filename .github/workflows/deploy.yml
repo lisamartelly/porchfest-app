@@ -41,57 +41,44 @@ jobs:
             -t ${{ steps.ecr.outputs.registry }}/porchfest-frontend:${{ github.sha }} .
           docker push ${{ steps.ecr.outputs.registry }}/porchfest-frontend:${{ github.sha }}
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            # Login to ECR
-            aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
-              docker login --username AWS --password-stdin ${{ steps.ecr.outputs.registry }}
+      - name: Deploy to EC2 via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy porchfest ${{ github.sha }}" \
+            --timeout-seconds 300 \
+            --parameters '{"commands":["/opt/porchfest/deploy.sh ${{ steps.ecr.outputs.registry }} ${{ github.sha }}"]}' \
+            --output text --query "Command.CommandId")
 
-            # Pull SSM parameters for env vars
-            export DATABASE_URL=$(aws ssm get-parameter --name /porchfest/database-url --query Parameter.Value --output text --region ${{ env.AWS_REGION }})
-            export JWT_SECRET=$(aws ssm get-parameter --name /porchfest/jwt-secret --query Parameter.Value --output text --region ${{ env.AWS_REGION }})
-            export FRONTEND_URL=$(aws ssm get-parameter --name /porchfest/frontend-url --query Parameter.Value --output text --region ${{ env.AWS_REGION }})
-            export ECR_REGISTRY=${{ steps.ecr.outputs.registry }}
-            export IMAGE_TAG=${{ github.sha }}
+          echo "SSM Command ID: $COMMAND_ID"
 
-            # Copy compose file if not present, then deploy
-            cd /opt/porchfest
-            cat > docker-compose.prod.yml << 'COMPOSE_EOF'
-            services:
-              api:
-                image: ${ECR_REGISTRY}/porchfest-api:${IMAGE_TAG:-latest}
-                environment:
-                  - NODE_ENV=production
-                  - PORT=8080
-                  - DATABASE_URL=${DATABASE_URL}
-                  - JWT_SECRET=${JWT_SECRET}
-                  - FRONTEND_URL=${FRONTEND_URL}
-                restart: always
-                healthcheck:
-                  test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-                  interval: 30s
-                  timeout: 5s
-                  retries: 3
-                  start_period: 10s
+          # Poll for completion
+          for i in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+              --query "Status" --output text 2>/dev/null || echo "InProgress")
 
-              nginx:
-                image: ${ECR_REGISTRY}/porchfest-frontend:${IMAGE_TAG:-latest}
-                ports:
-                  - "80:80"
-                depends_on:
-                  api:
-                    condition: service_healthy
-                restart: always
-            COMPOSE_EOF
-
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
-            docker image prune -f
+            case $STATUS in
+              Success)
+                echo "Deployment successful"
+                break
+                ;;
+              Failed|TimedOut|Cancelled)
+                echo "Deployment failed with status: $STATUS"
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+                  --query "StandardErrorContent" --output text
+                exit 1
+                ;;
+              *)
+                echo "Status: $STATUS, waiting..."
+                sleep 5
+                ;;
+            esac
+          done
 
       - name: Invalidate CloudFront cache
         run: |

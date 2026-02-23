@@ -32,9 +32,17 @@ export class PorchfestStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonEC2ContainerRegistryReadOnly"),
-        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMReadOnlyAccess"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"),
       ],
     });
+
+    // Allow reading SecureString SSM parameters under /porchfest/*
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: ["ssm:GetParameter", "ssm:GetParameters"],
+      resources: [
+        `arn:aws:ssm:${this.region}:${this.account}:parameter/porchfest/*`,
+      ],
+    }));
 
     // --- EC2 Instance ---
     const userData = ec2.UserData.forLinux();
@@ -54,13 +62,52 @@ export class PorchfestStack extends cdk.Stack {
       // Create app directory
       "mkdir -p /opt/porchfest",
       "chown ec2-user:ec2-user /opt/porchfest",
+      // Write docker-compose.prod.yml
+      `cat > /opt/porchfest/docker-compose.prod.yml << 'COMPOSEEOF'
+services:
+  api:
+    image: \${ECR_REGISTRY}/porchfest-api:\${IMAGE_TAG:-latest}
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - DATABASE_URL=\${DATABASE_URL}
+      - JWT_SECRET=\${JWT_SECRET}
+      - FRONTEND_URL=\${FRONTEND_URL}
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  nginx:
+    image: \${ECR_REGISTRY}/porchfest-frontend:\${IMAGE_TAG:-latest}
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: always
+COMPOSEEOF`,
+      // Write deploy script
+      `cat > /opt/porchfest/deploy.sh << 'SCRIPTEOF'
+#!/bin/bash
+set -euo pipefail
+ECR_REGISTRY=\$1
+IMAGE_TAG=\$2
+REGION=us-east-2
+aws ecr get-login-password --region \$REGION | docker login --username AWS --password-stdin \$ECR_REGISTRY
+export DATABASE_URL=\$(aws ssm get-parameter --name /porchfest/database-url --with-decryption --query Parameter.Value --output text --region \$REGION)
+export JWT_SECRET=\$(aws ssm get-parameter --name /porchfest/jwt-secret --with-decryption --query Parameter.Value --output text --region \$REGION)
+export FRONTEND_URL=\$(aws ssm get-parameter --name /porchfest/frontend-url --query Parameter.Value --output text --region \$REGION)
+export ECR_REGISTRY IMAGE_TAG
+cd /opt/porchfest
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+docker image prune -f
+SCRIPTEOF`,
+      "chmod +x /opt/porchfest/deploy.sh",
     );
-
-    // --- SSH Key Pair (private key stored in SSM Parameter Store) ---
-    const keyPair = new ec2.KeyPair(this, "KeyPair", {
-      keyPairName: "porchfest-key",
-      type: ec2.KeyPairType.ED25519,
-    });
 
     this.instance = new ec2.Instance(this, "Server", {
       vpc: this.vpc,
@@ -72,7 +119,6 @@ export class PorchfestStack extends cdk.Stack {
       securityGroup: sg,
       role,
       userData,
-      keyPair,
       blockDevices: [
         {
           deviceName: "/dev/xvda",
@@ -103,20 +149,10 @@ export class PorchfestStack extends cdk.Stack {
       lifecycleRules: [{ maxImageCount: 5, description: "Keep last 5 images" }],
     });
 
-    // --- SSM Parameters (placeholder values — set manually after deploy) ---
-    new ssm.StringParameter(this, "DatabaseUrl", {
-      parameterName: "/porchfest/database-url",
-      stringValue: "PLACEHOLDER_SET_AFTER_NEON_SETUP",
-      description: "Neon PostgreSQL connection string",
-      tier: ssm.ParameterTier.STANDARD,
-    });
-
-    new ssm.StringParameter(this, "JwtSecret", {
-      parameterName: "/porchfest/jwt-secret",
-      stringValue: "PLACEHOLDER_CHANGE_ME",
-      description: "JWT signing secret",
-      tier: ssm.ParameterTier.STANDARD,
-    });
+    // --- SSM Parameters ---
+    // Secrets are created manually as SecureString to avoid plaintext in CloudFormation:
+    //   aws ssm put-parameter --name /porchfest/database-url --type SecureString --value "<value>"
+    //   aws ssm put-parameter --name /porchfest/jwt-secret --type SecureString --value "<value>"
 
     new ssm.StringParameter(this, "FrontendUrl", {
       parameterName: "/porchfest/frontend-url",
@@ -185,11 +221,6 @@ export class PorchfestStack extends cdk.Stack {
     new cdk.CfnOutput(this, "CloudFrontDistributionId", {
       value: distribution.distributionId,
       description: "CloudFront distribution ID (for cache invalidation)",
-    });
-
-    new cdk.CfnOutput(this, "SshKeyParameterName", {
-      value: `/ec2/keypair/${keyPair.keyPairId}`,
-      description: "SSM parameter path for the SSH private key",
     });
   }
 }
