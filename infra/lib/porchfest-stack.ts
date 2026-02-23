@@ -24,8 +24,16 @@ export class PorchfestStack extends cdk.Stack {
       description: "Porchfest EC2 security group",
       allowAllOutbound: true,
     });
-    sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), "HTTP from anywhere");
-    sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "HTTPS from anywhere");
+
+    // Restrict inbound to CloudFront only using AWS-managed prefix list
+    const cfPrefixList = ec2.PrefixList.fromLookup(this, "CloudFrontPrefixList", {
+      prefixListName: "com.amazonaws.global.cloudfront.origin-facing",
+    });
+    sg.addIngressRule(
+      ec2.Peer.prefixList(cfPrefixList.prefixListId),
+      ec2.Port.tcp(80),
+      "HTTP from CloudFront"
+    );
 
     // --- IAM Role for EC2 ---
     const role = new iam.Role(this, "InstanceRole", {
@@ -53,11 +61,9 @@ export class PorchfestStack extends cdk.Stack {
       "systemctl start docker",
       "usermod -aG docker ec2-user",
       // Install Docker Compose plugin (pinned version + checksum verification)
-      'COMPOSE_VERSION=v2.32.4',
-      'COMPOSE_CHECKSUM="0c4591cf3b1ed039adcd803dbbeddf757375fc08c11245b0154135f838495a2f"',
       'mkdir -p /usr/local/lib/docker/cli-plugins',
-      'curl -SL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-aarch64" -o /usr/local/lib/docker/cli-plugins/docker-compose',
-      'echo "${COMPOSE_CHECKSUM}  /usr/local/lib/docker/cli-plugins/docker-compose" | sha256sum -c -',
+      'curl -SL "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-aarch64" -o /usr/local/lib/docker/cli-plugins/docker-compose',
+      'echo "0c4591cf3b1ed039adcd803dbbeddf757375fc08c11245b0154135f838495a2f  /usr/local/lib/docker/cli-plugins/docker-compose" | sha256sum -c -',
       'chmod +x /usr/local/lib/docker/cli-plugins/docker-compose',
       // Create app directory
       "mkdir -p /opt/porchfest",
@@ -95,7 +101,7 @@ COMPOSEEOF`,
 set -euo pipefail
 ECR_REGISTRY=\$1
 IMAGE_TAG=\$2
-REGION=us-east-2
+REGION=${this.region}
 aws ecr get-login-password --region \$REGION | docker login --username AWS --password-stdin \$ECR_REGISTRY
 export DATABASE_URL=\$(aws ssm get-parameter --name /porchfest/database-url --with-decryption --query Parameter.Value --output text --region \$REGION)
 export JWT_SECRET=\$(aws ssm get-parameter --name /porchfest/jwt-secret --with-decryption --query Parameter.Value --output text --region \$REGION)
@@ -149,24 +155,13 @@ SCRIPTEOF`,
       lifecycleRules: [{ maxImageCount: 5, description: "Keep last 5 images" }],
     });
 
-    // --- SSM Parameters ---
-    // Secrets are created manually as SecureString to avoid plaintext in CloudFormation:
-    //   aws ssm put-parameter --name /porchfest/database-url --type SecureString --value "<value>"
-    //   aws ssm put-parameter --name /porchfest/jwt-secret --type SecureString --value "<value>"
-
-    new ssm.StringParameter(this, "FrontendUrl", {
-      parameterName: "/porchfest/frontend-url",
-      stringValue: "PLACEHOLDER_SET_AFTER_CLOUDFRONT",
-      description: "Frontend URL for CORS",
-      tier: ssm.ParameterTier.STANDARD,
-    });
-
     // --- CloudFront Distribution ---
     // CloudFront requires a domain name, not an IP. Use sslip.io to map
     // {ip}.sslip.io -> the Elastic IP address without needing a custom domain.
     const originDomain = `${this.eip.attrPublicIp}.sslip.io`;
     const origin = new origins.HttpOrigin(originDomain, {
-      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+      originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
     });
 
     const distribution = new cloudfront.Distribution(this, "Distribution", {
@@ -200,6 +195,18 @@ SCRIPTEOF`,
           ttl: cdk.Duration.seconds(0),
         },
       ],
+    });
+
+    // --- SSM Parameters ---
+    // Secrets are created manually as SecureString to avoid plaintext in CloudFormation:
+    //   aws ssm put-parameter --name /porchfest/database-url --type SecureString --value "<value>"
+    //   aws ssm put-parameter --name /porchfest/jwt-secret --type SecureString --value "<value>"
+
+    new ssm.StringParameter(this, "FrontendUrl", {
+      parameterName: "/porchfest/frontend-url",
+      stringValue: `https://${distribution.distributionDomainName}`,
+      description: "Frontend URL for CORS",
+      tier: ssm.ParameterTier.STANDARD,
     });
 
     // --- Outputs ---
