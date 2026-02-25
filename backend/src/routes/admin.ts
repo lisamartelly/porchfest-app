@@ -1,4 +1,4 @@
-import { Router, Response } from "express";
+import { Router, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 import { adminOnly, superDuperAdminOnly, AuthRequest } from "../middleware/auth.js";
@@ -14,7 +14,7 @@ adminRouter.use(adminOnly);
 // =========================================================================
 
 // List all organizations
-adminRouter.get("/organizations", superDuperAdminOnly, async (req, res) => {
+adminRouter.get("/organizations", superDuperAdminOnly, async (req: Request, res: Response) => {
   try {
     const orgs = await db.organizations.findAll();
     res.json(orgs);
@@ -41,7 +41,7 @@ adminRouter.post(
     body("website").optional().trim(),
     body("contact_email").optional().isEmail(),
   ],
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -79,7 +79,7 @@ adminRouter.post(
 // =========================================================================
 
 // List all users with their org memberships
-adminRouter.get("/users", superDuperAdminOnly, async (req, res) => {
+adminRouter.get("/users", superDuperAdminOnly, async (req: Request, res: Response) => {
   try {
     const users = await db.users.findAll();
     const usersWithOrgs = await Promise.all(
@@ -115,7 +115,7 @@ adminRouter.post(
       .withMessage("Role must be admin or reviewer"),
     body("organization_id").optional().isString(),
   ],
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -173,7 +173,7 @@ adminRouter.post(
 // =========================================================================
 
 // List events for the current user's organizations
-adminRouter.get("/my-events", async (req: AuthRequest, res) => {
+adminRouter.get("/my-events", async (req: AuthRequest, res: Response) => {
   try {
     if (req.user?.role === "super-duper-admin") {
       const allEvents = await db.events.findAll();
@@ -203,7 +203,7 @@ adminRouter.get("/my-events", async (req: AuthRequest, res) => {
 });
 
 // Get organizations the current user belongs to (for event creation dropdown)
-adminRouter.get("/my-organizations", async (req: AuthRequest, res) => {
+adminRouter.get("/my-organizations", async (req: AuthRequest, res: Response) => {
   try {
     if (req.user?.role === "super-duper-admin") {
       const allOrgs = await db.organizations.findAll();
@@ -221,7 +221,7 @@ adminRouter.get("/my-organizations", async (req: AuthRequest, res) => {
 });
 
 // Get all bands
-adminRouter.get("/bands", async (req, res) => {
+adminRouter.get("/bands", async (req: Request, res: Response) => {
   try {
     const { status } = req.query;
     const allBands = await db.bands.findAll(status as string | undefined);
@@ -260,7 +260,7 @@ adminRouter.patch(
 );
 
 // Get all porches
-adminRouter.get("/porches", async (req, res) => {
+adminRouter.get("/porches", async (req: Request, res: Response) => {
   try {
     const { status } = req.query;
     const allPorches = await db.porches.findAll(status as string | undefined);
@@ -299,7 +299,7 @@ adminRouter.patch(
 );
 
 // Get active event settings
-adminRouter.get("/event", async (req, res) => {
+adminRouter.get("/event", async (req: Request, res: Response) => {
   try {
     const activeEvent = await db.events.findActive();
     if (!activeEvent) {
@@ -424,7 +424,7 @@ adminRouter.patch(
     body("porch_applications_close").optional({ nullable: true }).isString(),
     body("reviewer_emails").optional().isArray(),
   ],
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const { eventId } = req.params;
       const event = await db.events.findById(eventId);
@@ -494,7 +494,7 @@ adminRouter.post(
 );
 
 // Get scheduling data
-adminRouter.get("/scheduling", async (req, res) => {
+adminRouter.get("/scheduling", async (req: Request, res: Response) => {
   try {
     const approvedBands = await db.bands.findApproved();
     const approvedPorches = await db.porches.findApproved();
