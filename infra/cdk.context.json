@@ -36,5 +36,43 @@
       "PrefixListId": "pl-b6a144df",
       "Identifier": "pl-b6a144df"
     }
+  ],
+  "vpc-provider:account=776290407496:filter.isDefault=true:region=us-east-2:returnAsymmetricSubnets=true": {
+    "vpcId": "vpc-d76880be",
+    "vpcCidrBlock": "172.31.0.0/16",
+    "ownerAccountId": "776290407496",
+    "availabilityZones": [],
+    "subnetGroups": [
+      {
+        "name": "Public",
+        "type": "Public",
+        "subnets": [
+          {
+            "subnetId": "subnet-1683757f",
+            "cidr": "172.31.0.0/20",
+            "availabilityZone": "us-east-2a",
+            "routeTableId": "rtb-68b75c01"
+          },
+          {
+            "subnetId": "subnet-b7bbb2cf",
+            "cidr": "172.31.16.0/20",
+            "availabilityZone": "us-east-2b",
+            "routeTableId": "rtb-68b75c01"
+          },
+          {
+            "subnetId": "subnet-48bd9402",
+            "cidr": "172.31.32.0/20",
+            "availabilityZone": "us-east-2c",
+            "routeTableId": "rtb-68b75c01"
+          }
+        ]
+      }
+    ]
+  },
+  "cc-api-provider:account=776290407496:expectedMatchCount=exactly-one:propertiesToReturn.0=PrefixListId:propertyMatch.PrefixListName=com.amazonaws.global.cloudfront.origin-facing:region=us-east-2:typeName=AWS$:$:EC2$:$:PrefixList": [
+    {
+      "PrefixListId": "pl-b6a144df",
+      "Identifier": "pl-b6a144df"
+    }
   ]
 }
