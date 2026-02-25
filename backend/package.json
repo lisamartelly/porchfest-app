@@ -7,7 +7,11 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint src/",
-    "db:reset": "docker compose down -v && docker compose up -d db && sleep 3 && echo 'Database reset complete'"
+    "migrate:up": "node-pg-migrate up",
+    "migrate:down": "node-pg-migrate down",
+    "migrate:create": "node-pg-migrate create --migration-file-language sql",
+    "db:reset": "docker compose -f ../docker-compose.yml down -v && docker compose -f ../docker-compose.yml up -d db && until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done && pnpm migrate:up && echo 'Database reset complete'",
+    "db:seed": "psql $DATABASE_URL -f seed-dev.sql"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -18,17 +22,22 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "node-pg-migrate": "^8.0.4",
     "pg": "^8.11.5"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
+    "@types/eslint": "^9.6.1",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.11.6",
+    "eslint": "^10.0.1",
     "tsx": "^4.16.2",
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.56.0"
   }
 }

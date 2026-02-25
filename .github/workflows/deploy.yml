@@ -1,0 +1,89 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-2
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            backend/pnpm-lock.yaml
+            frontend/pnpm-lock.yaml
+
+      - name: Build backend
+        working-directory: backend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ec2-user
+          SSH_KEY: ~/.ssh/deploy_key
+        run: |
+          SSH_OPTS="-o StrictHostKeyChecking=no -i $SSH_KEY"
+
+          echo "==> Syncing frontend…"
+          rsync -az --delete -e "ssh $SSH_OPTS" \
+            frontend/dist/ \
+            "${EC2_USER}@${EC2_HOST}:/opt/porchfest/frontend/"
+
+          echo "==> Syncing backend…"
+          rsync -az --delete -e "ssh $SSH_OPTS" \
+            --include='dist/***' \
+            --include='migrations/***' \
+            --include='package.json' \
+            --include='pnpm-lock.yaml' \
+            --include='.node-pg-migrate.json' \
+            --exclude='*' \
+            backend/ \
+            "${EC2_USER}@${EC2_HOST}:/opt/porchfest/backend/"
+
+          echo "==> Activating on remote…"
+          ssh $SSH_OPTS "${EC2_USER}@${EC2_HOST}" "/opt/porchfest/activate.sh"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"

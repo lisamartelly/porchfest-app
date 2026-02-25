@@ -1,7 +1,7 @@
 // Placeholder - will be replaced with self-hosted DB client
 // For now, we'll use the backend API for all data operations
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
 export const api = {
   get: async (endpoint: string) => {

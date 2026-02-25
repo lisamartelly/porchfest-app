@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../data/db.js";
 
-export const eventsRouter = Router();
+export const eventsRouter: Router = Router();
 
 eventsRouter.get("/", async (req, res) => {
   try {

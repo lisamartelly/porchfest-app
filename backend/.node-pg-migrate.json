@@ -1,0 +1,6 @@
+{
+  "migrationsDir": "migrations",
+  "direction": "up",
+  "migrationType": "sql",
+  "envName": "DATABASE_URL"
+}

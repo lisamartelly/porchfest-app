@@ -16,21 +16,32 @@ A platform for organizing community music festivals where bands perform on neigh
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - npm or pnpm
 - PostgreSQL database (self-hosted or cloud)
 - Google Cloud account (for backend deployment)
 - Vercel account (for frontend deployment)
 
-### 1. Set up PostgreSQL
+### 1. Start PostgreSQL
 
-Run the migration to create tables:
+Using Docker Compose (recommended):
 
 ```bash
-psql -d your_database -f supabase/migrations/001_initial_schema.sql
+docker compose up -d db
 ```
 
-### 2. Configure Environment Variables
+Or use any PostgreSQL 16+ instance.
+
+### 2. Run Database Migrations
+
+```bash
+cd backend
+pnpm migrate:up
+```
+
+This creates all tables and seeds the admin user. See [Database Migrations](#-database-migrations) for details.
+
+### 3. Configure Environment Variables
 
 **Frontend** (`frontend/.env`):
 ```env
@@ -45,7 +56,7 @@ JWT_SECRET=your-secret-key-change-in-production
 FRONTEND_URL=http://localhost:5173
 ```
 
-### 3. Install Dependencies
+### 4. Install Dependencies
 
 ```bash
 # Frontend
@@ -57,7 +68,7 @@ cd ../backend
 pnpm install
 ```
 
-### 4. Run Development Servers
+### 5. Run Development Servers
 
 ```bash
 # Terminal 1 - Frontend
@@ -83,17 +94,17 @@ porchfest/
 │   │   ├── stores/         # Zustand state
 │   │   ├── lib/            # API client
 │   │   └── types/          # TypeScript types
-│   └── ...
+│   └── Dockerfile
 ├── backend/                # Express API
 │   ├── src/
 │   │   ├── routes/         # API endpoints
 │   │   ├── middleware/     # Auth middleware
-│   │   └── lib/            # Database client
+│   │   └── data/           # Database client & types
+│   ├── migrations/         # SQL migrations (node-pg-migrate)
+│   ├── seed-dev.sql        # Sample data for local dev
 │   └── Dockerfile
-├── supabase/               # Database (name kept for folder structure)
-│   └── migrations/         # SQL migrations
-├── docker-compose.yml      # Local Docker setup
-└── cloudbuild.yaml        # Google Cloud Build
+├── database/               # Legacy init scripts (reference only)
+└── docker-compose.yml      # Local Docker setup
 ```
 
 ## 🎭 User Roles
@@ -110,6 +121,49 @@ porchfest/
 2. **Review**: Admins review and vet submissions
 3. **Approve/Reject**: Update status with optional notes
 4. **Schedule**: Match approved bands with porches
+
+## 🗄️ Database Migrations
+
+Schema changes are managed with [node-pg-migrate](https://github.com/salsita/node-pg-migrate). Migration files live in `backend/migrations/` and use plain SQL with `-- Up Migration` and `-- Down Migration` sections.
+
+### Commands
+
+All commands run from the `backend/` directory and use `DATABASE_URL` from your environment.
+
+```bash
+pnpm migrate:up                          # Apply all pending migrations
+pnpm migrate:down                        # Roll back the last migration
+pnpm migrate:create my-change-name       # Create a new migration file
+```
+
+### Writing a Migration
+
+Generated migration files have `-- Up Migration` and `-- Down Migration` markers. Write your forward change under Up and the reverse under Down:
+
+```sql
+-- Up Migration
+ALTER TABLE porches ADD COLUMN phone VARCHAR(50);
+
+-- Down Migration
+ALTER TABLE porches DROP COLUMN phone;
+```
+
+### Dev Seed Data
+
+Sample data (events, porches, bands) for local development is in `backend/seed-dev.sql`. Load it after running migrations:
+
+```bash
+pnpm db:seed
+```
+
+### Full Database Reset
+
+To wipe and recreate everything from scratch:
+
+```bash
+pnpm db:reset        # Destroys Docker volume, recreates DB, runs migrations
+pnpm db:seed         # (optional) Load sample data
+```
 
 ## 🚢 Deployment
 

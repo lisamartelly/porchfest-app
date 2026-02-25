@@ -1,0 +1,285 @@
+import * as cdk from "aws-cdk-lib";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as ssm from "aws-cdk-lib/aws-ssm";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import { Construct } from "constructs";
+
+export class PorchfestStack extends cdk.Stack {
+  public readonly vpc: ec2.IVpc;
+  public readonly instance: ec2.Instance;
+  public readonly eip: ec2.CfnEIP;
+
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // --- VPC (use default to avoid NAT gateway costs) ---
+    this.vpc = ec2.Vpc.fromLookup(this, "Vpc", { isDefault: true });
+
+    // --- Security Group ---
+    const sg = new ec2.SecurityGroup(this, "InstanceSg", {
+      vpc: this.vpc,
+      description: "Porchfest EC2 security group",
+      allowAllOutbound: true,
+    });
+
+    // Restrict inbound to CloudFront only using AWS-managed prefix list
+    const cfPrefixList = ec2.PrefixList.fromLookup(this, "CloudFrontPrefixList", {
+      prefixListName: "com.amazonaws.global.cloudfront.origin-facing",
+    });
+    sg.addIngressRule(
+      ec2.Peer.prefixList(cfPrefixList.prefixListId),
+      ec2.Port.tcp(80),
+      "HTTP from CloudFront"
+    );
+
+    // SSH access (restricted to your IP — update as needed)
+    sg.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(22),
+      "SSH access"
+    );
+
+    // --- IAM Role for EC2 ---
+    const role = new iam.Role(this, "InstanceRole", {
+      assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"),
+      ],
+    });
+
+    // Allow reading SecureString SSM parameters under /porchfest/*
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: ["ssm:GetParameter", "ssm:GetParameters"],
+      resources: [
+        `arn:aws:ssm:${this.region}:${this.account}:parameter/porchfest/*`,
+      ],
+    }));
+
+    // --- Key Pair (import an existing key pair by name) ---
+    const keyPair = ec2.KeyPair.fromKeyPairAttributes(this, "KeyPair", {
+      keyPairName: "porchfest-ec2",
+      type: ec2.KeyPairType.ED25519,
+    });
+
+    // --- EC2 Instance ---
+    const userData = ec2.UserData.forLinux();
+    userData.addCommands(
+      "dnf update -y",
+
+      // Install Node.js 22 via NodeSource
+      'curl -fsSL https://rpm.nodesource.com/setup_22.x | bash -',
+      "dnf install -y nodejs nginx",
+      "npm install -g pnpm@10",
+
+      // Enable and start nginx
+      "systemctl enable nginx",
+
+      // Create app directories
+      "mkdir -p /opt/porchfest/backend",
+      "mkdir -p /opt/porchfest/frontend",
+      "chown -R ec2-user:ec2-user /opt/porchfest",
+
+      // Write nginx config
+      `cat > /etc/nginx/conf.d/porchfest.conf << 'NGINXEOF'
+server {
+    listen 80 default_server;
+    server_name _;
+    root /opt/porchfest/frontend;
+    index index.html;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied expired no-cache no-store private auth;
+    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml application/javascript application/json;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /health {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+}
+NGINXEOF`,
+      // Remove default nginx server block so ours takes effect
+      "rm -f /etc/nginx/conf.d/default.conf",
+      "sed -i '/^[[:space:]]*server {/,/^[[:space:]]*}/d' /etc/nginx/nginx.conf || true",
+      "systemctl start nginx",
+
+      // Write systemd service for the backend
+      `cat > /etc/systemd/system/porchfest-api.service << 'SERVICEEOF'
+[Unit]
+Description=Porchfest API
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/opt/porchfest/backend
+EnvironmentFile=/opt/porchfest/backend/.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SERVICEEOF`,
+      "systemctl daemon-reload",
+      "systemctl enable porchfest-api",
+
+      // Write server-side deploy helper (called after rsync)
+      `cat > /opt/porchfest/activate.sh << 'SCRIPTEOF'
+#!/bin/bash
+set -euo pipefail
+REGION=${this.region}
+
+# Fetch secrets from SSM and write .env
+DATABASE_URL=$(aws ssm get-parameter --name /porchfest/database-url --with-decryption --query Parameter.Value --output text --region $REGION)
+JWT_SECRET=$(aws ssm get-parameter --name /porchfest/jwt-secret --with-decryption --query Parameter.Value --output text --region $REGION)
+FRONTEND_URL=$(aws ssm get-parameter --name /porchfest/frontend-url --query Parameter.Value --output text --region $REGION)
+
+cat > /opt/porchfest/backend/.env << ENVEOF
+NODE_ENV=production
+PORT=8080
+DATABASE_URL=$DATABASE_URL
+JWT_SECRET=$JWT_SECRET
+FRONTEND_URL=$FRONTEND_URL
+ENVEOF
+chmod 600 /opt/porchfest/backend/.env
+
+# Install production dependencies
+cd /opt/porchfest/backend
+pnpm install --frozen-lockfile --prod
+
+# Run database migrations
+DATABASE_URL=$DATABASE_URL pnpm node-pg-migrate up
+
+# Restart services
+sudo systemctl restart porchfest-api
+sudo systemctl reload nginx
+SCRIPTEOF`,
+      "chmod +x /opt/porchfest/activate.sh",
+    );
+
+    this.instance = new ec2.Instance(this, "Server", {
+      vpc: this.vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.MICRO),
+      machineImage: ec2.MachineImage.latestAmazonLinux2023({
+        cpuType: ec2.AmazonLinuxCpuType.ARM_64,
+      }),
+      securityGroup: sg,
+      role,
+      userData,
+      keyPair,
+      blockDevices: [
+        {
+          deviceName: "/dev/xvda",
+          volume: ec2.BlockDeviceVolume.ebs(20, {
+            volumeType: ec2.EbsDeviceVolumeType.GP3,
+          }),
+        },
+      ],
+    });
+
+    // --- Elastic IP ---
+    this.eip = new ec2.CfnEIP(this, "Eip");
+    new ec2.CfnEIPAssociation(this, "EipAssoc", {
+      allocationId: this.eip.attrAllocationId,
+      instanceId: this.instance.instanceId,
+    });
+
+    // --- CloudFront Distribution ---
+    const originDomain = `${this.eip.attrPublicIp}.sslip.io`;
+    const origin = new origins.HttpOrigin(originDomain, {
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+    });
+
+    const distribution = new cloudfront.Distribution(this, "Distribution", {
+      defaultBehavior: {
+        origin,
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+      },
+      additionalBehaviors: {
+        "/api/*": {
+          origin,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+        },
+        "/health": {
+          origin,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+        },
+      },
+      errorResponses: [
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: "/index.html",
+          ttl: cdk.Duration.seconds(0),
+        },
+      ],
+    });
+
+    // --- SSM Parameters ---
+    // Secrets are created manually as SecureString to avoid plaintext in CloudFormation:
+    //   aws ssm put-parameter --name /porchfest/database-url --type SecureString --value "<value>"
+    //   aws ssm put-parameter --name /porchfest/jwt-secret --type SecureString --value "<value>"
+
+    new ssm.StringParameter(this, "FrontendUrl", {
+      parameterName: "/porchfest/frontend-url",
+      stringValue: `https://${distribution.distributionDomainName}`,
+      description: "Frontend URL for CORS",
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    // --- Outputs ---
+    new cdk.CfnOutput(this, "InstancePublicIp", {
+      value: this.eip.attrPublicIp,
+      description: "EC2 Elastic IP address",
+    });
+
+    new cdk.CfnOutput(this, "InstanceId", {
+      value: this.instance.instanceId,
+      description: "EC2 Instance ID",
+    });
+
+    new cdk.CfnOutput(this, "CloudFrontUrl", {
+      value: `https://${distribution.distributionDomainName}`,
+      description: "CloudFront distribution URL",
+    });
+
+    new cdk.CfnOutput(this, "CloudFrontDistributionId", {
+      value: distribution.distributionId,
+      description: "CloudFront distribution ID (for cache invalidation)",
+    });
+  }
+}

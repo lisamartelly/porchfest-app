@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 import {
@@ -9,7 +9,7 @@ import {
 } from "../middleware/auth.js";
 import { db } from "../data/db.js";
 
-export const authRouter = Router();
+export const authRouter: Router = Router();
 
 // Register - only super-duper-admin can create new users
 authRouter.post(
@@ -25,7 +25,7 @@ authRouter.post(
       .isIn(["admin", "reviewer", "super-duper-admin"])
       .withMessage("Invalid role"),
   ],
-  async (req: AuthRequest, res) => {
+  async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -70,7 +70,7 @@ authRouter.post(
     body("email").isEmail().withMessage("Valid email required"),
     body("password").notEmpty().withMessage("Password required"),
   ],
-  async (req, res) => {
+  async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });

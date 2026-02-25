@@ -1,14 +1,10 @@
--- Porchfest Database Schema
--- PostgreSQL - compatible with any Postgres (Docker, RDS, etc.)
+-- Initial database schema for Porchfest
 
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Up Migration
 
--- ============================================================================
--- USERS TABLE
--- ============================================================================
+-- Users
 CREATE TABLE users (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'user-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'user-' || substr(gen_random_uuid()::text, 1, 8),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'reviewer')),
@@ -18,11 +14,9 @@ CREATE TABLE users (
 
 CREATE INDEX idx_users_email ON users(email);
 
--- ============================================================================
--- ORGANIZATIONS TABLE
--- ============================================================================
+-- Organizations
 CREATE TABLE organizations (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'org-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'org-' || substr(gen_random_uuid()::text, 1, 8),
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE NOT NULL,
     description TEXT,
@@ -37,11 +31,9 @@ CREATE TABLE organizations (
 
 CREATE INDEX idx_organizations_slug ON organizations(slug);
 
--- ============================================================================
--- USER_ORGANIZATIONS JUNCTION TABLE (many-to-many: users <-> organizations)
--- ============================================================================
+-- User-Organization junction (many-to-many)
 CREATE TABLE user_organizations (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'uo-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'uo-' || substr(gen_random_uuid()::text, 1, 8),
     user_id VARCHAR(50) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     organization_id VARCHAR(50) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     role VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
@@ -52,11 +44,9 @@ CREATE TABLE user_organizations (
 CREATE INDEX idx_user_organizations_user_id ON user_organizations(user_id);
 CREATE INDEX idx_user_organizations_organization_id ON user_organizations(organization_id);
 
--- ============================================================================
--- EVENTS TABLE
--- ============================================================================
+-- Events
 CREATE TABLE events (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'event-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'event-' || substr(gen_random_uuid()::text, 1, 8),
     organization_id VARCHAR(50) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     date DATE NOT NULL,
@@ -78,11 +68,9 @@ CREATE INDEX idx_events_is_active ON events(is_active);
 CREATE INDEX idx_events_date ON events(date);
 CREATE INDEX idx_events_organization_id ON events(organization_id);
 
--- ============================================================================
--- PORCHES TABLE
--- ============================================================================
+-- Porches
 CREATE TABLE porches (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'porch-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'porch-' || substr(gen_random_uuid()::text, 1, 8),
     event_id VARCHAR(50) NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     owner_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
@@ -104,11 +92,9 @@ CREATE INDEX idx_porches_status ON porches(status);
 CREATE INDEX idx_porches_email ON porches(email);
 CREATE INDEX idx_porches_event_id ON porches(event_id);
 
--- ============================================================================
--- BANDS TABLE
--- ============================================================================
+-- Bands
 CREATE TABLE bands (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'band-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'band-' || substr(gen_random_uuid()::text, 1, 8),
     event_id VARCHAR(50) NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     band_name VARCHAR(255) NOT NULL,
     contact_name VARCHAR(255) NOT NULL,
@@ -119,8 +105,6 @@ CREATE TABLE bands (
     music_sample_link TEXT,
     bio TEXT,
     set_length VARCHAR(20),
-    
-    -- Social links
     venmo_handle VARCHAR(100),
     instagram VARCHAR(100),
     spotify VARCHAR(100),
@@ -128,8 +112,6 @@ CREATE TABLE bands (
     bandcamp VARCHAR(100),
     facebook VARCHAR(100),
     website TEXT,
-    
-    -- Application details
     scheduling_notes TEXT,
     equipment_consent VARCHAR(20),
     payment_consent VARCHAR(20),
@@ -137,22 +119,15 @@ CREATE TABLE bands (
     has_photo BOOLEAN DEFAULT false,
     photo_filename VARCHAR(255),
     questions_comments TEXT,
-    
-    -- Status and admin
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'under_review', 'approved', 'rejected')),
     admin_notes TEXT,
-    
-    -- Scheduling (assigned by admin)
     assigned_porch_id VARCHAR(50) REFERENCES porches(id) ON DELETE SET NULL,
     set_start_time TIME,
     set_end_time TIME,
-    
-    -- Reviewer assignment
     assigned_reviewer_id VARCHAR(50) REFERENCES users(id) ON DELETE SET NULL,
     assigned_reviewer_email VARCHAR(255),
     reviewer_rating INTEGER CHECK (reviewer_rating >= 1 AND reviewer_rating <= 5),
     reviewer_notes TEXT,
-    
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -163,13 +138,9 @@ CREATE INDEX idx_bands_assigned_porch_id ON bands(assigned_porch_id);
 CREATE INDEX idx_bands_assigned_reviewer_id ON bands(assigned_reviewer_id);
 CREATE INDEX idx_bands_event_id ON bands(event_id);
 
-
-
--- ============================================================================
--- TIME SLOTS TABLE
--- ============================================================================
+-- Time Slots
 CREATE TABLE time_slots (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'slot-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'slot-' || substr(gen_random_uuid()::text, 1, 8),
     event_id VARCHAR(50) NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     start_time TIMESTAMPTZ NOT NULL,
     end_time TIMESTAMPTZ NOT NULL,
@@ -178,9 +149,7 @@ CREATE TABLE time_slots (
 
 CREATE INDEX idx_time_slots_event_id ON time_slots(event_id);
 
--- ============================================================================
--- TRIGGERS FOR updated_at
--- ============================================================================
+-- Auto-update updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -208,3 +177,20 @@ CREATE TRIGGER update_porches_updated_at
 CREATE TRIGGER update_bands_updated_at
     BEFORE UPDATE ON bands
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Down Migration
+
+DROP TRIGGER IF EXISTS update_bands_updated_at ON bands;
+DROP TRIGGER IF EXISTS update_porches_updated_at ON porches;
+DROP TRIGGER IF EXISTS update_events_updated_at ON events;
+DROP TRIGGER IF EXISTS update_organizations_updated_at ON organizations;
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+DROP FUNCTION IF EXISTS update_updated_at();
+
+DROP TABLE IF EXISTS time_slots;
+DROP TABLE IF EXISTS bands;
+DROP TABLE IF EXISTS porches;
+DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS user_organizations;
+DROP TABLE IF EXISTS organizations;
+DROP TABLE IF EXISTS users;
