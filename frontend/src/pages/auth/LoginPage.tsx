@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 
 export default function LoginPage() {
@@ -26,10 +26,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-200px)] flex items-center justify-center py-12 px-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="font-display text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Admin Login
           </h1>
           <p className="text-gray-600">Sign in to manage Porchfest</p>
@@ -88,13 +88,8 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <Link
-              to="/"
-              className="text-porch-600 hover:text-porch-700 font-medium"
-            >
-              ← Back to Home
-            </Link>
+          <div className="mt-6 text-center text-sm text-gray-500">
+            Porchfest Admin
           </div>
         </div>
       </div>

@@ -11,7 +11,7 @@ import {
 import StatsGrid from "./components/StatsGrid";
 import BandCard from "./components/BandCard";
 import PorchCard from "./components/PorchCard";
-import EventSettingsComponent from "./components/EventSettings";
+import EventSettingsEditor from "./components/EventSettings";
 import VisualScheduler from "./components/VisualScheduler";
 
 type FilterStatus =
@@ -28,7 +28,47 @@ type Section =
   | "assignments"
   | "my-reviews"
   | "scheduler"
-  | "settings";
+  | "events"
+  | "organizations"
+  | "manage-admins";
+
+interface OrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  city: string | null;
+  state: string | null;
+  description: string | null;
+  website: string | null;
+  contact_email: string | null;
+  created_at: string;
+}
+
+interface AdminUser {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+  organizations: { id: string; name: string }[];
+}
+
+interface EventWithOrg {
+  id: string;
+  name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  description: string | null;
+  is_active: boolean;
+  organization_id: string;
+  organization?: { id: string; name: string };
+  band_applications_open: string | null;
+  band_applications_close: string | null;
+  porch_applications_open: string | null;
+  porch_applications_close: string | null;
+  reviewer_emails: string[];
+  reviewers_assigned: boolean;
+}
 
 type BandSortOption =
   | "band_name"
@@ -48,10 +88,10 @@ export default function AdminDashboard() {
   const [bands, setBands] = useState<BandApplication[]>([]);
   const [porches, setPorches] = useState<PorchApplication[]>([]);
   const [approvedPorches, setApprovedPorches] = useState<PorchApplication[]>(
-    []
+    [],
   );
   const [eventSettings, setEventSettings] = useState<EventSettings | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>("pending");
@@ -67,6 +107,52 @@ export default function AdminDashboard() {
   const [reviewers, setReviewers] = useState<string[]>([]);
   const [myReviewBands, setMyReviewBands] = useState<BandApplication[]>([]);
 
+  // Super-duper-admin state
+  const [organizations, setOrganizations] = useState<OrgSummary[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [myEvents, setMyEvents] = useState<EventWithOrg[]>([]);
+  const [myOrgs, setMyOrgs] = useState<OrgSummary[]>([]);
+
+  // New org form
+  const [newOrgForm, setNewOrgForm] = useState({
+    name: "",
+    slug: "",
+    city: "",
+    state: "",
+    description: "",
+    website: "",
+    contact_email: "",
+  });
+  const [orgFormError, setOrgFormError] = useState<string | null>(null);
+  const [orgFormSuccess, setOrgFormSuccess] = useState(false);
+
+  // New admin form
+  const [newAdminForm, setNewAdminForm] = useState({
+    email: "",
+    password: "",
+    role: "admin",
+    organization_id: "",
+  });
+  const [adminFormError, setAdminFormError] = useState<string | null>(null);
+  const [adminFormSuccess, setAdminFormSuccess] = useState(false);
+
+  // Selected event for editing
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+  // New event form
+  const [newEventForm, setNewEventForm] = useState({
+    name: "",
+    date: "",
+    start_time: "12:00",
+    end_time: "18:00",
+    description: "",
+    organization_id: "",
+  });
+  const [eventFormError, setEventFormError] = useState<string | null>(null);
+  const [eventFormSuccess, setEventFormSuccess] = useState(false);
+
+  const isSuperDuperAdmin = user?.role === "super-duper-admin";
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -74,6 +160,17 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (section === "my-reviews") {
       fetchMyReviews();
+    }
+    if (section === "organizations" && isSuperDuperAdmin) {
+      fetchOrganizations();
+    }
+    if (section === "manage-admins" && isSuperDuperAdmin) {
+      fetchAdminUsers();
+      fetchOrganizations();
+    }
+    if (section === "events") {
+      fetchMyEvents();
+      fetchMyOrgs();
     }
   }, [section]);
 
@@ -89,8 +186,8 @@ export default function AdminDashboard() {
       setPorches(porchData || []);
       setApprovedPorches(
         (porchData || []).filter(
-          (p: PorchApplication) => p.status === "approved"
-        )
+          (p: PorchApplication) => p.status === "approved",
+        ),
       );
       setEventSettings(eventData);
       setReviewers(reviewerData || []);
@@ -113,12 +210,102 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchOrganizations = async () => {
+    try {
+      const orgs = await api.get("/api/admin/organizations");
+      setOrganizations(orgs || []);
+    } catch (error) {
+      console.error("Error fetching organizations:", error);
+    }
+  };
+
+  const fetchAdminUsers = async () => {
+    try {
+      const users = await api.get("/api/admin/users");
+      setAdminUsers(users || []);
+    } catch (error) {
+      console.error("Error fetching admin users:", error);
+    }
+  };
+
+  const fetchMyEvents = async () => {
+    try {
+      const events = await api.get("/api/admin/my-events");
+      setMyEvents(events || []);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    }
+  };
+
+  const fetchMyOrgs = async () => {
+    try {
+      const orgs = await api.get("/api/admin/my-organizations");
+      setMyOrgs(orgs || []);
+    } catch (error) {
+      console.error("Error fetching orgs:", error);
+    }
+  };
+
+  const handleCreateOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOrgFormError(null);
+    setOrgFormSuccess(false);
+    try {
+      await api.post("/api/admin/organizations", newOrgForm);
+      setOrgFormSuccess(true);
+      setNewOrgForm({ name: "", slug: "", city: "", state: "", description: "", website: "", contact_email: "" });
+      fetchOrganizations();
+    } catch (error) {
+      setOrgFormError((error as Error).message || "Failed to create organization");
+    }
+  };
+
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminFormError(null);
+    setAdminFormSuccess(false);
+    try {
+      await api.post("/api/admin/users", newAdminForm);
+      setAdminFormSuccess(true);
+      setNewAdminForm({ email: "", password: "", role: "admin", organization_id: "" });
+      fetchAdminUsers();
+    } catch (error) {
+      setAdminFormError((error as Error).message || "Failed to create admin");
+    }
+  };
+
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEventFormError(null);
+    setEventFormSuccess(false);
+    try {
+      await api.post("/api/admin/events", newEventForm);
+      setEventFormSuccess(true);
+      setNewEventForm({ name: "", date: "", start_time: "12:00", end_time: "18:00", description: "", organization_id: "" });
+      fetchMyEvents();
+    } catch (error) {
+      setEventFormError((error as Error).message || "Failed to create event");
+    }
+  };
+
   const updateEventSettings = async (updates: Partial<EventSettings>) => {
     try {
       const updated = await api.patch("/api/admin/event", updates);
       setEventSettings(updated);
     } catch (error) {
       console.error("Error updating event settings:", error);
+    }
+  };
+
+  const updateEventById = async (eventId: string, updates: Partial<EventSettings>) => {
+    try {
+      const updated = await api.patch(`/api/admin/events/${eventId}`, updates);
+      setMyEvents(myEvents.map((e) => (e.id === eventId ? { ...e, ...updated } : e)));
+      if (eventSettings?.id === eventId) {
+        setEventSettings(updated);
+      }
+    } catch (error) {
+      console.error("Error updating event:", error);
     }
   };
 
@@ -137,7 +324,7 @@ export default function AdminDashboard() {
     try {
       const updatedPorch = await api.patch(
         `/api/admin/porches/${porchId}/status`,
-        { status }
+        { status },
       );
       setPorches(porches.map((p) => (p.id === porchId ? updatedPorch : p)));
       if (status === "approved") {
@@ -160,13 +347,13 @@ export default function AdminDashboard() {
     bandId: string,
     assigned_porch_id: string | null,
     set_start_time: string | null,
-    set_end_time: string | null
+    set_end_time: string | null,
   ) => {
     setSchedulingError(null);
     try {
       const updatedBand = await api.patch(
         `/api/admin/bands/${bandId}/schedule`,
-        { assigned_porch_id, set_start_time, set_end_time }
+        { assigned_porch_id, set_start_time, set_end_time },
       );
       setBands(bands.map((b) => (b.id === bandId ? updatedBand : b)));
     } catch (error: unknown) {
@@ -221,7 +408,7 @@ export default function AdminDashboard() {
   const updateBandReview = async (
     bandId: string,
     rating: number | null,
-    notes: string | null
+    notes: string | null,
   ) => {
     try {
       const updatedBand = await api.patch(`/api/admin/bands/${bandId}/review`, {
@@ -230,7 +417,7 @@ export default function AdminDashboard() {
       });
       setBands(bands.map((b) => (b.id === bandId ? updatedBand : b)));
       setMyReviewBands(
-        myReviewBands.map((b) => (b.id === bandId ? updatedBand : b))
+        myReviewBands.map((b) => (b.id === bandId ? updatedBand : b)),
       );
     } catch (error) {
       console.error("Error updating band review:", error);
@@ -279,7 +466,7 @@ export default function AdminDashboard() {
     // Filter by reviewer
     if (reviewerFilter !== "all") {
       result = result.filter(
-        (b) => b.assigned_reviewer_email === reviewerFilter
+        (b) => b.assigned_reviewer_email === reviewerFilter,
       );
     }
 
@@ -291,7 +478,7 @@ export default function AdminDashboard() {
           b.band_name.toLowerCase().includes(query) ||
           b.contact_name.toLowerCase().includes(query) ||
           b.genre.toLowerCase().includes(query) ||
-          b.contact_email.toLowerCase().includes(query)
+          b.contact_email.toLowerCase().includes(query),
       );
     }
 
@@ -312,7 +499,7 @@ export default function AdminDashboard() {
           const parsedB = parseAddress(porchB);
           // First sort by street name alphabetically
           const streetCompare = parsedA.streetName.localeCompare(
-            parsedB.streetName
+            parsedB.streetName,
           );
           if (streetCompare !== 0) return streetCompare;
           // Then sort by house number descending
@@ -368,7 +555,7 @@ export default function AdminDashboard() {
           const parsedB = parsePorchAddress(b.address);
           // First sort by street name alphabetically
           const streetCompare = parsedA.streetName.localeCompare(
-            parsedB.streetName
+            parsedB.streetName,
           );
           if (streetCompare !== 0) return streetCompare;
           // Then sort by house number ascending
@@ -395,10 +582,10 @@ export default function AdminDashboard() {
   const pendingBands = bands.filter((b) => b.status === "pending").length;
   const pendingPorches = porches.filter((p) => p.status === "pending").length;
   const approvedBandsCount = bands.filter(
-    (b) => b.status === "approved"
+    (b) => b.status === "approved",
   ).length;
   const approvedPorchesCount = porches.filter(
-    (p) => p.status === "approved"
+    (p) => p.status === "approved",
   ).length;
 
   if (loading) {
@@ -436,9 +623,17 @@ export default function AdminDashboard() {
         description:
           "Drag to select time slots on a porch row, then choose a band",
       },
-      settings: {
-        title: "Event Settings",
-        description: "Configure festival date, time, and details",
+      events: {
+        title: "Events",
+        description: "Create and manage events for your organizations",
+      },
+      organizations: {
+        title: "Organizations",
+        description: "Create and manage porchfest organizations",
+      },
+      "manage-admins": {
+        title: "Manage Admins",
+        description: "Create admin users and assign them to organizations",
       },
     };
 
@@ -713,10 +908,10 @@ export default function AdminDashboard() {
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {reviewers.map((email) => {
                     const assignedBands = bands.filter(
-                      (b) => b.assigned_reviewer_email === email
+                      (b) => b.assigned_reviewer_email === email,
                     );
                     const reviewedCount = assignedBands.filter(
-                      (b) => b.reviewer_rating !== null
+                      (b) => b.reviewer_rating !== null,
                     ).length;
                     return (
                       <div
@@ -804,15 +999,544 @@ export default function AdminDashboard() {
           </div>
         );
 
-      case "settings":
-        return eventSettings ? (
-          <EventSettingsComponent
-            event={eventSettings}
-            onSave={updateEventSettings}
-          />
-        ) : (
-          <div className="p-8 text-center text-gray-500">
-            Loading event settings...
+      case "events":
+        return (
+          <div className="space-y-6">
+            {/* Create New Event */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-lg text-gray-900 mb-4">
+                Create New Event
+              </h3>
+
+              {eventFormError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {eventFormError}
+                </div>
+              )}
+              {eventFormSuccess && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                  Event created successfully!
+                </div>
+              )}
+
+              <form onSubmit={handleCreateEvent} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Organization *
+                  </label>
+                  <select
+                    value={newEventForm.organization_id}
+                    onChange={(e) =>
+                      setNewEventForm({ ...newEventForm, organization_id: e.target.value })
+                    }
+                    className="input-field"
+                    required
+                  >
+                    <option value="">Select organization...</option>
+                    {myOrgs.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Event Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={newEventForm.name}
+                      onChange={(e) =>
+                        setNewEventForm({ ...newEventForm, name: e.target.value })
+                      }
+                      className="input-field"
+                      placeholder="e.g. Somerville Porchfest 2026"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={newEventForm.date}
+                      onChange={(e) =>
+                        setNewEventForm({ ...newEventForm, date: e.target.value })
+                      }
+                      className="input-field"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Time
+                    </label>
+                    <input
+                      type="time"
+                      value={newEventForm.start_time}
+                      onChange={(e) =>
+                        setNewEventForm({ ...newEventForm, start_time: e.target.value })
+                      }
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      End Time
+                    </label>
+                    <input
+                      type="time"
+                      value={newEventForm.end_time}
+                      onChange={(e) =>
+                        setNewEventForm({ ...newEventForm, end_time: e.target.value })
+                      }
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={newEventForm.description}
+                    onChange={(e) =>
+                      setNewEventForm({ ...newEventForm, description: e.target.value })
+                    }
+                    className="input-field min-h-[80px]"
+                    placeholder="Brief description of the event"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-porch-600 text-white rounded-lg hover:bg-porch-700 transition-colors text-sm font-medium"
+                >
+                  Create Event
+                </button>
+              </form>
+            </div>
+
+            {/* Existing Events */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-lg text-gray-900 mb-4">
+                Your Events
+              </h3>
+              {myEvents.length === 0 ? (
+                <p className="text-gray-500 text-sm">No events yet. Create one above.</p>
+              ) : (
+                <div className="space-y-3">
+                  {myEvents.map((event) => (
+                    <div key={event.id}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedEventId(
+                            selectedEventId === event.id ? null : event.id
+                          )
+                        }
+                        className="w-full text-left p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-porch-300 hover:bg-porch-50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900">{event.name}</p>
+                            <p className="text-sm text-gray-500">
+                              {new Date(event.date).toLocaleDateString()} &middot;{" "}
+                              {event.start_time} - {event.end_time}
+                              {event.organization && (
+                                <> &middot; {event.organization.name}</>
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {event.is_active && (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                                Active
+                              </span>
+                            )}
+                            <span className="text-gray-400 text-sm">
+                              {selectedEventId === event.id ? "▼" : "▶"}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+
+                      {selectedEventId === event.id && (
+                        <div className="mt-2 ml-2 border-l-2 border-porch-200 pl-4">
+                          <EventSettingsEditor
+                            event={event as unknown as EventSettings}
+                            onSave={(updates) => updateEventById(event.id, updates)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case "organizations":
+        if (!isSuperDuperAdmin) return <div className="text-gray-500">Access denied.</div>;
+        return (
+          <div className="space-y-6">
+            {/* Create New Organization */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-lg text-gray-900 mb-4">
+                Create New Organization
+              </h3>
+
+              {orgFormError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {orgFormError}
+                </div>
+              )}
+              {orgFormSuccess && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                  Organization created successfully!
+                </div>
+              )}
+
+              <form onSubmit={handleCreateOrg} className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={newOrgForm.name}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        const slug = name
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, "-")
+                          .replace(/(^-|-$)/g, "");
+                        setNewOrgForm({ ...newOrgForm, name, slug });
+                      }}
+                      className="input-field"
+                      placeholder="e.g. Somerville Porchfest"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Slug *
+                    </label>
+                    <input
+                      type="text"
+                      value={newOrgForm.slug}
+                      onChange={(e) =>
+                        setNewOrgForm({ ...newOrgForm, slug: e.target.value })
+                      }
+                      className="input-field"
+                      placeholder="somerville-porchfest"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={newOrgForm.city}
+                      onChange={(e) =>
+                        setNewOrgForm({ ...newOrgForm, city: e.target.value })
+                      }
+                      className="input-field"
+                      placeholder="Somerville"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      value={newOrgForm.state}
+                      onChange={(e) =>
+                        setNewOrgForm({ ...newOrgForm, state: e.target.value })
+                      }
+                      className="input-field"
+                      placeholder="MA"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contact Email
+                  </label>
+                  <input
+                    type="email"
+                    value={newOrgForm.contact_email}
+                    onChange={(e) =>
+                      setNewOrgForm({ ...newOrgForm, contact_email: e.target.value })
+                    }
+                    className="input-field"
+                    placeholder="info@example.org"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Website
+                  </label>
+                  <input
+                    type="text"
+                    value={newOrgForm.website}
+                    onChange={(e) =>
+                      setNewOrgForm({ ...newOrgForm, website: e.target.value })
+                    }
+                    className="input-field"
+                    placeholder="https://example.org"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={newOrgForm.description}
+                    onChange={(e) =>
+                      setNewOrgForm({ ...newOrgForm, description: e.target.value })
+                    }
+                    className="input-field min-h-[80px]"
+                    placeholder="About this porchfest organization..."
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-porch-600 text-white rounded-lg hover:bg-porch-700 transition-colors text-sm font-medium"
+                >
+                  Create Organization
+                </button>
+              </form>
+            </div>
+
+            {/* Existing Organizations */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-lg text-gray-900 mb-4">
+                All Organizations
+              </h3>
+              {organizations.length === 0 ? (
+                <p className="text-gray-500 text-sm">
+                  No organizations yet. Create one above.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {organizations.map((org) => (
+                    <div
+                      key={org.id}
+                      className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">{org.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {org.city && org.state
+                              ? `${org.city}, ${org.state}`
+                              : org.city || org.state || "No location set"}
+                            {" "}&middot; <span className="font-mono text-xs">{org.slug}</span>
+                          </p>
+                          {org.description && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              {org.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case "manage-admins":
+        if (!isSuperDuperAdmin) return <div className="text-gray-500">Access denied.</div>;
+        return (
+          <div className="space-y-6">
+            {/* Create New Admin */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-lg text-gray-900 mb-4">
+                Create New Admin
+              </h3>
+
+              {adminFormError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {adminFormError}
+                </div>
+              )}
+              {adminFormSuccess && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                  Admin user created successfully!
+                </div>
+              )}
+
+              <form onSubmit={handleCreateAdmin} className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={newAdminForm.email}
+                      onChange={(e) =>
+                        setNewAdminForm({ ...newAdminForm, email: e.target.value })
+                      }
+                      className="input-field"
+                      placeholder="admin@example.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Password *
+                    </label>
+                    <input
+                      type="password"
+                      value={newAdminForm.password}
+                      onChange={(e) =>
+                        setNewAdminForm({ ...newAdminForm, password: e.target.value })
+                      }
+                      className="input-field"
+                      placeholder="Min 6 characters"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Role *
+                    </label>
+                    <select
+                      value={newAdminForm.role}
+                      onChange={(e) =>
+                        setNewAdminForm({ ...newAdminForm, role: e.target.value })
+                      }
+                      className="input-field"
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="reviewer">Reviewer</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Assign to Organization
+                    </label>
+                    <select
+                      value={newAdminForm.organization_id}
+                      onChange={(e) =>
+                        setNewAdminForm({
+                          ...newAdminForm,
+                          organization_id: e.target.value,
+                        })
+                      }
+                      className="input-field"
+                    >
+                      <option value="">None</option>
+                      {organizations.map((org) => (
+                        <option key={org.id} value={org.id}>
+                          {org.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-porch-600 text-white rounded-lg hover:bg-porch-700 transition-colors text-sm font-medium"
+                >
+                  Create Admin
+                </button>
+              </form>
+            </div>
+
+            {/* Existing Admin Users */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-lg text-gray-900 mb-4">
+                All Users
+              </h3>
+              {adminUsers.length === 0 ? (
+                <p className="text-gray-500 text-sm">No users found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 font-medium text-gray-600">
+                          Email
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600">
+                          Role
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600">
+                          Organizations
+                        </th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-600">
+                          Created
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminUsers.map((u) => (
+                        <tr
+                          key={u.id}
+                          className="border-b border-gray-100 hover:bg-gray-50"
+                        >
+                          <td className="py-3 px-4 text-gray-900">
+                            {u.email}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                u.role === "super-duper-admin"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : u.role === "admin"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-gray-100 text-gray-700"
+                              }`}
+                            >
+                              {u.role}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-gray-600">
+                            {u.organizations.length > 0
+                              ? u.organizations.map((o) => o.name).join(", ")
+                              : "—"}
+                          </td>
+                          <td className="py-3 px-4 text-gray-500">
+                            {new Date(u.created_at).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         );
 
@@ -824,7 +1548,7 @@ export default function AdminDashboard() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-gray-900">
           {sectionTitles[section].title}
         </h1>
         <p className="text-gray-600 mt-1">
