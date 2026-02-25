@@ -2,11 +2,9 @@
 
 -- Up Migration
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- Users
 CREATE TABLE users (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'user-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'user-' || substr(gen_random_uuid()::text, 1, 8),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'reviewer')),
@@ -18,7 +16,7 @@ CREATE INDEX idx_users_email ON users(email);
 
 -- Organizations
 CREATE TABLE organizations (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'org-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'org-' || substr(gen_random_uuid()::text, 1, 8),
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE NOT NULL,
     description TEXT,
@@ -35,7 +33,7 @@ CREATE INDEX idx_organizations_slug ON organizations(slug);
 
 -- User-Organization junction (many-to-many)
 CREATE TABLE user_organizations (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'uo-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'uo-' || substr(gen_random_uuid()::text, 1, 8),
     user_id VARCHAR(50) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     organization_id VARCHAR(50) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     role VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
@@ -48,7 +46,7 @@ CREATE INDEX idx_user_organizations_organization_id ON user_organizations(organi
 
 -- Events
 CREATE TABLE events (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'event-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'event-' || substr(gen_random_uuid()::text, 1, 8),
     organization_id VARCHAR(50) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     date DATE NOT NULL,
@@ -72,7 +70,7 @@ CREATE INDEX idx_events_organization_id ON events(organization_id);
 
 -- Porches
 CREATE TABLE porches (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'porch-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'porch-' || substr(gen_random_uuid()::text, 1, 8),
     event_id VARCHAR(50) NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     owner_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
@@ -96,7 +94,7 @@ CREATE INDEX idx_porches_event_id ON porches(event_id);
 
 -- Bands
 CREATE TABLE bands (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'band-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'band-' || substr(gen_random_uuid()::text, 1, 8),
     event_id VARCHAR(50) NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     band_name VARCHAR(255) NOT NULL,
     contact_name VARCHAR(255) NOT NULL,
@@ -142,7 +140,7 @@ CREATE INDEX idx_bands_event_id ON bands(event_id);
 
 -- Time Slots
 CREATE TABLE time_slots (
-    id VARCHAR(50) PRIMARY KEY DEFAULT 'slot-' || substr(uuid_generate_v4()::text, 1, 8),
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'slot-' || substr(gen_random_uuid()::text, 1, 8),
     event_id VARCHAR(50) NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     start_time TIMESTAMPTZ NOT NULL,
     end_time TIMESTAMPTZ NOT NULL,
@@ -196,5 +194,3 @@ DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS user_organizations;
 DROP TABLE IF EXISTS organizations;
 DROP TABLE IF EXISTS users;
-
-DROP EXTENSION IF EXISTS "uuid-ossp";

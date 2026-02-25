@@ -1,6 +1,5 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
-import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
@@ -35,11 +34,17 @@ export class PorchfestStack extends cdk.Stack {
       "HTTP from CloudFront"
     );
 
+    // SSH access (restricted to your IP — update as needed)
+    sg.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(22),
+      "SSH access"
+    );
+
     // --- IAM Role for EC2 ---
     const role = new iam.Role(this, "InstanceRole", {
       assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonEC2ContainerRegistryReadOnly"),
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"),
       ],
     });
@@ -52,67 +57,129 @@ export class PorchfestStack extends cdk.Stack {
       ],
     }));
 
+    // --- Key Pair (import an existing key pair by name) ---
+    const keyPair = ec2.KeyPair.fromKeyPairAttributes(this, "KeyPair", {
+      keyPairName: "porchfest-ec2",
+      type: ec2.KeyPairType.ED25519,
+    });
+
     // --- EC2 Instance ---
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
       "dnf update -y",
-      "dnf install -y docker",
-      "systemctl enable docker",
-      "systemctl start docker",
-      "usermod -aG docker ec2-user",
-      // Install Docker Compose plugin (pinned version + checksum verification)
-      'mkdir -p /usr/local/lib/docker/cli-plugins',
-      'curl -SL "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-aarch64" -o /usr/local/lib/docker/cli-plugins/docker-compose',
-      'echo "0c4591cf3b1ed039adcd803dbbeddf757375fc08c11245b0154135f838495a2f  /usr/local/lib/docker/cli-plugins/docker-compose" | sha256sum -c -',
-      'chmod +x /usr/local/lib/docker/cli-plugins/docker-compose',
-      // Create app directory
-      "mkdir -p /opt/porchfest",
-      "chown ec2-user:ec2-user /opt/porchfest",
-      // Write docker-compose.prod.yml
-      `cat > /opt/porchfest/docker-compose.prod.yml << 'COMPOSEEOF'
-services:
-  api:
-    image: \${ECR_REGISTRY}/porchfest-api:\${IMAGE_TAG:-latest}
-    environment:
-      - NODE_ENV=production
-      - PORT=8080
-      - DATABASE_URL=\${DATABASE_URL}
-      - JWT_SECRET=\${JWT_SECRET}
-      - FRONTEND_URL=\${FRONTEND_URL}
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-  nginx:
-    image: \${ECR_REGISTRY}/porchfest-frontend:\${IMAGE_TAG:-latest}
-    ports:
-      - "80:80"
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: always
-COMPOSEEOF`,
-      // Write deploy script
-      `cat > /opt/porchfest/deploy.sh << 'SCRIPTEOF'
+
+      // Install Node.js 22 via NodeSource
+      'curl -fsSL https://rpm.nodesource.com/setup_22.x | bash -',
+      "dnf install -y nodejs nginx",
+      "npm install -g pnpm@10",
+
+      // Enable and start nginx
+      "systemctl enable nginx",
+
+      // Create app directories
+      "mkdir -p /opt/porchfest/backend",
+      "mkdir -p /opt/porchfest/frontend",
+      "chown -R ec2-user:ec2-user /opt/porchfest",
+
+      // Write nginx config
+      `cat > /etc/nginx/conf.d/porchfest.conf << 'NGINXEOF'
+server {
+    listen 80 default_server;
+    server_name _;
+    root /opt/porchfest/frontend;
+    index index.html;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied expired no-cache no-store private auth;
+    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml application/javascript application/json;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /health {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+}
+NGINXEOF`,
+      // Remove default nginx server block so ours takes effect
+      "rm -f /etc/nginx/conf.d/default.conf",
+      "sed -i '/^[[:space:]]*server {/,/^[[:space:]]*}/d' /etc/nginx/nginx.conf || true",
+      "systemctl start nginx",
+
+      // Write systemd service for the backend
+      `cat > /etc/systemd/system/porchfest-api.service << 'SERVICEEOF'
+[Unit]
+Description=Porchfest API
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/opt/porchfest/backend
+EnvironmentFile=/opt/porchfest/backend/.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SERVICEEOF`,
+      "systemctl daemon-reload",
+      "systemctl enable porchfest-api",
+
+      // Write server-side deploy helper (called after rsync)
+      `cat > /opt/porchfest/activate.sh << 'SCRIPTEOF'
 #!/bin/bash
 set -euo pipefail
-ECR_REGISTRY=\$1
-IMAGE_TAG=\$2
 REGION=${this.region}
-aws ecr get-login-password --region \$REGION | docker login --username AWS --password-stdin \$ECR_REGISTRY
-export DATABASE_URL=\$(aws ssm get-parameter --name /porchfest/database-url --with-decryption --query Parameter.Value --output text --region \$REGION)
-export JWT_SECRET=\$(aws ssm get-parameter --name /porchfest/jwt-secret --with-decryption --query Parameter.Value --output text --region \$REGION)
-export FRONTEND_URL=\$(aws ssm get-parameter --name /porchfest/frontend-url --query Parameter.Value --output text --region \$REGION)
-export ECR_REGISTRY IMAGE_TAG
-cd /opt/porchfest
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
-docker image prune -f
+
+# Fetch secrets from SSM and write .env
+DATABASE_URL=$(aws ssm get-parameter --name /porchfest/database-url --with-decryption --query Parameter.Value --output text --region $REGION)
+JWT_SECRET=$(aws ssm get-parameter --name /porchfest/jwt-secret --with-decryption --query Parameter.Value --output text --region $REGION)
+FRONTEND_URL=$(aws ssm get-parameter --name /porchfest/frontend-url --query Parameter.Value --output text --region $REGION)
+
+cat > /opt/porchfest/backend/.env << ENVEOF
+NODE_ENV=production
+PORT=8080
+DATABASE_URL=$DATABASE_URL
+JWT_SECRET=$JWT_SECRET
+FRONTEND_URL=$FRONTEND_URL
+ENVEOF
+chmod 600 /opt/porchfest/backend/.env
+
+# Install production dependencies
+cd /opt/porchfest/backend
+pnpm install --frozen-lockfile --prod
+
+# Run database migrations
+DATABASE_URL=$DATABASE_URL pnpm node-pg-migrate up
+
+# Restart services
+sudo systemctl restart porchfest-api
+sudo systemctl reload nginx
 SCRIPTEOF`,
-      "chmod +x /opt/porchfest/deploy.sh",
+      "chmod +x /opt/porchfest/activate.sh",
     );
 
     this.instance = new ec2.Instance(this, "Server", {
@@ -125,6 +192,7 @@ SCRIPTEOF`,
       securityGroup: sg,
       role,
       userData,
+      keyPair,
       blockDevices: [
         {
           deviceName: "/dev/xvda",
@@ -142,26 +210,10 @@ SCRIPTEOF`,
       instanceId: this.instance.instanceId,
     });
 
-    // --- ECR Repositories ---
-    new ecr.Repository(this, "ApiRepo", {
-      repositoryName: "porchfest-api",
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      lifecycleRules: [{ maxImageCount: 5, description: "Keep last 5 images" }],
-    });
-
-    new ecr.Repository(this, "FrontendRepo", {
-      repositoryName: "porchfest-frontend",
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      lifecycleRules: [{ maxImageCount: 5, description: "Keep last 5 images" }],
-    });
-
     // --- CloudFront Distribution ---
-    // CloudFront requires a domain name, not an IP. Use sslip.io to map
-    // {ip}.sslip.io -> the Elastic IP address without needing a custom domain.
     const originDomain = `${this.eip.attrPublicIp}.sslip.io`;
     const origin = new origins.HttpOrigin(originDomain, {
-      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
-      originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
+      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
     });
 
     const distribution = new cloudfront.Distribution(this, "Distribution", {
