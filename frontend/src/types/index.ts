@@ -1,4 +1,4 @@
-export type UserRole = 'band' | 'porch' | 'admin'
+export type UserRole = 'band' | 'porch' | 'admin' | 'super-duper-admin'
 export type ApplicationStatus = 'pending' | 'under_review' | 'approved' | 'rejected'
 export type PerformanceStatus = 'scheduled' | 'confirmed' | 'cancelled'
 
