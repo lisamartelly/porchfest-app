@@ -122,9 +122,38 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
 }
 NGINXEOF`,
-      // Remove default nginx server block so ours takes effect
+      // Overwrite default nginx.conf with a clean version (no default server block)
+      `cat > /etc/nginx/nginx.conf << 'NGINXMAIN'
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log notice;
+pid /run/nginx.pid;
+
+include /usr/share/nginx/modules/*.conf;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile            on;
+    tcp_nopush          on;
+    keepalive_timeout   65;
+    types_hash_max_size 4096;
+
+    include             /etc/nginx/mime.types;
+    default_type        application/octet-stream;
+
+    include /etc/nginx/conf.d/*.conf;
+}
+NGINXMAIN`,
       "rm -f /etc/nginx/conf.d/default.conf",
-      "sed -i '/^[[:space:]]*server {/,/^[[:space:]]*}/d' /etc/nginx/nginx.conf || true",
       "systemctl start nginx",
 
       // Write systemd service for the backend
@@ -177,7 +206,7 @@ DATABASE_URL=$DATABASE_URL pnpm node-pg-migrate up
 
 # Restart services
 sudo systemctl restart porchfest-api
-sudo systemctl reload nginx
+sudo systemctl restart nginx
 SCRIPTEOF`,
       "chmod +x /opt/porchfest/activate.sh",
     );
