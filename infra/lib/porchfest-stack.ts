@@ -4,14 +4,23 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as targets from "aws-cdk-lib/aws-route53-targets";
 import { Construct } from "constructs";
+
+const DOMAIN_NAME = "porchfestpal.com";
+
+interface PorchfestStackProps extends cdk.StackProps {
+  certificate: acm.ICertificate;
+}
 
 export class PorchfestStack extends cdk.Stack {
   public readonly vpc: ec2.IVpc;
   public readonly instance: ec2.Instance;
   public readonly eip: ec2.CfnEIP;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: PorchfestStackProps) {
     super(scope, id, props);
 
     // --- VPC (use default to avoid NAT gateway costs) ---
@@ -246,6 +255,8 @@ SCRIPTEOF`,
     });
 
     const distribution = new cloudfront.Distribution(this, "Distribution", {
+      domainNames: [DOMAIN_NAME, `www.${DOMAIN_NAME}`],
+      certificate: props.certificate,
       defaultBehavior: {
         origin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -278,6 +289,27 @@ SCRIPTEOF`,
       ],
     });
 
+    // --- Route 53 DNS Records ---
+    const hostedZone = route53.HostedZone.fromLookup(this, "Zone", {
+      domainName: DOMAIN_NAME,
+    });
+
+    new route53.ARecord(this, "SiteAlias", {
+      zone: hostedZone,
+      recordName: DOMAIN_NAME,
+      target: route53.RecordTarget.fromAlias(
+        new targets.CloudFrontTarget(distribution)
+      ),
+    });
+
+    new route53.ARecord(this, "WwwAlias", {
+      zone: hostedZone,
+      recordName: `www.${DOMAIN_NAME}`,
+      target: route53.RecordTarget.fromAlias(
+        new targets.CloudFrontTarget(distribution)
+      ),
+    });
+
     // --- SSM Parameters ---
     // Secrets are created manually as SecureString to avoid plaintext in CloudFormation:
     //   aws ssm put-parameter --name /porchfest/database-url --type SecureString --value "<value>"
@@ -285,7 +317,7 @@ SCRIPTEOF`,
 
     new ssm.StringParameter(this, "FrontendUrl", {
       parameterName: "/porchfest/frontend-url",
-      stringValue: `https://${distribution.distributionDomainName}`,
+      stringValue: `https://${DOMAIN_NAME}`,
       description: "Frontend URL for CORS",
       tier: ssm.ParameterTier.STANDARD,
     });
@@ -301,9 +333,9 @@ SCRIPTEOF`,
       description: "EC2 Instance ID",
     });
 
-    new cdk.CfnOutput(this, "CloudFrontUrl", {
-      value: `https://${distribution.distributionDomainName}`,
-      description: "CloudFront distribution URL",
+    new cdk.CfnOutput(this, "SiteUrl", {
+      value: `https://${DOMAIN_NAME}`,
+      description: "Site URL",
     });
 
     new cdk.CfnOutput(this, "CloudFrontDistributionId", {
