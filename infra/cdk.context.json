@@ -74,5 +74,13 @@
       "PrefixListId": "pl-b6a144df",
       "Identifier": "pl-b6a144df"
     }
-  ]
+  ],
+  "hosted-zone:account=281889178258:domainName=porchfestpal.com:region=us-east-1": {
+    "Id": "/hostedzone/Z08533063IHIMVY0N66RP",
+    "Name": "porchfestpal.com."
+  },
+  "hosted-zone:account=281889178258:domainName=porchfestpal.com:region=us-east-2": {
+    "Id": "/hostedzone/Z08533063IHIMVY0N66RP",
+    "Name": "porchfestpal.com."
+  }
 }
