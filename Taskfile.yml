@@ -1,0 +1,73 @@
+version: "3"
+
+tasks:
+  up-db:
+    desc: "Start PostgreSQL database development container"
+    cmds:
+      - docker compose -f docker-compose.yml up -d
+
+  server-dev:
+    desc: "Start backend server in development mode"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd backend && pnpm dev
+
+  server-build:
+    desc: "Build backend server"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd backend && pnpm build
+
+  server-lint:
+    desc: "Lint backend server"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd backend && pnpm lint
+
+  migrate-up:
+    desc: "Run database migrations"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd backend && pnpm migrate:up
+
+  migrate-down:
+    desc: "Rollback database migrations"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd backend && pnpm migrate:down
+
+  migrate-create:
+    desc: "Create a new database migration"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd backend && pnpm migrate:create
+
+  frontend-dev:
+    desc: "Start frontend server in development mode"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd frontend && pnpm dev
+
+  frontend-build:
+    desc: "Build frontend server"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd frontend && pnpm build
+
+  frontend-lint:
+    desc: "Lint frontend server"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd frontend && pnpm lint
+
+  dev:
+    desc: "Start development environment"
+    cmds:
+      - task up-db
+      - |
+        task server-dev &
+        task frontend-dev &
+        wait || true
+
+  build:
+    desc: "Build production environment"
+    cmds:
+      - task server-build
+      - task frontend-build
+
+  lint:
+    desc: "Lint code"
+    cmds:
+      - task server-lint
+      - task frontend-lint
