@@ -112,6 +112,49 @@ authRouter.post(
   }
 );
 
+// Change password
+authRouter.patch(
+  "/password",
+  authMiddleware,
+  [
+    body("current_password").notEmpty().withMessage("Current password required"),
+    body("new_password")
+      .isLength({ min: 6 })
+      .withMessage("New password must be at least 6 characters"),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { current_password, new_password } = req.body;
+
+      const user = await db.users.findById(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const validPassword = await bcrypt.compare(
+        current_password,
+        user.password_hash,
+      );
+      if (!validPassword) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+
+      const hashedPassword = await bcrypt.hash(new_password, 10);
+      await db.users.updatePassword(user.id, hashedPassword);
+
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Change password error:", error);
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  },
+);
+
 // Get current user
 authRouter.get("/me", authMiddleware, async (req: AuthRequest, res) => {
   try {

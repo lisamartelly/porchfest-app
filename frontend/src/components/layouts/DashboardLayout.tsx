@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Outlet, Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
+import ChangePasswordModal from "../ChangePasswordModal";
 
 interface NavItem {
   to: string;
@@ -13,6 +15,7 @@ export default function DashboardLayout() {
   const { user, signOut } = useAuthStore();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const currentSection = searchParams.get("section") || "overview";
   const isSuperDuperAdmin = user?.role === "super-duper-admin";
 
@@ -90,14 +93,26 @@ export default function DashboardLayout() {
               <p className="text-xs text-gray-500">{user?.role}</p>
             </div>
           </div>
-          <button
-            onClick={signOut}
-            className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            Sign Out
-          </button>
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={() => setShowChangePassword(true)}
+              className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Change Password
+            </button>
+            <button
+              onClick={signOut}
+              className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </aside>
+
+      {showChangePassword && (
+        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+      )}
 
       <main className="flex-1 ml-64">
         <div className="p-8">

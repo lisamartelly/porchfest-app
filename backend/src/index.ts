@@ -100,6 +100,74 @@ app.get("/api/venues", async (req, res) => {
   }
 });
 
+// Public: Look up an organization's active event and application status
+app.get("/api/events/org/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const org = await db.organizations.findBySlug(slug);
+    if (!org) {
+      return res.status(404).json({ error: "Organization not found" });
+    }
+
+    const orgEvents = await db.events.findByOrganizationId(org.id);
+    const activeEvent = orgEvents.find((e) => e.is_active);
+
+    if (!activeEvent) {
+      return res.json({
+        organization: { id: org.id, name: org.name, slug: org.slug },
+        event: null,
+        band_applications_open: false,
+        porch_applications_open: false,
+        band_applications_open_date: null,
+        band_applications_close_date: null,
+        porch_applications_open_date: null,
+        porch_applications_close_date: null,
+      });
+    }
+
+    const now = new Date();
+    const bandOpenDate = activeEvent.band_applications_open;
+    const bandCloseDate = activeEvent.band_applications_close;
+    const porchOpenDate = activeEvent.porch_applications_open;
+    const porchCloseDate = activeEvent.porch_applications_close;
+
+    const bandOpen = bandOpenDate
+      ? new Date(bandOpenDate) <= now
+      : false;
+    const bandClose = bandCloseDate
+      ? new Date(bandCloseDate) >= now
+      : false;
+    const porchOpen = porchOpenDate
+      ? new Date(porchOpenDate) <= now
+      : false;
+    const porchClose = porchCloseDate
+      ? new Date(porchCloseDate) >= now
+      : false;
+
+    res.json({
+      organization: { id: org.id, name: org.name, slug: org.slug },
+      event: {
+        id: activeEvent.id,
+        name: activeEvent.name,
+        date: activeEvent.date,
+        start_time: activeEvent.start_time,
+        end_time: activeEvent.end_time,
+        description: activeEvent.description,
+      },
+      band_applications_open: bandOpen && bandClose,
+      porch_applications_open: porchOpen && porchClose,
+      band_applications_open_date: bandOpenDate,
+      band_applications_close_date: bandCloseDate,
+      porch_applications_open_date: porchOpenDate,
+      porch_applications_close_date: porchCloseDate,
+    });
+  } catch (error) {
+    console.error("Error fetching org event:", error);
+    res.status(500).json({ error: "Failed to fetch event info" });
+  }
+});
+
 // Protected admin routes
 app.use("/api/events", authMiddleware, eventsRouter);
 app.use("/api/admin", authMiddleware, adminRouter);
