@@ -194,6 +194,14 @@ export const db = {
       );
       return result.rows[0];
     },
+
+    async updatePassword(id: string, passwordHash: string): Promise<User | null> {
+      const result = await pool.query<User>(
+        `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+        [passwordHash, id]
+      );
+      return result.rows[0] || null;
+    },
   },
 
   // ---------------------------------------------------------------------------
