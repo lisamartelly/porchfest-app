@@ -34,8 +34,8 @@ function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/apply/band" element={<BandApplyPage />} />
-      <Route path="/apply/porch" element={<PorchApplyPage />} />
+      <Route path="/bandapplication/:slug" element={<BandApplyPage />} />
+      <Route path="/porchapplication/:slug" element={<PorchApplyPage />} />
 
       <Route
         element={
