@@ -135,7 +135,7 @@ export default function AdminDashboard() {
   );
 
   const updateBandStatus = useCallback(
-    async (bandId: string, status: Status) => {
+    async (bandId: number, status: Status) => {
       try {
         const updatedBand = await api.patch(
           `/api/admin/bands/${bandId}/status`,
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
   );
 
   const updatePorchStatus = useCallback(
-    async (porchId: string, status: Status) => {
+    async (porchId: number, status: Status) => {
       try {
         const updatedPorch = await api.patch(
           `/api/admin/porches/${porchId}/status`,
@@ -182,8 +182,8 @@ export default function AdminDashboard() {
 
   const scheduleBand = useCallback(
     async (
-      bandId: string,
-      assigned_porch_id: string | null,
+      bandId: number,
+      assigned_porch_id: number | null,
       set_start_time: string | null,
       set_end_time: string | null,
     ) => {
@@ -206,7 +206,7 @@ export default function AdminDashboard() {
   );
 
   const getPorchAddress = useCallback(
-    (porchId: string | null) => {
+    (porchId: number | null) => {
       if (!porchId) return null;
       const porch = porches.find((p) => p.id === porchId);
       return porch?.address || null;
@@ -215,7 +215,7 @@ export default function AdminDashboard() {
   );
 
   const updateBandReview = useCallback(
-    async (bandId: string, rating: number | null, notes: string | null) => {
+    async (bandId: number, rating: number | null, notes: string | null) => {
       try {
         const updatedBand = await api.patch(
           `/api/admin/bands/${bandId}/review`,

@@ -5,7 +5,7 @@ import StatusSelect from "./StatusSelect";
 interface PorchCardProps {
   porch: PorchApplication;
   scheduledBands: BandApplication[];
-  onStatusChange: (porchId: string, status: Status) => void;
+  onStatusChange: (porchId: number, status: Status) => void;
   eventStartTime?: string;
   eventEndTime?: string;
 }

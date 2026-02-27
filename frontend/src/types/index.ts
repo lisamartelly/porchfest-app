@@ -1,9 +1,9 @@
-export type UserRole = 'band' | 'porch' | 'admin' | 'super-duper-admin'
+export type UserRole = 'super-duper-admin' | 'user'
 export type ApplicationStatus = 'pending' | 'under_review' | 'approved' | 'rejected'
 export type PerformanceStatus = 'scheduled' | 'confirmed' | 'cancelled'
 
 export interface Profile {
-  id: string
+  id: number
   email: string
   role: UserRole
   created_at: string
@@ -11,7 +11,7 @@ export interface Profile {
 }
 
 export interface Organization {
-  id: string
+  id: number
   name: string
   slug: string
   description: string | null
@@ -25,8 +25,8 @@ export interface Organization {
 }
 
 export interface Band {
-  id: string
-  event_id: string
+  id: number
+  event_id: number
   profile_id: string
   name: string
   genre: string | null
@@ -43,8 +43,8 @@ export interface Band {
 }
 
 export interface Porch {
-  id: string
-  event_id: string
+  id: number
+  event_id: number
   profile_id: string
   owner_name: string
   address: string
@@ -64,8 +64,8 @@ export interface Porch {
 }
 
 export interface Event {
-  id: string
-  organization_id: string
+  id: number
+  organization_id: number
   name: string
   date: string
   description: string | null
@@ -73,28 +73,28 @@ export interface Event {
   created_at: string
 }
 
-export type OrgRole = 'owner' | 'admin' | 'member'
+export type OrgRole = 'owner' | 'organizer' | 'reviewer'
 
-export interface UserOrganization {
-  id: string
-  user_id: string
-  organization_id: string
+export interface OrganizationUser {
+  id: number
+  user_id: number
+  organization_id: number
   role: OrgRole
   created_at: string
 }
 
 export interface TimeSlot {
-  id: string
-  event_id: string
+  id: number
+  event_id: number
   start_time: string
   end_time: string
 }
 
 export interface Performance {
-  id: string
-  band_id: string
-  porch_id: string
-  time_slot_id: string
+  id: number
+  band_id: number
+  porch_id: number
+  time_slot_id: number
   status: PerformanceStatus
   created_at: string
   // Joined data
@@ -104,10 +104,10 @@ export interface Performance {
 }
 
 export interface Message {
-  id: string
-  from_user_id: string
-  to_user_id: string
-  performance_id: string | null
+  id: number
+  from_user_id: number
+  to_user_id: number
+  performance_id: number | null
   content: string
   read_at: string | null
   created_at: string
@@ -115,7 +115,7 @@ export interface Message {
 
 // Form types
 export interface BandApplicationData {
-  organization_id: string
+  organization_id: number
   name: string
   genre: string
   bio: string
@@ -125,7 +125,7 @@ export interface BandApplicationData {
 }
 
 export interface PorchApplicationData {
-  organization_id: string
+  organization_id: number
   owner_name: string
   address: string
   city: string

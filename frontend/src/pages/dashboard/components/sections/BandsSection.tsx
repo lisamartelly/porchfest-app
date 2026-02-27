@@ -15,16 +15,16 @@ interface BandsSectionProps {
   eventSettings: EventSettings | null;
   schedulingError: string | null;
   reviewers: string[];
-  onStatusChange: (bandId: string, status: Status) => Promise<void>;
+  onStatusChange: (bandId: number, status: Status) => Promise<void>;
   onSchedule: (
-    bandId: string,
-    porchId: string | null,
+    bandId: number,
+    porchId: number | null,
     startTime: string | null,
     endTime: string | null,
   ) => Promise<void>;
-  getPorchAddress: (porchId: string | null) => string | null;
+  getPorchAddress: (porchId: number | null) => string | null;
   onReviewUpdate: (
-    bandId: string,
+    bandId: number,
     rating: number | null,
     notes: string | null,
   ) => Promise<void>;

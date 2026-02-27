@@ -1,6 +1,6 @@
 export interface BandApplication {
-  id: string;
-  event_id: string;
+  id: number;
+  event_id: number;
   band_name: string;
   contact_name: string;
   contact_email: string;
@@ -23,19 +23,19 @@ export interface BandApplication {
   status: string;
   admin_notes: string | null;
   created_at: string;
-  assigned_porch_id: string | null;
+  assigned_porch_id: number | null;
   set_start_time: string | null;
   set_end_time: string | null;
   // Reviewer fields
-  assigned_reviewer_id: string | null;
+  assigned_reviewer_id: number | null;
   assigned_reviewer_email: string | null;
   reviewer_rating: number | null;
   reviewer_notes: string | null;
 }
 
 export interface PorchApplication {
-  id: string;
-  event_id: string;
+  id: number;
+  event_id: number;
   owner_name: string;
   email: string;
   address: string;
@@ -52,8 +52,8 @@ export interface PorchApplication {
 export type Status = "pending" | "under_review" | "approved" | "rejected";
 
 export interface EventSettings {
-  id: string;
-  organization_id: string;
+  id: number;
+  organization_id: number;
   name: string;
   date: string;
   start_time: string;
@@ -89,7 +89,7 @@ export type Section =
   | "manage-admins";
 
 export interface OrgSummary {
-  id: string;
+  id: number;
   name: string;
   slug: string;
   city: string | null;
@@ -101,23 +101,23 @@ export interface OrgSummary {
 }
 
 export interface AdminUser {
-  id: string;
+  id: number;
   email: string;
   role: string;
   created_at: string;
-  organizations: { id: string; name: string }[];
+  organizations: { id: number; name: string }[];
 }
 
 export interface EventWithOrg {
-  id: string;
+  id: number;
   name: string;
   date: string;
   start_time: string;
   end_time: string;
   description: string | null;
   is_active: boolean;
-  organization_id: string;
-  organization?: { id: string; name: string };
+  organization_id: number;
+  organization?: { id: number; name: string };
   band_applications_open: string | null;
   band_applications_close: string | null;
   porch_applications_open: string | null;

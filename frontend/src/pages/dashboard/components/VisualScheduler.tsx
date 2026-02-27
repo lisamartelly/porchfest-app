@@ -7,8 +7,8 @@ interface VisualSchedulerProps {
   eventStartTime: string;
   eventEndTime: string;
   onScheduleBand: (
-    bandId: string,
-    porchId: string | null,
+    bandId: number,
+    porchId: number | null,
     startTime: string | null,
     endTime: string | null
   ) => Promise<void>;
@@ -20,17 +20,17 @@ interface TimeSlot {
 }
 
 interface Selection {
-  porchId: string;
+  porchId: number;
   startIndex: number;
   endIndex: number;
 }
 
 interface DragState {
-  bandId: string;
-  porchId: string;
+  bandId: number;
+  porchId: number;
   originalStartIndex: number;
-  bandSpan: number; // number of slots the band takes
-  currentStartIndex: number; // where the band would be placed
+  bandSpan: number;
+  currentStartIndex: number;
 }
 
 interface ScheduledBand {
@@ -169,18 +169,16 @@ export default function VisualScheduler({
     );
   }, [unscheduledBands, bandSearch]);
 
-  // Assign colors to bands
   const bandColors = useMemo(() => {
-    const colors: { [bandId: string]: (typeof BAND_COLORS)[0] } = {};
+    const colors: { [bandId: number]: (typeof BAND_COLORS)[0] } = {};
     availableBands.forEach((band, index) => {
       colors[band.id] = BAND_COLORS[index % BAND_COLORS.length];
     });
     return colors;
   }, [availableBands]);
 
-  // Get scheduled bands for a porch
   const getScheduledBandsForPorch = useCallback(
-    (porchId: string): ScheduledBand[] => {
+    (porchId: number): ScheduledBand[] => {
       return bands
         .filter((b) => b.assigned_porch_id === porchId && b.set_start_time)
         .map((band) => {
@@ -203,8 +201,7 @@ export default function VisualScheduler({
     [bands, timeSlots]
   );
 
-  // Handle mouse down on a cell
-  const handleCellMouseDown = (porchId: string, slotIndex: number) => {
+  const handleCellMouseDown = (porchId: number, slotIndex: number) => {
     // Check if clicking on a scheduled band
     const scheduledBands = getScheduledBandsForPorch(porchId);
     const clickedBand = scheduledBands.find(
@@ -234,8 +231,7 @@ export default function VisualScheduler({
     setShowBandPicker(false);
   };
 
-  // Handle mouse enter on a cell during selection or drag
-  const handleCellMouseEnter = (porchId: string, slotIndex: number) => {
+  const handleCellMouseEnter = (porchId: number, slotIndex: number) => {
     if (!isSelecting) return;
 
     // Handle band dragging
@@ -406,8 +402,7 @@ export default function VisualScheduler({
     }
   };
 
-  // Handle removing a scheduled band
-  const handleRemoveBand = async (bandId: string) => {
+  const handleRemoveBand = async (bandId: number) => {
     setSaving(true);
     try {
       await onScheduleBand(bandId, null, null, null);
@@ -420,16 +415,14 @@ export default function VisualScheduler({
     }
   };
 
-  // Check if a slot is within the current selection
-  const isSlotSelected = (porchId: string, slotIndex: number) => {
+  const isSlotSelected = (porchId: number, slotIndex: number) => {
     if (!selection || selection.porchId !== porchId) return false;
     const start = Math.min(selection.startIndex, selection.endIndex);
     const end = Math.max(selection.startIndex, selection.endIndex);
     return slotIndex >= start && slotIndex <= end;
   };
 
-  // Get the band at a specific slot (accounting for drag state)
-  const getBandAtSlot = (porchId: string, slotIndex: number): BandApplication | null => {
+  const getBandAtSlot = (porchId: number, slotIndex: number): BandApplication | null => {
     const scheduledBands = getScheduledBandsForPorch(porchId);
     
     for (const sb of scheduledBands) {
@@ -451,8 +444,7 @@ export default function VisualScheduler({
     return null;
   };
 
-  // Check if this is the first slot of a band (accounting for drag state)
-  const isFirstSlotOfBand = (porchId: string, slotIndex: number): boolean => {
+  const isFirstSlotOfBand = (porchId: number, slotIndex: number): boolean => {
     const scheduledBands = getScheduledBandsForPorch(porchId);
     
     for (const sb of scheduledBands) {
@@ -471,8 +463,7 @@ export default function VisualScheduler({
     return false;
   };
 
-  // Get band span (number of slots) - accounting for drag state
-  const getBandSpan = (porchId: string, slotIndex: number): number => {
+  const getBandSpan = (porchId: number, slotIndex: number): number => {
     const scheduledBands = getScheduledBandsForPorch(porchId);
     
     for (const sb of scheduledBands) {
@@ -491,8 +482,7 @@ export default function VisualScheduler({
     return 0;
   };
   
-  // Check if a band is currently being dragged
-  const isBandBeingDragged = (bandId: string): boolean => {
+  const isBandBeingDragged = (bandId: number): boolean => {
     return dragState?.bandId === bandId;
   };
 
@@ -580,7 +570,7 @@ export default function VisualScheduler({
                       {porch.address.split(" ")[0]}
                     </span>
                     <span className="text-xs text-gray-500">
-                      #{porch.id.split("-")[1] || "?"}
+                      #{porch.id}
                     </span>
                   </div>
                   <div className="text-xs text-gray-500 truncate">

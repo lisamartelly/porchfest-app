@@ -6,8 +6,8 @@ interface SchedulerSectionProps {
   approvedPorches: PorchApplication[];
   eventSettings: EventSettings | null;
   onScheduleBand: (
-    bandId: string,
-    porchId: string | null,
+    bandId: number,
+    porchId: number | null,
     startTime: string | null,
     endTime: string | null,
   ) => Promise<void>;
