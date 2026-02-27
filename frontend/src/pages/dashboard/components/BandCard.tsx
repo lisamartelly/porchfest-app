@@ -9,24 +9,23 @@ interface BandCardProps {
   approvedPorches: PorchApplication[];
   eventStartTime: string;
   eventEndTime: string;
-  onStatusChange: (bandId: string, status: Status) => void;
+  onStatusChange: (bandId: number, status: Status) => void;
   onSchedule: (
-    bandId: string,
-    porchId: string | null,
+    bandId: number,
+    porchId: number | null,
     startTime: string | null,
     endTime: string | null
   ) => Promise<void>;
-  getPorchAddress: (porchId: string | null) => string | null;
+  getPorchAddress: (porchId: number | null) => string | null;
   schedulingError: string | null;
   showReviewerInfo?: boolean;
-  onReviewUpdate?: (bandId: string, rating: number | null, notes: string | null) => void;
+  onReviewUpdate?: (bandId: number, rating: number | null, notes: string | null) => void;
   isMyReview?: boolean;
   currentUserEmail?: string;
 }
 
-// Mock band photos using picsum with consistent seeds based on band id
-const getMockPhoto = (bandId: string) => {
-  const seed = bandId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+const getMockPhoto = (bandId: number) => {
+  const seed = String(bandId).split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return `https://picsum.photos/seed/${seed}/400/400`;
 };
 

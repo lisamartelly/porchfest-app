@@ -14,7 +14,7 @@ export default function EventsSection({
 }: EventsSectionProps) {
   const [myEvents, setMyEvents] = useState<EventWithOrg[]>([]);
   const [myOrgs, setMyOrgs] = useState<OrgSummary[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [newEventForm, setNewEventForm] = useState({
     name: "",
     date: "",
@@ -73,7 +73,7 @@ export default function EventsSection({
   };
 
   const updateEventById = async (
-    eventId: string,
+    eventId: number,
     updates: Partial<EventSettings>,
   ) => {
     try {

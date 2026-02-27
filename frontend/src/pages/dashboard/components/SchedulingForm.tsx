@@ -8,8 +8,8 @@ interface SchedulingFormProps {
   eventStartTime: string;
   eventEndTime: string;
   onSchedule: (
-    bandId: string,
-    porchId: string | null,
+    bandId: number,
+    porchId: number | null,
     startTime: string | null,
     endTime: string | null
   ) => Promise<void>;
@@ -22,7 +22,7 @@ export default function SchedulingForm({
   eventEndTime,
   onSchedule,
 }: SchedulingFormProps) {
-  const [porchId, setPorchId] = useState(band.assigned_porch_id || "");
+  const [porchId, setPorchId] = useState<string>(band.assigned_porch_id ? String(band.assigned_porch_id) : "");
   const [startTime, setStartTime] = useState(band.set_start_time || "");
   const [endTime, setEndTime] = useState(band.set_end_time || "");
   const [saving, setSaving] = useState(false);
@@ -32,7 +32,7 @@ export default function SchedulingForm({
     try {
       await onSchedule(
         band.id,
-        porchId || null,
+        porchId ? Number(porchId) : null,
         startTime || null,
         endTime || null
       );

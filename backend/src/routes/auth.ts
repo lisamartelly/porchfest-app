@@ -22,7 +22,7 @@ authRouter.post(
       .isLength({ min: 6 })
       .withMessage("Password must be at least 6 characters"),
     body("role")
-      .isIn(["admin", "reviewer", "super-duper-admin"])
+      .isIn(["super-duper-admin", "user"])
       .withMessage("Invalid role"),
   ],
   async (req: Request, res: Response) => {

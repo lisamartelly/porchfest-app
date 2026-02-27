@@ -13,7 +13,7 @@ interface PorchesSectionProps {
   porches: PorchApplication[];
   bands: BandApplication[];
   eventSettings: EventSettings | null;
-  onStatusChange: (porchId: string, status: Status) => Promise<void>;
+  onStatusChange: (porchId: number, status: Status) => Promise<void>;
 }
 
 const STATUS_PRIORITY: Record<Status, number> = {
@@ -43,7 +43,7 @@ export default function PorchesSection({
   const [filter, setFilter] = useState<FilterStatus>("pending");
   const [porchSort, setPorchSort] = useState<PorchSortOption>("address");
 
-  const getBandsAtPorch = (porchId: string) => {
+  const getBandsAtPorch = (porchId: number) => {
     return bands
       .filter((b) => b.assigned_porch_id === porchId && b.set_start_time)
       .sort((a, b) => {

@@ -34,7 +34,7 @@ export { pool };
 // ============================================================================
 
 export interface User {
-  id: string;
+  id: number;
   email: string;
   password_hash: string;
   role: string;
@@ -43,7 +43,7 @@ export interface User {
 }
 
 export interface Organization {
-  id: string;
+  id: number;
   name: string;
   slug: string;
   description: string | null;
@@ -57,8 +57,8 @@ export interface Organization {
 }
 
 export interface Band {
-  id: string;
-  event_id: string;
+  id: number;
+  event_id: number;
   band_name: string;
   contact_name: string;
   contact_email: string;
@@ -84,10 +84,10 @@ export interface Band {
   questions_comments: string | null;
   status: string;
   admin_notes: string | null;
-  assigned_porch_id: string | null;
+  assigned_porch_id: number | null;
   set_start_time: string | null;
   set_end_time: string | null;
-  assigned_reviewer_id: string | null;
+  assigned_reviewer_id: number | null;
   assigned_reviewer_email: string | null;
   reviewer_rating: number | null;
   reviewer_notes: string | null;
@@ -96,8 +96,8 @@ export interface Band {
 }
 
 export interface Porch {
-  id: string;
-  event_id: string;
+  id: number;
+  event_id: number;
   owner_name: string;
   email: string;
   address: string;
@@ -115,8 +115,8 @@ export interface Porch {
 }
 
 export interface Event {
-  id: string;
-  organization_id: string;
+  id: number;
+  organization_id: number;
   name: string;
   date: string;
   start_time: string;
@@ -133,17 +133,17 @@ export interface Event {
   updated_at: Date;
 }
 
-export interface UserOrganization {
-  id: string;
-  user_id: string;
-  organization_id: string;
+export interface OrganizationUser {
+  id: number;
+  user_id: number;
+  organization_id: number;
   role: string;
   created_at: Date;
 }
 
 export interface TimeSlot {
-  id: string;
-  event_id: string;
+  id: number;
+  event_id: number;
   start_time: Date;
   end_time: Date;
   created_at: Date;
@@ -173,7 +173,7 @@ export const db = {
       return result.rows[0] || null;
     },
 
-    async findById(id: string): Promise<User | null> {
+    async findById(id: number | string): Promise<User | null> {
       const result = await pool.query<User>(
         "SELECT * FROM users WHERE id = $1",
         [id]
@@ -195,7 +195,7 @@ export const db = {
       return result.rows[0];
     },
 
-    async updatePassword(id: string, passwordHash: string): Promise<User | null> {
+    async updatePassword(id: number | string, passwordHash: string): Promise<User | null> {
       const result = await pool.query<User>(
         `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
         [passwordHash, id]
@@ -215,7 +215,7 @@ export const db = {
       return result.rows;
     },
 
-    async findById(id: string): Promise<Organization | null> {
+    async findById(id: number | string): Promise<Organization | null> {
       const result = await pool.query<Organization>(
         "SELECT * FROM organizations WHERE id = $1",
         [id]
@@ -251,11 +251,11 @@ export const db = {
     },
 
     async update(
-      id: string,
+      id: number | string,
       data: Partial<Organization>
     ): Promise<Organization | null> {
       const setClauses: string[] = [];
-      const values: (string | null)[] = [];
+      const values: (string | number | null)[] = [];
       let paramIndex = 1;
 
       if (data.name !== undefined) {
@@ -305,52 +305,52 @@ export const db = {
   // ---------------------------------------------------------------------------
   // USER_ORGANIZATIONS (many-to-many junction)
   // ---------------------------------------------------------------------------
-  userOrganizations: {
-    async findByUserId(userId: string): Promise<UserOrganization[]> {
-      const result = await pool.query<UserOrganization>(
-        "SELECT * FROM user_organizations WHERE user_id = $1 ORDER BY created_at DESC",
+  organizationUsers: {
+    async findByUserId(userId: number): Promise<OrganizationUser[]> {
+      const result = await pool.query<OrganizationUser>(
+        "SELECT * FROM organization_users WHERE user_id = $1 ORDER BY created_at DESC",
         [userId]
       );
       return result.rows;
     },
 
     async findByOrganizationId(
-      organizationId: string
-    ): Promise<UserOrganization[]> {
-      const result = await pool.query<UserOrganization>(
-        "SELECT * FROM user_organizations WHERE organization_id = $1 ORDER BY created_at DESC",
+      organizationId: number
+    ): Promise<OrganizationUser[]> {
+      const result = await pool.query<OrganizationUser>(
+        "SELECT * FROM organization_users WHERE organization_id = $1 ORDER BY created_at DESC",
         [organizationId]
       );
       return result.rows;
     },
 
     async findByUserAndOrg(
-      userId: string,
-      organizationId: string
-    ): Promise<UserOrganization | null> {
-      const result = await pool.query<UserOrganization>(
-        "SELECT * FROM user_organizations WHERE user_id = $1 AND organization_id = $2",
+      userId: number,
+      organizationId: number
+    ): Promise<OrganizationUser | null> {
+      const result = await pool.query<OrganizationUser>(
+        "SELECT * FROM organization_users WHERE user_id = $1 AND organization_id = $2",
         [userId, organizationId]
       );
       return result.rows[0] || null;
     },
 
-    async getOrganizationsForUser(userId: string): Promise<Organization[]> {
+    async getOrganizationsForUser(userId: number): Promise<Organization[]> {
       const result = await pool.query<Organization>(
         `SELECT o.* FROM organizations o
-         INNER JOIN user_organizations uo ON o.id = uo.organization_id
-         WHERE uo.user_id = $1
+         INNER JOIN organization_users ou ON o.id = ou.organization_id
+         WHERE ou.user_id = $1
          ORDER BY o.name`,
         [userId]
       );
       return result.rows;
     },
 
-    async getUsersForOrganization(organizationId: string): Promise<User[]> {
+    async getUsersForOrganization(organizationId: number): Promise<User[]> {
       const result = await pool.query<User>(
         `SELECT u.* FROM users u
-         INNER JOIN user_organizations uo ON u.id = uo.user_id
-         WHERE uo.organization_id = $1
+         INNER JOIN organization_users ou ON u.id = ou.user_id
+         WHERE ou.organization_id = $1
          ORDER BY u.email`,
         [organizationId]
       );
@@ -358,34 +358,34 @@ export const db = {
     },
 
     async create(data: {
-      user_id: string;
-      organization_id: string;
+      user_id: number;
+      organization_id: number;
       role?: string;
-    }): Promise<UserOrganization> {
-      const result = await pool.query<UserOrganization>(
-        `INSERT INTO user_organizations (user_id, organization_id, role)
+    }): Promise<OrganizationUser> {
+      const result = await pool.query<OrganizationUser>(
+        `INSERT INTO organization_users (user_id, organization_id, role)
          VALUES ($1, $2, $3)
          RETURNING *`,
-        [data.user_id, data.organization_id, data.role || "member"]
+        [data.user_id, data.organization_id, data.role || "organizer"]
       );
       return result.rows[0];
     },
 
     async updateRole(
-      userId: string,
-      organizationId: string,
+      userId: number,
+      organizationId: number,
       role: string
-    ): Promise<UserOrganization | null> {
-      const result = await pool.query<UserOrganization>(
-        `UPDATE user_organizations SET role = $1 WHERE user_id = $2 AND organization_id = $3 RETURNING *`,
+    ): Promise<OrganizationUser | null> {
+      const result = await pool.query<OrganizationUser>(
+        `UPDATE organization_users SET role = $1 WHERE user_id = $2 AND organization_id = $3 RETURNING *`,
         [role, userId, organizationId]
       );
       return result.rows[0] || null;
     },
 
-    async delete(userId: string, organizationId: string): Promise<boolean> {
+    async delete(userId: number, organizationId: number): Promise<boolean> {
       const result = await pool.query(
-        "DELETE FROM user_organizations WHERE user_id = $1 AND organization_id = $2",
+        "DELETE FROM organization_users WHERE user_id = $1 AND organization_id = $2",
         [userId, organizationId]
       );
       return (result.rowCount ?? 0) > 0;
@@ -411,7 +411,7 @@ export const db = {
       return result.rows;
     },
 
-    async findById(id: string): Promise<Band | null> {
+    async findById(id: number | string): Promise<Band | null> {
       const result = await pool.query<Band>(
         "SELECT * FROM bands WHERE id = $1",
         [id]
@@ -434,7 +434,7 @@ export const db = {
       return result.rows;
     },
 
-    async findByEventId(eventId: string): Promise<Band[]> {
+    async findByEventId(eventId: number | string): Promise<Band[]> {
       const result = await pool.query<Band>(
         `SELECT * FROM bands WHERE event_id = $1 ORDER BY band_name`,
         [eventId]
@@ -485,7 +485,7 @@ export const db = {
     },
 
     async updateStatus(
-      id: string,
+      id: number | string,
       status: string,
       adminNotes?: string | null
     ): Promise<Band | null> {
@@ -497,7 +497,7 @@ export const db = {
     },
 
     async updateSchedule(
-      id: string,
+      id: number | string,
       data: {
         assigned_porch_id?: string | null;
         set_start_time?: string | null;
@@ -519,7 +519,7 @@ export const db = {
     },
 
     async updateReview(
-      id: string,
+      id: number | string,
       data: {
         reviewer_rating?: number | null;
         reviewer_notes?: string | null;
@@ -535,8 +535,8 @@ export const db = {
     },
 
     async assignReviewer(
-      id: string,
-      reviewerId: string,
+      id: number | string,
+      reviewerId: number | string,
       reviewerEmail: string
     ): Promise<Band | null> {
       const result = await pool.query<Band>(
@@ -556,10 +556,10 @@ export const db = {
     },
 
     async findOverlappingAtPorch(
-      porchId: string,
+      porchId: number | string,
       startTime: string,
       endTime: string,
-      excludeBandId?: string
+      excludeBandId?: number | string
     ): Promise<Band | null> {
       let query = `
         SELECT * FROM bands 
@@ -569,7 +569,7 @@ export const db = {
           AND set_start_time::time < $3::time 
           AND set_end_time::time > $2::time
       `;
-      const params: (string | undefined)[] = [porchId, startTime, endTime];
+      const params: (string | number | undefined)[] = [porchId, startTime, endTime];
 
       if (excludeBandId) {
         query += " AND id != $4";
@@ -600,7 +600,7 @@ export const db = {
       return result.rows;
     },
 
-    async findById(id: string): Promise<Porch | null> {
+    async findById(id: number | string): Promise<Porch | null> {
       const result = await pool.query<Porch>(
         "SELECT * FROM porches WHERE id = $1",
         [id]
@@ -615,7 +615,7 @@ export const db = {
       return result.rows;
     },
 
-    async findByEventId(eventId: string): Promise<Porch[]> {
+    async findByEventId(eventId: number | string): Promise<Porch[]> {
       const result = await pool.query<Porch>(
         `SELECT * FROM porches WHERE event_id = $1 ORDER BY address`,
         [eventId]
@@ -651,7 +651,7 @@ export const db = {
     },
 
     async updateStatus(
-      id: string,
+      id: number | string,
       status: string,
       adminNotes?: string | null
     ): Promise<Porch | null> {
@@ -681,7 +681,7 @@ export const db = {
       return result.rows[0] || null;
     },
 
-    async findById(id: string): Promise<Event | null> {
+    async findById(id: number | string): Promise<Event | null> {
       const result = await pool.query<Event>(
         "SELECT * FROM events WHERE id = $1",
         [id]
@@ -689,7 +689,7 @@ export const db = {
       return result.rows[0] || null;
     },
 
-    async findByOrganizationId(organizationId: string): Promise<Event[]> {
+    async findByOrganizationId(organizationId: number | string): Promise<Event[]> {
       const result = await pool.query<Event>(
         "SELECT * FROM events WHERE organization_id = $1 ORDER BY date DESC",
         [organizationId]
@@ -715,9 +715,9 @@ export const db = {
       return result.rows[0];
     },
 
-    async update(id: string, data: Partial<Event>): Promise<Event | null> {
+    async update(id: number | string, data: Partial<Event>): Promise<Event | null> {
       const setClauses: string[] = [];
-      const values: (string | boolean | string[] | null)[] = [];
+      const values: (string | number | boolean | string[] | null)[] = [];
       let paramIndex = 1;
 
       if (data.organization_id !== undefined) {
@@ -784,7 +784,7 @@ export const db = {
   // TIME SLOTS
   // ---------------------------------------------------------------------------
   timeSlots: {
-    async findByEventId(eventId: string): Promise<TimeSlot[]> {
+    async findByEventId(eventId: number | string): Promise<TimeSlot[]> {
       const result = await pool.query<TimeSlot>(
         "SELECT * FROM time_slots WHERE event_id = $1 ORDER BY start_time",
         [eventId]
@@ -800,7 +800,7 @@ export const db = {
     },
 
     async create(data: {
-      event_id: string;
+      event_id: number | string;
       start_time: string;
       end_time: string;
     }): Promise<TimeSlot> {

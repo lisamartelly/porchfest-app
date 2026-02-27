@@ -8,7 +8,7 @@ export default function ManageAdminsSection() {
   const [newAdminForm, setNewAdminForm] = useState({
     email: "",
     password: "",
-    role: "admin",
+    role: "user",
     organization_id: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export default function ManageAdminsSection() {
       setNewAdminForm({
         email: "",
         password: "",
-        role: "admin",
+        role: "user",
         organization_id: "",
       });
       fetchAdminUsers();
@@ -132,8 +132,7 @@ export default function ManageAdminsSection() {
                 }
                 className="input-field"
               >
-                <option value="admin">Admin</option>
-                <option value="reviewer">Reviewer</option>
+                <option value="user">User</option>
               </select>
             </div>
             <div>
@@ -204,7 +203,7 @@ export default function ManageAdminsSection() {
                         className={`px-2 py-1 rounded-full text-xs font-medium ${
                           u.role === "super-duper-admin"
                             ? "bg-purple-100 text-purple-700"
-                            : u.role === "admin"
+                            : u.role === "user"
                               ? "bg-blue-100 text-blue-700"
                               : "bg-gray-100 text-gray-700"
                         }`}

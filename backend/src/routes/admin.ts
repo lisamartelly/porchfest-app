@@ -84,7 +84,7 @@ adminRouter.get("/users", superDuperAdminOnly, async (req: Request, res: Respons
     const users = await db.users.findAll();
     const usersWithOrgs = await Promise.all(
       users.map(async (u) => {
-        const orgs = await db.userOrganizations.getOrganizationsForUser(u.id);
+        const orgs = await db.organizationUsers.getOrganizationsForUser(u.id);
         return {
           id: u.id,
           email: u.email,
@@ -111,9 +111,9 @@ adminRouter.post(
       .isLength({ min: 6 })
       .withMessage("Password must be at least 6 characters"),
     body("role")
-      .isIn(["admin", "reviewer"])
-      .withMessage("Role must be admin or reviewer"),
-    body("organization_id").optional().isString(),
+      .isIn(["user"])
+      .withMessage("Role must be user"),
+    body("organization_id").optional().isNumeric(),
   ],
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
@@ -141,10 +141,10 @@ adminRouter.post(
         if (!org) {
           return res.status(400).json({ error: "Organization not found" });
         }
-        await db.userOrganizations.create({
+        await db.organizationUsers.create({
           user_id: user.id,
           organization_id,
-          role: "admin",
+          role: "organizer",
         });
       }
 
@@ -185,7 +185,7 @@ adminRouter.get("/my-events", async (req: AuthRequest, res: Response) => {
       return res.json(eventsWithOrgs);
     }
 
-    const userOrgs = await db.userOrganizations.getOrganizationsForUser(
+    const userOrgs = await db.organizationUsers.getOrganizationsForUser(
       req.user!.id
     );
     const allEvents: Array<Record<string, unknown>> = [];
@@ -210,7 +210,7 @@ adminRouter.get("/my-organizations", async (req: AuthRequest, res: Response) => 
       return res.json(allOrgs);
     }
 
-    const orgs = await db.userOrganizations.getOrganizationsForUser(
+    const orgs = await db.organizationUsers.getOrganizationsForUser(
       req.user!.id
     );
     res.json(orgs);
@@ -380,7 +380,7 @@ adminRouter.post(
 
       // Verify user belongs to this organization (unless super-duper-admin)
       if (req.user?.role !== "super-duper-admin") {
-        const membership = await db.userOrganizations.findByUserAndOrg(
+        const membership = await db.organizationUsers.findByUserAndOrg(
           req.user!.id,
           organization_id
         );
@@ -433,7 +433,7 @@ adminRouter.patch(
       }
 
       if (req.user?.role !== "super-duper-admin") {
-        const membership = await db.userOrganizations.findByUserAndOrg(
+        const membership = await db.organizationUsers.findByUserAndOrg(
           req.user!.id,
           event.organization_id
         );
