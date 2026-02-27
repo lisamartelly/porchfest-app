@@ -85,6 +85,7 @@ export type Section =
   | "my-reviews"
   | "scheduler"
   | "events"
+  | "tasks"
   | "organizations"
   | "manage-admins";
 
@@ -135,3 +136,41 @@ export type BandSortOption =
   | "rating";
 
 export type PorchSortOption = "address" | "created_at" | "status" | "owner_name";
+
+export interface TaskTemplate {
+  id: number;
+  organization_id: number;
+  name: string;
+  recurring: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskContact {
+  id: number;
+  event_task_id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  business: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface EventTaskItem {
+  id: number;
+  task_id: number;
+  event_id: number;
+  name: string | null;
+  notes: string | null;
+  assigned_user_id: number | null;
+  due_date: string | null;
+  task_name: string;
+  recurring: boolean;
+  assigned_user_email: string | null;
+  contacts: TaskContact[];
+  created_at: string;
+  updated_at: string;
+  event_name?: string;
+  event_date?: string;
+}
