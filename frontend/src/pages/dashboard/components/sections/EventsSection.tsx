@@ -92,6 +92,20 @@ export default function EventsSection({
     }
   };
 
+  const setEventActive = async (eventId: number) => {
+    try {
+      const updated = await api.patch(`/api/admin/events/${eventId}`, {
+        is_active: true,
+      });
+      if (eventSettings?.id === eventId) {
+        onEventSettingsUpdate(updated);
+      }
+      fetchMyEvents();
+    } catch (error) {
+      console.error("Error setting active event:", error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -261,10 +275,21 @@ export default function EventsSection({
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {event.is_active && (
+                      {event.is_active ? (
                         <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
                           Active
                         </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEventActive(event.id);
+                          }}
+                          className="px-2 py-1 text-xs font-medium text-porch-600 hover:text-porch-700 hover:bg-porch-50 rounded-full transition-colors"
+                        >
+                          Set as active
+                        </button>
                       )}
                       <span className="text-gray-400 text-sm">
                         {selectedEventId === event.id ? "▼" : "▶"}

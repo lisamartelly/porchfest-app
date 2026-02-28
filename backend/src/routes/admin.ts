@@ -423,6 +423,7 @@ adminRouter.patch(
     body("porch_applications_open").optional({ nullable: true }).isString(),
     body("porch_applications_close").optional({ nullable: true }).isString(),
     body("reviewer_emails").optional().isArray(),
+    body("is_active").optional().isBoolean(),
   ],
   async (req: AuthRequest, res: Response) => {
     try {
@@ -455,6 +456,7 @@ adminRouter.patch(
         porch_applications_open: req.body.porch_applications_open,
         porch_applications_close: req.body.porch_applications_close,
         reviewer_emails: req.body.reviewer_emails,
+        is_active: req.body.is_active,
       });
 
       res.json(updatedEvent);

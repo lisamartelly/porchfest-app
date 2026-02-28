@@ -157,6 +157,8 @@ export interface TaskContact {
   created_at: string;
 }
 
+export type EventTaskStatus = "to_do" | "in_progress" | "blocked" | "done";
+
 export interface EventTaskItem {
   id: number;
   task_id: number;
@@ -165,6 +167,7 @@ export interface EventTaskItem {
   notes: string | null;
   assigned_user_id: number | null;
   due_date: string | null;
+  status: EventTaskStatus;
   task_name: string;
   recurring: boolean;
   assigned_user_email: string | null;

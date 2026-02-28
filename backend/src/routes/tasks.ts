@@ -8,6 +8,44 @@ export const tasksRouter: Router = Router();
 tasksRouter.use(adminOnly);
 
 // =========================================================================
+// ACTIVE EVENT TASKS (for tasks page - shows tasks for the user's active event)
+// =========================================================================
+
+tasksRouter.get(
+  "/active-event-tasks",
+  async (req: AuthRequest, res: Response) => {
+    try {
+      let activeEvent = null;
+      if (req.user?.role === "super-duper-admin") {
+        activeEvent = await db.events.findActive();
+      } else {
+        const userOrgs = await db.organizationUsers.getOrganizationsForUser(
+          req.user!.id
+        );
+        for (const org of userOrgs) {
+          activeEvent = await db.events.findActiveByOrganizationId(org.id);
+          if (activeEvent) break;
+        }
+      }
+      if (!activeEvent) {
+        return res.json({ event: null, event_tasks: [] });
+      }
+      const eventTasks = await db.eventTasks.findByEventId(activeEvent.id);
+      const withContacts = await Promise.all(
+        eventTasks.map(async (et) => {
+          const contacts = await db.taskContacts.findByEventTaskId(et.id);
+          return { ...et, contacts };
+        })
+      );
+      res.json({ event: activeEvent, event_tasks: withContacts });
+    } catch (error) {
+      console.error("Error fetching active event tasks:", error);
+      res.status(500).json({ error: "Failed to fetch active event tasks" });
+    }
+  }
+);
+
+// =========================================================================
 // TASKS (organization-level templates)
 // =========================================================================
 
@@ -137,6 +175,7 @@ tasksRouter.post(
     body("notes").optional({ nullable: true }).isString(),
     body("assigned_user_id").optional({ nullable: true }),
     body("due_date").optional({ nullable: true }).isString(),
+    body("status").optional().isIn(["to_do", "in_progress", "blocked", "done"]),
   ],
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
@@ -145,7 +184,7 @@ tasksRouter.post(
     }
 
     try {
-      const { task_id, event_id, name, notes, assigned_user_id, due_date } =
+      const { task_id, event_id, name, notes, assigned_user_id, due_date, status } =
         req.body;
 
       const existing = await db.eventTasks.findByTaskAndEvent(
@@ -165,6 +204,7 @@ tasksRouter.post(
         notes,
         assigned_user_id,
         due_date,
+        status,
       });
 
       const detailed = await db.eventTasks.findById(eventTask.id);
@@ -183,6 +223,7 @@ tasksRouter.patch(
     body("notes").optional({ nullable: true }).isString(),
     body("assigned_user_id").optional({ nullable: true }),
     body("due_date").optional({ nullable: true }).isString(),
+    body("status").optional().isIn(["to_do", "in_progress", "blocked", "done"]),
   ],
   async (req: AuthRequest, res: Response) => {
     try {
@@ -192,6 +233,7 @@ tasksRouter.patch(
         notes: req.body.notes,
         assigned_user_id: req.body.assigned_user_id,
         due_date: req.body.due_date,
+        status: req.body.status,
       });
       if (!updated) {
         return res.status(404).json({ error: "Event task not found" });
@@ -203,6 +245,35 @@ tasksRouter.patch(
     } catch (error) {
       console.error("Error updating event task:", error);
       res.status(500).json({ error: "Failed to update event task" });
+    }
+  }
+);
+
+tasksRouter.get(
+  "/event-tasks/:id",
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const eventTask = await db.eventTasks.findById(id);
+      if (!eventTask) {
+        return res.status(404).json({ error: "Event task not found" });
+      }
+      const contacts = await db.taskContacts.findByEventTaskId(id);
+      const history = await db.eventTasks.getHistory(eventTask.task_id);
+      const historyWithContacts = await Promise.all(
+        history.map(async (et) => {
+          const c = await db.taskContacts.findByEventTaskId(et.id);
+          return { ...et, contacts: c };
+        })
+      );
+      res.json({
+        ...eventTask,
+        contacts,
+        history: historyWithContacts,
+      });
+    } catch (error) {
+      console.error("Error fetching event task:", error);
+      res.status(500).json({ error: "Failed to fetch event task" });
     }
   }
 );

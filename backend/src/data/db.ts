@@ -158,6 +158,8 @@ export interface Task {
   updated_at: Date;
 }
 
+export type EventTaskStatus = "to_do" | "in_progress" | "blocked" | "done";
+
 export interface EventTask {
   id: number;
   task_id: number;
@@ -166,6 +168,7 @@ export interface EventTask {
   notes: string | null;
   assigned_user_id: number | null;
   due_date: Date | null;
+  status: EventTaskStatus;
   created_at: Date;
   updated_at: Date;
 }
@@ -720,6 +723,14 @@ export const db = {
       return result.rows[0] || null;
     },
 
+    async findActiveByOrganizationId(organizationId: number | string): Promise<Event | null> {
+      const result = await pool.query<Event>(
+        "SELECT * FROM events WHERE organization_id = $1 AND is_active = true LIMIT 1",
+        [organizationId]
+      );
+      return result.rows[0] || null;
+    },
+
     async findById(id: number | string): Promise<Event | null> {
       const result = await pool.query<Event>(
         "SELECT * FROM events WHERE id = $1",
@@ -737,21 +748,38 @@ export const db = {
     },
 
     async create(data: Partial<Event>): Promise<Event> {
-      const result = await pool.query<Event>(
-        `INSERT INTO events (organization_id, name, date, start_time, end_time, description, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING *`,
-        [
-          data.organization_id,
-          data.name,
-          data.date,
-          data.start_time || "12:00",
-          data.end_time || "18:00",
-          data.description || null,
-          data.is_active ?? true,
-        ]
-      );
-      return result.rows[0];
+      const isActive = data.is_active ?? true;
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        if (isActive && data.organization_id) {
+          await client.query(
+            "UPDATE events SET is_active = false WHERE organization_id = $1 AND is_active = true",
+            [data.organization_id]
+          );
+        }
+        const result = await client.query<Event>(
+          `INSERT INTO events (organization_id, name, date, start_time, end_time, description, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING *`,
+          [
+            data.organization_id,
+            data.name,
+            data.date,
+            data.start_time || "12:00",
+            data.end_time || "18:00",
+            data.description || null,
+            isActive,
+          ]
+        );
+        await client.query("COMMIT");
+        return result.rows[0];
+      } catch (e) {
+        await client.query("ROLLBACK");
+        throw e;
+      } finally {
+        client.release();
+      }
     },
 
     async update(id: number | string, data: Partial<Event>): Promise<Event | null> {
@@ -807,8 +835,23 @@ export const db = {
         setClauses.push(`reviewers_assigned = $${paramIndex++}`);
         values.push(data.reviewers_assigned);
       }
+      if (data.is_active !== undefined) {
+        setClauses.push(`is_active = $${paramIndex++}`);
+        values.push(data.is_active);
+      }
 
       if (setClauses.length === 0) return this.findById(id);
+
+      // When setting is_active = true, deactivate other events for the same org first
+      if (data.is_active === true) {
+        const event = await this.findById(id);
+        if (event) {
+          await pool.query(
+            "UPDATE events SET is_active = false WHERE organization_id = $1 AND id != $2 AND is_active = true",
+            [event.organization_id, id]
+          );
+        }
+      }
 
       values.push(id);
       const result = await pool.query<Event>(
@@ -970,10 +1013,11 @@ export const db = {
       notes?: string | null;
       assigned_user_id?: number | string | null;
       due_date?: string | null;
+      status?: EventTaskStatus | null;
     }): Promise<EventTask> {
       const result = await pool.query<EventTask>(
-        `INSERT INTO event_tasks (task_id, event_id, name, notes, assigned_user_id, due_date)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO event_tasks (task_id, event_id, name, notes, assigned_user_id, due_date, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
         [
           data.task_id,
@@ -982,6 +1026,7 @@ export const db = {
           data.notes || null,
           data.assigned_user_id || null,
           data.due_date || null,
+          data.status || "to_do",
         ]
       );
       return result.rows[0];
@@ -994,6 +1039,7 @@ export const db = {
         notes?: string | null;
         assigned_user_id?: number | string | null;
         due_date?: string | null;
+        status?: EventTaskStatus | null;
       }
     ): Promise<EventTask | null> {
       const setClauses: string[] = [];
@@ -1015,6 +1061,10 @@ export const db = {
       if (data.due_date !== undefined) {
         setClauses.push(`due_date = $${paramIndex++}`);
         values.push(data.due_date ?? null);
+      }
+      if (data.status !== undefined) {
+        setClauses.push(`status = $${paramIndex++}`);
+        values.push(data.status ?? "to_do");
       }
 
       if (setClauses.length === 0) return null;
