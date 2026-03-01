@@ -2,6 +2,9 @@ import { useState } from "react";
 import { EventSettings as EventSettingsType } from "../types";
 import TimeSelect from "./TimeSelect";
 
+const toDateInput = (v: string | null): string => (v ? v.substring(0, 10) : "");
+const toTimeInput = (v: string): string => (v ? v.substring(0, 5) : "");
+
 interface EventSettingsProps {
   event: EventSettingsType;
   onSave: (updates: Partial<EventSettingsType>) => Promise<void>;
@@ -9,24 +12,24 @@ interface EventSettingsProps {
 
 export default function EventSettings({ event, onSave }: EventSettingsProps) {
   const [name, setName] = useState(event.name);
-  const [date, setDate] = useState(event.date);
-  const [startTime, setStartTime] = useState(event.start_time);
-  const [endTime, setEndTime] = useState(event.end_time);
-  const [bandAppsOpen, setBandAppsOpen] = useState(event.band_applications_open || "");
-  const [bandAppsClose, setBandAppsClose] = useState(event.band_applications_close || "");
-  const [porchAppsOpen, setPorchAppsOpen] = useState(event.porch_applications_open || "");
-  const [porchAppsClose, setPorchAppsClose] = useState(event.porch_applications_close || "");
+  const [date, setDate] = useState(toDateInput(event.date));
+  const [startTime, setStartTime] = useState(toTimeInput(event.start_time));
+  const [endTime, setEndTime] = useState(toTimeInput(event.end_time));
+  const [bandAppsOpen, setBandAppsOpen] = useState(toDateInput(event.band_applications_open));
+  const [bandAppsClose, setBandAppsClose] = useState(toDateInput(event.band_applications_close));
+  const [porchAppsOpen, setPorchAppsOpen] = useState(toDateInput(event.porch_applications_open));
+  const [porchAppsClose, setPorchAppsClose] = useState(toDateInput(event.porch_applications_close));
   const [saving, setSaving] = useState(false);
 
   const hasChanges =
     name !== event.name ||
-    date !== event.date ||
-    startTime !== event.start_time ||
-    endTime !== event.end_time ||
-    bandAppsOpen !== (event.band_applications_open || "") ||
-    bandAppsClose !== (event.band_applications_close || "") ||
-    porchAppsOpen !== (event.porch_applications_open || "") ||
-    porchAppsClose !== (event.porch_applications_close || "");
+    date !== toDateInput(event.date) ||
+    startTime !== toTimeInput(event.start_time) ||
+    endTime !== toTimeInput(event.end_time) ||
+    bandAppsOpen !== toDateInput(event.band_applications_open) ||
+    bandAppsClose !== toDateInput(event.band_applications_close) ||
+    porchAppsOpen !== toDateInput(event.porch_applications_open) ||
+    porchAppsClose !== toDateInput(event.porch_applications_close);
 
   const handleSave = async () => {
     setSaving(true);
