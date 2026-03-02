@@ -9,6 +9,7 @@ import { bandsRouter } from "./routes/bands.js";
 import { porchesRouter } from "./routes/porches.js";
 import { eventsRouter } from "./routes/events.js";
 import { adminRouter } from "./routes/admin.js";
+import { tasksRouter } from "./routes/tasks.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { testConnection, db } from "./data/db.js";
 
@@ -171,6 +172,7 @@ app.get("/api/events/org/:slug", async (req, res) => {
 // Protected admin routes
 app.use("/api/events", authMiddleware, eventsRouter);
 app.use("/api/admin", authMiddleware, adminRouter);
+app.use("/api/admin/tasks", authMiddleware, tasksRouter);
 
 // Error handler
 app.use(

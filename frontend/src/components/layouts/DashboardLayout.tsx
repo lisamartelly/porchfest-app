@@ -27,6 +27,7 @@ export default function DashboardLayout() {
     { to: "/admin?section=my-reviews", section: "my-reviews", label: "My Reviews", icon: "⭐" },
     { to: "/admin?section=scheduler", section: "scheduler", label: "Scheduler", icon: "📅" },
     { to: "/admin?section=events", section: "events", label: "Events", icon: "🗓️" },
+    { to: "/admin?section=tasks", section: "tasks", label: "Tasks", icon: "✅" },
     { to: "/admin?section=organizations", section: "organizations", label: "Organizations", icon: "🏢", superDuperAdminOnly: true },
     { to: "/admin?section=manage-admins", section: "manage-admins", label: "Manage Admins", icon: "🔑", superDuperAdminOnly: true },
   ];

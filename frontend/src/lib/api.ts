@@ -40,4 +40,14 @@ export const api = {
     if (!res.ok) throw new Error(await res.text())
     return res.json()
   },
+
+  delete: async (endpoint: string) => {
+    const token = localStorage.getItem('auth_token')
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      method: 'DELETE',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+  },
 }

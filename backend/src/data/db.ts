@@ -149,6 +149,48 @@ export interface TimeSlot {
   created_at: Date;
 }
 
+export interface Task {
+  id: number;
+  organization_id: number;
+  name: string;
+  recurring: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export type EventTaskStatus = "to_do" | "in_progress" | "blocked" | "done";
+
+export interface EventTask {
+  id: number;
+  task_id: number;
+  event_id: number;
+  name: string | null;
+  notes: string | null;
+  assigned_user_id: number | null;
+  due_date: Date | null;
+  status: EventTaskStatus;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface EventTaskWithDetails extends EventTask {
+  task_name: string;
+  recurring: boolean;
+  assigned_user_email?: string | null;
+  contacts?: TaskContact[];
+}
+
+export interface TaskContact {
+  id: number;
+  event_task_id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  business: string | null;
+  notes: string | null;
+  created_at: Date;
+}
+
 // ============================================================================
 // DATABASE QUERY HELPERS
 // ============================================================================
@@ -681,6 +723,14 @@ export const db = {
       return result.rows[0] || null;
     },
 
+    async findActiveByOrganizationId(organizationId: number | string): Promise<Event | null> {
+      const result = await pool.query<Event>(
+        "SELECT * FROM events WHERE organization_id = $1 AND is_active = true LIMIT 1",
+        [organizationId]
+      );
+      return result.rows[0] || null;
+    },
+
     async findById(id: number | string): Promise<Event | null> {
       const result = await pool.query<Event>(
         "SELECT * FROM events WHERE id = $1",
@@ -698,21 +748,38 @@ export const db = {
     },
 
     async create(data: Partial<Event>): Promise<Event> {
-      const result = await pool.query<Event>(
-        `INSERT INTO events (organization_id, name, date, start_time, end_time, description, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING *`,
-        [
-          data.organization_id,
-          data.name,
-          data.date,
-          data.start_time || "12:00",
-          data.end_time || "18:00",
-          data.description || null,
-          data.is_active ?? true,
-        ]
-      );
-      return result.rows[0];
+      const isActive = data.is_active ?? true;
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        if (isActive && data.organization_id) {
+          await client.query(
+            "UPDATE events SET is_active = false WHERE organization_id = $1 AND is_active = true",
+            [data.organization_id]
+          );
+        }
+        const result = await client.query<Event>(
+          `INSERT INTO events (organization_id, name, date, start_time, end_time, description, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING *`,
+          [
+            data.organization_id,
+            data.name,
+            data.date,
+            data.start_time || "12:00",
+            data.end_time || "18:00",
+            data.description || null,
+            isActive,
+          ]
+        );
+        await client.query("COMMIT");
+        return result.rows[0];
+      } catch (e) {
+        await client.query("ROLLBACK");
+        throw e;
+      } finally {
+        client.release();
+      }
     },
 
     async update(id: number | string, data: Partial<Event>): Promise<Event | null> {
@@ -768,8 +835,23 @@ export const db = {
         setClauses.push(`reviewers_assigned = $${paramIndex++}`);
         values.push(data.reviewers_assigned);
       }
+      if (data.is_active !== undefined) {
+        setClauses.push(`is_active = $${paramIndex++}`);
+        values.push(data.is_active);
+      }
 
       if (setClauses.length === 0) return this.findById(id);
+
+      // When setting is_active = true, deactivate other events for the same org first
+      if (data.is_active === true) {
+        const event = await this.findById(id);
+        if (event) {
+          await pool.query(
+            "UPDATE events SET is_active = false WHERE organization_id = $1 AND id != $2 AND is_active = true",
+            [event.organization_id, id]
+          );
+        }
+      }
 
       values.push(id);
       const result = await pool.query<Event>(
@@ -811,6 +893,302 @@ export const db = {
         [data.event_id, data.start_time, data.end_time]
       );
       return result.rows[0];
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // TASKS
+  // ---------------------------------------------------------------------------
+  tasks: {
+    async findByOrganizationId(organizationId: number | string): Promise<Task[]> {
+      const result = await pool.query<Task>(
+        "SELECT * FROM tasks WHERE organization_id = $1 ORDER BY name",
+        [organizationId]
+      );
+      return result.rows;
+    },
+
+    async findById(id: number | string): Promise<Task | null> {
+      const result = await pool.query<Task>(
+        "SELECT * FROM tasks WHERE id = $1",
+        [id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async create(data: {
+      organization_id: number | string;
+      name: string;
+      recurring?: boolean;
+    }): Promise<Task> {
+      const result = await pool.query<Task>(
+        `INSERT INTO tasks (organization_id, name, recurring)
+         VALUES ($1, $2, $3)
+         RETURNING *`,
+        [data.organization_id, data.name, data.recurring ?? false]
+      );
+      return result.rows[0];
+    },
+
+    async update(
+      id: number | string,
+      data: { name?: string; recurring?: boolean }
+    ): Promise<Task | null> {
+      const setClauses: string[] = [];
+      const values: (string | boolean | number)[] = [];
+      let paramIndex = 1;
+
+      if (data.name !== undefined) {
+        setClauses.push(`name = $${paramIndex++}`);
+        values.push(data.name);
+      }
+      if (data.recurring !== undefined) {
+        setClauses.push(`recurring = $${paramIndex++}`);
+        values.push(data.recurring);
+      }
+
+      if (setClauses.length === 0) return this.findById(id);
+
+      values.push(id as number);
+      const result = await pool.query<Task>(
+        `UPDATE tasks SET ${setClauses.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      );
+      return result.rows[0] || null;
+    },
+
+    async delete(id: number | string): Promise<boolean> {
+      const result = await pool.query(
+        "DELETE FROM tasks WHERE id = $1",
+        [id]
+      );
+      return (result.rowCount ?? 0) > 0;
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // EVENT TASKS
+  // ---------------------------------------------------------------------------
+  eventTasks: {
+    async findByEventId(eventId: number | string): Promise<EventTaskWithDetails[]> {
+      const result = await pool.query<EventTaskWithDetails>(
+        `SELECT et.*, t.name AS task_name, t.recurring, u.email AS assigned_user_email
+         FROM event_tasks et
+         JOIN tasks t ON et.task_id = t.id
+         LEFT JOIN users u ON et.assigned_user_id = u.id
+         WHERE et.event_id = $1
+         ORDER BY et.due_date ASC NULLS LAST, t.name`,
+        [eventId]
+      );
+      return result.rows;
+    },
+
+    async findById(id: number | string): Promise<EventTaskWithDetails | null> {
+      const result = await pool.query<EventTaskWithDetails>(
+        `SELECT et.*, t.name AS task_name, t.recurring, u.email AS assigned_user_email
+         FROM event_tasks et
+         JOIN tasks t ON et.task_id = t.id
+         LEFT JOIN users u ON et.assigned_user_id = u.id
+         WHERE et.id = $1`,
+        [id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async findByTaskAndEvent(
+      taskId: number | string,
+      eventId: number | string
+    ): Promise<EventTask | null> {
+      const result = await pool.query<EventTask>(
+        "SELECT * FROM event_tasks WHERE task_id = $1 AND event_id = $2",
+        [taskId, eventId]
+      );
+      return result.rows[0] || null;
+    },
+
+    async create(data: {
+      task_id: number | string;
+      event_id: number | string;
+      name?: string | null;
+      notes?: string | null;
+      assigned_user_id?: number | string | null;
+      due_date?: string | null;
+      status?: EventTaskStatus | null;
+    }): Promise<EventTask> {
+      const result = await pool.query<EventTask>(
+        `INSERT INTO event_tasks (task_id, event_id, name, notes, assigned_user_id, due_date, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *`,
+        [
+          data.task_id,
+          data.event_id,
+          data.name || null,
+          data.notes || null,
+          data.assigned_user_id || null,
+          data.due_date || null,
+          data.status || "to_do",
+        ]
+      );
+      return result.rows[0];
+    },
+
+    async update(
+      id: number | string,
+      data: {
+        name?: string | null;
+        notes?: string | null;
+        assigned_user_id?: number | string | null;
+        due_date?: string | null;
+        status?: EventTaskStatus | null;
+      }
+    ): Promise<EventTask | null> {
+      const setClauses: string[] = [];
+      const values: (string | number | null)[] = [];
+      let paramIndex = 1;
+
+      if (data.name !== undefined) {
+        setClauses.push(`name = $${paramIndex++}`);
+        values.push(data.name ?? null);
+      }
+      if (data.notes !== undefined) {
+        setClauses.push(`notes = $${paramIndex++}`);
+        values.push(data.notes ?? null);
+      }
+      if (data.assigned_user_id !== undefined) {
+        setClauses.push(`assigned_user_id = $${paramIndex++}`);
+        values.push(data.assigned_user_id as number | null);
+      }
+      if (data.due_date !== undefined) {
+        setClauses.push(`due_date = $${paramIndex++}`);
+        values.push(data.due_date ?? null);
+      }
+      if (data.status !== undefined) {
+        setClauses.push(`status = $${paramIndex++}`);
+        values.push(data.status ?? "to_do");
+      }
+
+      if (setClauses.length === 0) return null;
+
+      values.push(id as number);
+      const result = await pool.query<EventTask>(
+        `UPDATE event_tasks SET ${setClauses.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      );
+      return result.rows[0] || null;
+    },
+
+    async delete(id: number | string): Promise<boolean> {
+      const result = await pool.query(
+        "DELETE FROM event_tasks WHERE id = $1",
+        [id]
+      );
+      return (result.rowCount ?? 0) > 0;
+    },
+
+    async getHistory(taskId: number | string): Promise<EventTaskWithDetails[]> {
+      const result = await pool.query<EventTaskWithDetails & { event_name: string; event_date: string }>(
+        `SELECT et.*, t.name AS task_name, t.recurring,
+                u.email AS assigned_user_email,
+                e.name AS event_name, e.date AS event_date
+         FROM event_tasks et
+         JOIN tasks t ON et.task_id = t.id
+         JOIN events e ON et.event_id = e.id
+         LEFT JOIN users u ON et.assigned_user_id = u.id
+         WHERE et.task_id = $1
+         ORDER BY e.date DESC`,
+        [taskId]
+      );
+      return result.rows;
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // TASK CONTACTS
+  // ---------------------------------------------------------------------------
+  taskContacts: {
+    async findByEventTaskId(eventTaskId: number | string): Promise<TaskContact[]> {
+      const result = await pool.query<TaskContact>(
+        "SELECT * FROM task_contacts WHERE event_task_id = $1 ORDER BY name",
+        [eventTaskId]
+      );
+      return result.rows;
+    },
+
+    async create(data: {
+      event_task_id: number | string;
+      name: string;
+      email?: string | null;
+      phone?: string | null;
+      business?: string | null;
+      notes?: string | null;
+    }): Promise<TaskContact> {
+      const result = await pool.query<TaskContact>(
+        `INSERT INTO task_contacts (event_task_id, name, email, phone, business, notes)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [
+          data.event_task_id,
+          data.name,
+          data.email || null,
+          data.phone || null,
+          data.business || null,
+          data.notes || null,
+        ]
+      );
+      return result.rows[0];
+    },
+
+    async update(
+      id: number | string,
+      data: {
+        name?: string;
+        email?: string | null;
+        phone?: string | null;
+        business?: string | null;
+        notes?: string | null;
+      }
+    ): Promise<TaskContact | null> {
+      const setClauses: string[] = [];
+      const values: (string | null | number)[] = [];
+      let paramIndex = 1;
+
+      if (data.name !== undefined) {
+        setClauses.push(`name = $${paramIndex++}`);
+        values.push(data.name);
+      }
+      if (data.email !== undefined) {
+        setClauses.push(`email = $${paramIndex++}`);
+        values.push(data.email ?? null);
+      }
+      if (data.phone !== undefined) {
+        setClauses.push(`phone = $${paramIndex++}`);
+        values.push(data.phone ?? null);
+      }
+      if (data.business !== undefined) {
+        setClauses.push(`business = $${paramIndex++}`);
+        values.push(data.business ?? null);
+      }
+      if (data.notes !== undefined) {
+        setClauses.push(`notes = $${paramIndex++}`);
+        values.push(data.notes ?? null);
+      }
+
+      if (setClauses.length === 0) return null;
+
+      values.push(id as number);
+      const result = await pool.query<TaskContact>(
+        `UPDATE task_contacts SET ${setClauses.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      );
+      return result.rows[0] || null;
+    },
+
+    async delete(id: number | string): Promise<boolean> {
+      const result = await pool.query(
+        "DELETE FROM task_contacts WHERE id = $1",
+        [id]
+      );
+      return (result.rowCount ?? 0) > 0;
     },
   },
 };

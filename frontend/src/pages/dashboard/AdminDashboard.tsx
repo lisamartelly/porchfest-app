@@ -18,6 +18,7 @@ import SchedulerSection from "./components/sections/SchedulerSection";
 import EventsSection from "./components/sections/EventsSection";
 import OrganizationsSection from "./components/sections/OrganizationsSection";
 import ManageAdminsSection from "./components/sections/ManageAdminsSection";
+import TasksSection from "./components/sections/TasksSection";
 
 const SECTION_META: Record<Section, { title: string; description: string }> = {
   overview: {
@@ -48,6 +49,10 @@ const SECTION_META: Record<Section, { title: string; description: string }> = {
   events: {
     title: "Events",
     description: "Create and manage events for your organizations",
+  },
+  tasks: {
+    title: "Tasks",
+    description: "Manage to-do items, contacts, and recurring tasks across events",
   },
   organizations: {
     title: "Organizations",
@@ -333,6 +338,9 @@ export default function AdminDashboard() {
             onEventSettingsUpdate={setEventSettings}
           />
         );
+
+      case "tasks":
+        return <TasksSection />;
 
       case "organizations":
         if (!isSuperDuperAdmin)

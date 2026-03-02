@@ -9,6 +9,7 @@ import PorchApplyPage from "./pages/PorchApplyPage";
 import LoginPage from "./pages/auth/LoginPage";
 
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
+import TaskDetailPage from "./pages/dashboard/TaskDetailPage";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -45,6 +46,7 @@ function App() {
         }
       >
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/tasks/:eventTaskId" element={<TaskDetailPage />} />
       </Route>
     </Routes>
   );
