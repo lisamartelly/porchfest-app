@@ -24,6 +24,8 @@ authRouter.post(
     body("role")
       .isIn(["super-duper-admin", "user"])
       .withMessage("Invalid role"),
+    body("first_name").optional({ nullable: true }).trim(),
+    body("last_name").optional({ nullable: true }).trim(),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
@@ -32,7 +34,7 @@ authRouter.post(
     }
 
     try {
-      const { email, password, role } = req.body;
+      const { email, password, role, first_name, last_name } = req.body;
 
       const existingUser = await db.users.findByEmail(email);
       if (existingUser) {
@@ -45,6 +47,8 @@ authRouter.post(
         email,
         password_hash: hashedPassword,
         role,
+        first_name,
+        last_name,
       });
 
       res.json({
@@ -52,6 +56,8 @@ authRouter.post(
           id: user.id,
           email: user.email,
           role: user.role,
+          first_name: user.first_name,
+          last_name: user.last_name,
           created_at: user.created_at,
           updated_at: user.updated_at,
         },
@@ -101,6 +107,8 @@ authRouter.post(
           id: user.id,
           email: user.email,
           role: user.role,
+          first_name: user.first_name,
+          last_name: user.last_name,
           created_at: user.created_at,
           updated_at: user.updated_at,
         },
@@ -155,6 +163,45 @@ authRouter.patch(
   },
 );
 
+// Update current user profile
+authRouter.patch(
+  "/me",
+  authMiddleware,
+  [
+    body("first_name").optional({ nullable: true }).trim(),
+    body("last_name").optional({ nullable: true }).trim(),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const user = await db.users.update(req.user!.id, {
+        first_name: req.body.first_name,
+        last_name: req.body.last_name,
+      });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+      });
+    } catch (error) {
+      console.error("Update profile error:", error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  }
+);
+
 // Get current user
 authRouter.get("/me", authMiddleware, async (req: AuthRequest, res) => {
   try {
@@ -167,6 +214,8 @@ authRouter.get("/me", authMiddleware, async (req: AuthRequest, res) => {
       id: user.id,
       email: user.email,
       role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
       created_at: user.created_at,
       updated_at: user.updated_at,
     });

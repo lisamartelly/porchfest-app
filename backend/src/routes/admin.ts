@@ -3,11 +3,27 @@ import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 import { adminOnly, superDuperAdminOnly, AuthRequest } from "../middleware/auth.js";
 import { db } from "../data/db.js";
+import type { Event } from "../data/db.js";
 
 export const adminRouter: Router = Router();
 
 // All admin routes require admin role (admin or super-duper-admin)
 adminRouter.use(adminOnly);
+
+async function resolveOrgActiveEvent(
+  req: AuthRequest,
+  orgId: number | string
+): Promise<{ authorized: boolean; event: Event | null }> {
+  if (req.user?.role !== "super-duper-admin") {
+    const membership = await db.organizationUsers.findByUserAndOrg(
+      req.user!.id,
+      Number(orgId)
+    );
+    if (!membership) return { authorized: false, event: null };
+  }
+  const event = await db.events.findActiveByOrganizationId(orgId);
+  return { authorized: true, event };
+}
 
 // =========================================================================
 // SUPER-DUPER-ADMIN ONLY: Organization management
@@ -89,6 +105,8 @@ adminRouter.get("/users", superDuperAdminOnly, async (req: Request, res: Respons
           id: u.id,
           email: u.email,
           role: u.role,
+          first_name: u.first_name,
+          last_name: u.last_name,
           created_at: u.created_at,
           organizations: orgs.map((o) => ({ id: o.id, name: o.name })),
         };
@@ -114,6 +132,8 @@ adminRouter.post(
       .isIn(["user"])
       .withMessage("Role must be user"),
     body("organization_id").optional().isNumeric(),
+    body("first_name").optional({ nullable: true }).trim(),
+    body("last_name").optional({ nullable: true }).trim(),
   ],
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
@@ -122,7 +142,7 @@ adminRouter.post(
     }
 
     try {
-      const { email, password, role, organization_id } = req.body;
+      const { email, password, role, organization_id, first_name, last_name } = req.body;
 
       const existingUser = await db.users.findByEmail(email);
       if (existingUser) {
@@ -134,6 +154,8 @@ adminRouter.post(
         email,
         password_hash: hashedPassword,
         role,
+        first_name,
+        last_name,
       });
 
       if (organization_id) {
@@ -156,6 +178,8 @@ adminRouter.post(
         id: user.id,
         email: user.email,
         role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
         created_at: user.created_at,
         organizations: orgs
           .filter(Boolean)
@@ -220,10 +244,22 @@ adminRouter.get("/my-organizations", async (req: AuthRequest, res: Response) => 
   }
 });
 
-// Get all bands
-adminRouter.get("/bands", async (req: Request, res: Response) => {
+// Get bands (scoped by org_id when provided)
+adminRouter.get("/bands", async (req: AuthRequest, res: Response) => {
   try {
-    const { status } = req.query;
+    const { status, org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      const bands = await db.bands.findByEventId(event.id);
+      if (status) {
+        return res.json(bands.filter((b) => b.status === status));
+      }
+      return res.json(bands);
+    }
     const allBands = await db.bands.findAll(status as string | undefined);
     res.json(allBands);
   } catch (error) {
@@ -259,10 +295,22 @@ adminRouter.patch(
   }
 );
 
-// Get all porches
-adminRouter.get("/porches", async (req: Request, res: Response) => {
+// Get porches (scoped by org_id when provided)
+adminRouter.get("/porches", async (req: AuthRequest, res: Response) => {
   try {
-    const { status } = req.query;
+    const { status, org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      const porches = await db.porches.findByEventId(event.id);
+      if (status) {
+        return res.json(porches.filter((p) => p.status === status));
+      }
+      return res.json(porches);
+    }
     const allPorches = await db.porches.findAll(status as string | undefined);
     res.json(allPorches);
   } catch (error) {
@@ -298,10 +346,20 @@ adminRouter.patch(
   }
 );
 
-// Get active event settings
-adminRouter.get("/event", async (req: Request, res: Response) => {
+// Get active event settings (scoped by org_id when provided)
+adminRouter.get("/event", async (req: AuthRequest, res: Response) => {
   try {
-    const activeEvent = await db.events.findActive();
+    const { org_id } = req.query;
+    let activeEvent;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      activeEvent = event;
+    } else {
+      activeEvent = await db.events.findActive();
+    }
     if (!activeEvent) {
       return res.status(404).json({ error: "No active event found" });
     }
@@ -329,7 +387,17 @@ adminRouter.patch(
   ],
   async (req: AuthRequest, res: Response) => {
     try {
-      const activeEvent = await db.events.findActive();
+      const { org_id } = req.query;
+      let activeEvent;
+      if (org_id) {
+        const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+        if (!authorized) {
+          return res.status(403).json({ error: "Not a member of this organization" });
+        }
+        activeEvent = event;
+      } else {
+        activeEvent = await db.events.findActive();
+      }
       if (!activeEvent) {
         return res.status(404).json({ error: "No active event found" });
       }
@@ -495,13 +563,30 @@ adminRouter.post(
   }
 );
 
-// Get scheduling data
-adminRouter.get("/scheduling", async (req: Request, res: Response) => {
+// Get scheduling data (scoped by org_id when provided)
+adminRouter.get("/scheduling", async (req: AuthRequest, res: Response) => {
   try {
+    const { org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json({ bands: [], porches: [], time_slots: [] });
+      const [bands, porches, slots] = await Promise.all([
+        db.bands.findByEventId(event.id),
+        db.porches.findByEventId(event.id),
+        db.timeSlots.findByEventId(event.id),
+      ]);
+      return res.json({
+        bands: bands.filter((b) => b.status === "approved"),
+        porches: porches.filter((p) => p.status === "approved"),
+        time_slots: slots,
+      });
+    }
     const approvedBands = await db.bands.findApproved();
     const approvedPorches = await db.porches.findApproved();
     const allSlots = await db.timeSlots.findAll();
-
     res.json({
       bands: approvedBands,
       porches: approvedPorches,
@@ -525,7 +610,7 @@ function formatTimeDisplay(time: string): string {
 adminRouter.patch(
   "/bands/:id/schedule",
   [
-    body("assigned_porch_id").optional({ nullable: true }).isString(),
+    body("assigned_porch_id").optional({ nullable: true }).isInt().toInt(),
     body("set_start_time").optional({ nullable: true }).isString(),
     body("set_end_time").optional({ nullable: true }).isString(),
   ],
@@ -595,9 +680,19 @@ adminRouter.patch(
   }
 );
 
-// Get approved porches (for scheduling dropdown)
-adminRouter.get("/porches/approved", async (req, res) => {
+// Get approved porches (scoped by org_id when provided)
+adminRouter.get("/porches/approved", async (req: AuthRequest, res: Response) => {
   try {
+    const { org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      const porches = await db.porches.findByEventId(event.id);
+      return res.json(porches.filter((p) => p.status === "approved"));
+    }
     const approvedPorches = await db.porches.findApproved();
     res.json(approvedPorches);
   } catch (error) {
@@ -609,7 +704,17 @@ adminRouter.get("/porches/approved", async (req, res) => {
 // Assign bands to reviewers (random, equal distribution)
 adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
   try {
-    const activeEvent = await db.events.findActive();
+    const { org_id } = req.query;
+    let activeEvent;
+    if (org_id) {
+      const result = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!result.authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      activeEvent = result.event;
+    } else {
+      activeEvent = await db.events.findActive();
+    }
     if (!activeEvent) {
       return res.status(404).json({ error: "No active event found" });
     }
@@ -619,16 +724,13 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
       return res.status(400).json({ error: "No reviewers configured" });
     }
 
-    // Get all bands
-    const allBands = await db.bands.findAll();
+    const allBands = await db.bands.findByEventId(activeEvent.id);
     if (allBands.length === 0) {
       return res.status(400).json({ error: "No bands to assign" });
     }
 
-    // Shuffle bands for random assignment
     const shuffledBands = [...allBands].sort(() => Math.random() - 0.5);
 
-    // Assign bands to reviewers in round-robin fashion
     for (let i = 0; i < shuffledBands.length; i++) {
       const band = shuffledBands[i];
       const reviewerIndex = i % reviewerEmails.length;
@@ -640,10 +742,9 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
       );
     }
 
-    // Mark reviewers as assigned
     await db.events.update(activeEvent.id, { reviewers_assigned: true });
 
-    const updatedBands = await db.bands.findAll();
+    const updatedBands = await db.bands.findByEventId(activeEvent.id);
 
     res.json({
       message: `Successfully assigned ${allBands.length} bands to ${reviewerEmails.length} reviewers`,
@@ -692,7 +793,7 @@ adminRouter.patch(
 );
 
 // Get bands assigned to current user for review
-adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res) => {
+adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res: Response) => {
   try {
     const userEmail = req.user?.email;
     if (!userEmail) {
@@ -700,6 +801,15 @@ adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res) => {
     }
 
     const myBands = await db.bands.findByReviewerEmail(userEmail);
+    const { org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      return res.json(myBands.filter((b) => b.event_id === event.id));
+    }
     res.json(myBands);
   } catch (error) {
     console.error("Error fetching assigned bands:", error);
@@ -708,8 +818,22 @@ adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res) => {
 });
 
 // Get unique reviewer emails from assigned bands
-adminRouter.get("/reviewers", async (req, res) => {
+adminRouter.get("/reviewers", async (req: AuthRequest, res: Response) => {
   try {
+    const { org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      const bands = await db.bands.findByEventId(event.id);
+      const emails = [...new Set(bands
+        .map((b) => b.assigned_reviewer_email)
+        .filter(Boolean)
+      )];
+      return res.json(emails);
+    }
     const reviewerEmails = await db.bands.getReviewerEmails();
     res.json(reviewerEmails);
   } catch (error) {

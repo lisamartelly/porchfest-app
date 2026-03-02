@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../stores/authStore";
+import { useOrgStore } from "../../stores/orgStore";
 import {
   BandApplication,
   PorchApplication,
@@ -68,6 +69,7 @@ export default function AdminDashboard() {
   const [searchParams] = useSearchParams();
   const section = (searchParams.get("section") || "overview") as Section;
   const { user } = useAuthStore();
+  const { activeOrgId, loading: orgLoading } = useOrgStore();
 
   const [bands, setBands] = useState<BandApplication[]>([]);
   const [porches, setPorches] = useState<PorchApplication[]>([]);
@@ -85,22 +87,26 @@ export default function AdminDashboard() {
   const isSuperDuperAdmin = user?.role === "super-duper-admin";
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!orgLoading) {
+      fetchData();
+    }
+  }, [activeOrgId, orgLoading]);
 
   useEffect(() => {
-    if (section === "my-reviews") {
+    if (section === "my-reviews" && !orgLoading) {
       fetchMyReviews();
     }
-  }, [section]);
+  }, [section, activeOrgId, orgLoading]);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
+      const qs = activeOrgId ? `?org_id=${activeOrgId}` : "";
       const [bandData, porchData, eventData, reviewerData] = await Promise.all([
-        api.get("/api/admin/bands"),
-        api.get("/api/admin/porches"),
-        api.get("/api/admin/event"),
-        api.get("/api/admin/reviewers"),
+        api.get(`/api/admin/bands${qs}`),
+        api.get(`/api/admin/porches${qs}`),
+        api.get(`/api/admin/event${qs}`).catch(() => null),
+        api.get(`/api/admin/reviewers${qs}`),
       ]);
       setBands(bandData || []);
       setPorches(porchData || []);
@@ -120,7 +126,8 @@ export default function AdminDashboard() {
 
   const fetchMyReviews = async () => {
     try {
-      const myBands = await api.get("/api/admin/bands/my-reviews");
+      const qs = activeOrgId ? `?org_id=${activeOrgId}` : "";
+      const myBands = await api.get(`/api/admin/bands/my-reviews${qs}`);
       setMyReviewBands(myBands || []);
     } catch (error) {
       console.error("Error fetching my reviews:", error);
@@ -130,13 +137,14 @@ export default function AdminDashboard() {
   const updateEventSettings = useCallback(
     async (updates: Partial<EventSettings>) => {
       try {
-        const updated = await api.patch("/api/admin/event", updates);
+        const qs = activeOrgId ? `?org_id=${activeOrgId}` : "";
+        const updated = await api.patch(`/api/admin/event${qs}`, updates);
         setEventSettings(updated);
       } catch (error) {
         console.error("Error updating event settings:", error);
       }
     },
-    [],
+    [activeOrgId],
   );
 
   const updateBandStatus = useCallback(

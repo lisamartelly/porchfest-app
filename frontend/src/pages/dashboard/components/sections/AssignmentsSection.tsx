@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../../../../lib/api";
+import { useOrgStore } from "../../../../stores/orgStore";
 import { BandApplication, EventSettings } from "../../types";
 
 interface AssignmentsSectionProps {
@@ -21,10 +22,12 @@ export default function AssignmentsSection({
   onEventSettingsUpdate,
   updateEventSettings,
 }: AssignmentsSectionProps) {
+  const { activeOrgId } = useOrgStore();
   const [reviewerEmailsInput, setReviewerEmailsInput] = useState(
     eventSettings?.reviewer_emails?.join(", ") || "",
   );
   const [assigningReviewers, setAssigningReviewers] = useState(false);
+  const orgQuery = activeOrgId ? `?org_id=${activeOrgId}` : "";
 
   const saveReviewerEmails = async () => {
     const emails = reviewerEmailsInput
@@ -43,13 +46,13 @@ export default function AssignmentsSection({
         .filter((e) => e.length > 0);
       await updateEventSettings({ reviewer_emails: emails });
 
-      const result = await api.post("/api/admin/bands/assign-reviewers", {});
+      const result = await api.post(`/api/admin/bands/assign-reviewers${orgQuery}`, {});
       onBandsUpdate(result.bands || []);
 
-      const reviewerData = await api.get("/api/admin/reviewers");
+      const reviewerData = await api.get(`/api/admin/reviewers${orgQuery}`);
       onReviewersUpdate(reviewerData || []);
 
-      const eventData = await api.get("/api/admin/event");
+      const eventData = await api.get(`/api/admin/event${orgQuery}`);
       onEventSettingsUpdate(eventData);
     } catch (error) {
       console.error("Error assigning reviewers:", error);

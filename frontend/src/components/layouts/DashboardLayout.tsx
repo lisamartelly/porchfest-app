@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
+import { useOrgStore } from "../../stores/orgStore";
 import ChangePasswordModal from "../ChangePasswordModal";
 
 interface NavItem {
@@ -13,11 +14,22 @@ interface NavItem {
 
 export default function DashboardLayout() {
   const { user, signOut } = useAuthStore();
+  const {
+    organizations,
+    activeOrgId,
+    loading: orgLoading,
+    initialize: initOrg,
+    setActiveOrg,
+  } = useOrgStore();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const currentSection = searchParams.get("section") || "overview";
   const isSuperDuperAdmin = user?.role === "super-duper-admin";
+
+  useEffect(() => {
+    initOrg();
+  }, [initOrg]);
 
   const navItems: NavItem[] = [
     { to: "/admin", section: "overview", label: "Overview", icon: "🏠" },
@@ -57,6 +69,38 @@ export default function DashboardLayout() {
           </Link>
         </div>
 
+        {!orgLoading && organizations.length > 0 && (
+          <div className="px-4 pb-3">
+            {organizations.length === 1 ? (
+              <div className="px-3 py-2 bg-porch-50 rounded-lg">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+                  Organization
+                </p>
+                <p className="text-sm font-medium text-porch-800 truncate">
+                  {organizations[0].name}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
+                  Organization
+                </label>
+                <select
+                  value={activeOrgId ?? ""}
+                  onChange={(e) => setActiveOrg(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-sm font-medium text-porch-800 bg-porch-50 border border-porch-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-porch-500 cursor-pointer"
+                >
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="px-4 py-2">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
             Admin Panel
@@ -84,14 +128,14 @@ export default function DashboardLayout() {
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-porch-200 rounded-full flex items-center justify-center">
               <span className="text-porch-700 font-semibold">
-                {user?.email?.charAt(0).toUpperCase()}
+                {(user?.first_name?.charAt(0) || user?.email?.charAt(0) || "").toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">
-                {user?.email}
+                {[user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.email}
               </p>
-              <p className="text-xs text-gray-500">{user?.role}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
             </div>
           </div>
           <div className="flex flex-col gap-1">
@@ -102,7 +146,10 @@ export default function DashboardLayout() {
               Change Password
             </button>
             <button
-              onClick={signOut}
+              onClick={() => {
+                useOrgStore.getState().reset();
+                signOut();
+              }}
               className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
               Sign Out

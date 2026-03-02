@@ -6,6 +6,8 @@ export default function ManageAdminsSection() {
   const [organizations, setOrganizations] = useState<OrgSummary[]>([]);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [newAdminForm, setNewAdminForm] = useState({
+    first_name: "",
+    last_name: "",
     email: "",
     password: "",
     role: "user",
@@ -45,6 +47,8 @@ export default function ManageAdminsSection() {
       await api.post("/api/admin/users", newAdminForm);
       setFormSuccess(true);
       setNewAdminForm({
+        first_name: "",
+        last_name: "",
         email: "",
         password: "",
         role: "user",
@@ -77,6 +81,43 @@ export default function ManageAdminsSection() {
         )}
 
         <form onSubmit={handleCreateAdmin} className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                First Name
+              </label>
+              <input
+                type="text"
+                value={newAdminForm.first_name}
+                onChange={(e) =>
+                  setNewAdminForm({
+                    ...newAdminForm,
+                    first_name: e.target.value,
+                  })
+                }
+                className="input-field"
+                placeholder="First name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Last Name
+              </label>
+              <input
+                type="text"
+                value={newAdminForm.last_name}
+                onChange={(e) =>
+                  setNewAdminForm({
+                    ...newAdminForm,
+                    last_name: e.target.value,
+                  })
+                }
+                className="input-field"
+                placeholder="Last name"
+              />
+            </div>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -178,6 +219,9 @@ export default function ManageAdminsSection() {
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 font-medium text-gray-600">
+                    Name
+                  </th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-600">
                     Email
                   </th>
                   <th className="text-left py-3 px-4 font-medium text-gray-600">
@@ -197,6 +241,9 @@ export default function ManageAdminsSection() {
                     key={u.id}
                     className="border-b border-gray-100 hover:bg-gray-50"
                   >
+                    <td className="py-3 px-4 text-gray-900">
+                      {[u.first_name, u.last_name].filter(Boolean).join(" ") || "—"}
+                    </td>
                     <td className="py-3 px-4 text-gray-900">{u.email}</td>
                     <td className="py-3 px-4">
                       <span

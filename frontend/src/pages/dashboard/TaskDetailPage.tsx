@@ -304,7 +304,7 @@ export default function TaskDetailPage() {
               <option value="">Unassigned</option>
               {adminUsers.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.email}
+                  {[u.first_name, u.last_name].filter(Boolean).join(" ") || u.email}
                 </option>
               ))}
             </select>
@@ -630,7 +630,7 @@ export default function TaskDetailPage() {
                           Assigned
                         </p>
                         <p className="text-gray-900 mt-0.5">
-                          {item.assigned_user_email || "—"}
+                          {[item.assigned_user_first_name, item.assigned_user_last_name].filter(Boolean).join(" ") || item.assigned_user_email || "—"}
                         </p>
                       </div>
                       <div>

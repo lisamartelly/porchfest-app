@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../../../../lib/api";
-import { EventSettings, EventWithOrg, OrgSummary } from "../../types";
+import { useOrgStore } from "../../../../stores/orgStore";
+import { EventSettings, EventWithOrg } from "../../types";
 import EventSettingsEditor from "../EventSettings";
 
 interface EventsSectionProps {
@@ -12,8 +13,8 @@ export default function EventsSection({
   eventSettings,
   onEventSettingsUpdate,
 }: EventsSectionProps) {
+  const { activeOrgId } = useOrgStore();
   const [myEvents, setMyEvents] = useState<EventWithOrg[]>([]);
-  const [myOrgs, setMyOrgs] = useState<OrgSummary[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [newEventForm, setNewEventForm] = useState({
     name: "",
@@ -21,31 +22,24 @@ export default function EventsSection({
     start_time: "12:00",
     end_time: "18:00",
     description: "",
-    organization_id: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
 
   useEffect(() => {
     fetchMyEvents();
-    fetchMyOrgs();
-  }, []);
+  }, [activeOrgId]);
 
   const fetchMyEvents = async () => {
     try {
-      const events = await api.get("/api/admin/my-events");
-      setMyEvents(events || []);
+      const events: EventWithOrg[] = await api.get("/api/admin/my-events");
+      if (activeOrgId) {
+        setMyEvents((events || []).filter((e) => e.organization_id === activeOrgId));
+      } else {
+        setMyEvents(events || []);
+      }
     } catch (error) {
       console.error("Error fetching events:", error);
-    }
-  };
-
-  const fetchMyOrgs = async () => {
-    try {
-      const orgs = await api.get("/api/admin/my-organizations");
-      setMyOrgs(orgs || []);
-    } catch (error) {
-      console.error("Error fetching orgs:", error);
     }
   };
 
@@ -53,8 +47,15 @@ export default function EventsSection({
     e.preventDefault();
     setFormError(null);
     setFormSuccess(false);
+    if (!activeOrgId) {
+      setFormError("No organization selected");
+      return;
+    }
     try {
-      await api.post("/api/admin/events", newEventForm);
+      await api.post("/api/admin/events", {
+        ...newEventForm,
+        organization_id: activeOrgId,
+      });
       setFormSuccess(true);
       setNewEventForm({
         name: "",
@@ -62,7 +63,6 @@ export default function EventsSection({
         start_time: "12:00",
         end_time: "18:00",
         description: "",
-        organization_id: "",
       });
       fetchMyEvents();
     } catch (error) {
@@ -125,30 +125,6 @@ export default function EventsSection({
         )}
 
         <form onSubmit={handleCreateEvent} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Organization *
-            </label>
-            <select
-              value={newEventForm.organization_id}
-              onChange={(e) =>
-                setNewEventForm({
-                  ...newEventForm,
-                  organization_id: e.target.value,
-                })
-              }
-              className="input-field"
-              required
-            >
-              <option value="">Select organization...</option>
-              {myOrgs.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -269,9 +245,6 @@ export default function EventsSection({
                       <p className="text-sm text-gray-500">
                         {new Date(event.date).toLocaleDateString()} &middot;{" "}
                         {event.start_time} - {event.end_time}
-                        {event.organization && (
-                          <> &middot; {event.organization.name}</>
-                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

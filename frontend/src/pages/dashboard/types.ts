@@ -105,6 +105,8 @@ export interface AdminUser {
   id: number;
   email: string;
   role: string;
+  first_name: string | null;
+  last_name: string | null;
   created_at: string;
   organizations: { id: number; name: string }[];
 }
@@ -171,6 +173,8 @@ export interface EventTaskItem {
   task_name: string;
   recurring: boolean;
   assigned_user_email: string | null;
+  assigned_user_first_name: string | null;
+  assigned_user_last_name: string | null;
   contacts: TaskContact[];
   created_at: string;
   updated_at: string;
