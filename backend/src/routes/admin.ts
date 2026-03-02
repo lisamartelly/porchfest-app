@@ -469,6 +469,21 @@ adminRouter.post(
         is_active: true,
       });
 
+      // Create event tasks for all recurring task templates in this org
+      try {
+        const orgTasks = await db.tasks.findByOrganizationId(organization_id);
+        for (const task of orgTasks) {
+          if (task.recurring) {
+            await db.eventTasks.create({
+              task_id: task.id,
+              event_id: event.id,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error copying recurring tasks to new event:", err);
+      }
+
       res.json(event);
     } catch (error) {
       console.error("Error creating event:", error);
