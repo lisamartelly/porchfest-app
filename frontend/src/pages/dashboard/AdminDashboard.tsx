@@ -18,7 +18,7 @@ import MyReviewsSection from "./components/sections/MyReviewsSection";
 import SchedulerSection from "./components/sections/SchedulerSection";
 import EventsSection from "./components/sections/EventsSection";
 import OrganizationsSection from "./components/sections/OrganizationsSection";
-import ManageAdminsSection from "./components/sections/ManageAdminsSection";
+import ManageUsersSection from "./components/sections/ManageUsersSection";
 import TasksSection from "./components/sections/TasksSection";
 
 const SECTION_META: Record<Section, { title: string; description: string }> = {
@@ -59,9 +59,9 @@ const SECTION_META: Record<Section, { title: string; description: string }> = {
     title: "Organizations",
     description: "Create and manage porchfest organizations",
   },
-  "manage-admins": {
-    title: "Manage Admins",
-    description: "Create admin users and assign them to organizations",
+  "manage-users": {
+    title: "Manage Users",
+    description: "Add and manage users for your organization",
   },
 };
 
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
   const [searchParams] = useSearchParams();
   const section = (searchParams.get("section") || "overview") as Section;
   const { user } = useAuthStore();
-  const { activeOrgId, loading: orgLoading } = useOrgStore();
+  const { activeOrgId, activeOrgRole, loading: orgLoading } = useOrgStore();
 
   const [bands, setBands] = useState<BandApplication[]>([]);
   const [porches, setPorches] = useState<PorchApplication[]>([]);
@@ -355,10 +355,10 @@ export default function AdminDashboard() {
           return <div className="text-gray-500">Access denied.</div>;
         return <OrganizationsSection />;
 
-      case "manage-admins":
-        if (!isSuperDuperAdmin)
-          return <div className="text-gray-500">Access denied.</div>;
-        return <ManageAdminsSection />;
+      case "manage-users":
+        if (!isSuperDuperAdmin && activeOrgRole !== "owner")
+          return <div className="text-gray-500">Access denied. Only organization owners can manage users.</div>;
+        return <ManageUsersSection />;
 
       default:
         return null;

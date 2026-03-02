@@ -5,6 +5,7 @@ interface OrgSummary {
   id: number;
   name: string;
   slug: string;
+  org_role: string;
 }
 
 interface OrgState {
@@ -12,6 +13,7 @@ interface OrgState {
   activeOrgId: number | null;
   loading: boolean;
 
+  activeOrgRole: string | null;
   initialize: () => Promise<void>;
   setActiveOrg: (orgId: number) => void;
   reset: () => void;
@@ -19,9 +21,15 @@ interface OrgState {
 
 const STORAGE_KEY = "active_org_id";
 
+function roleForOrg(orgs: OrgSummary[], orgId: number | null): string | null {
+  if (!orgId) return null;
+  return orgs.find((o) => o.id === orgId)?.org_role ?? null;
+}
+
 export const useOrgStore = create<OrgState>((set, get) => ({
   organizations: [],
   activeOrgId: null,
+  activeOrgRole: null,
   loading: true,
 
   initialize: async () => {
@@ -37,10 +45,15 @@ export const useOrgStore = create<OrgState>((set, get) => ({
         localStorage.setItem(STORAGE_KEY, String(activeId));
       }
 
-      set({ organizations: orgs, activeOrgId: activeId, loading: false });
+      set({
+        organizations: orgs,
+        activeOrgId: activeId,
+        activeOrgRole: roleForOrg(orgs, activeId),
+        loading: false,
+      });
     } catch (error) {
       console.error("Error loading organizations:", error);
-      set({ organizations: [], activeOrgId: null, loading: false });
+      set({ organizations: [], activeOrgId: null, activeOrgRole: null, loading: false });
     }
   },
 
@@ -48,12 +61,12 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const { organizations } = get();
     if (organizations.some((o) => o.id === orgId)) {
       localStorage.setItem(STORAGE_KEY, String(orgId));
-      set({ activeOrgId: orgId });
+      set({ activeOrgId: orgId, activeOrgRole: roleForOrg(organizations, orgId) });
     }
   },
 
   reset: () => {
     localStorage.removeItem(STORAGE_KEY);
-    set({ organizations: [], activeOrgId: null, loading: true });
+    set({ organizations: [], activeOrgId: null, activeOrgRole: null, loading: true });
   },
 }));

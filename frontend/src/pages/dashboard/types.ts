@@ -87,7 +87,7 @@ export type Section =
   | "events"
   | "tasks"
   | "organizations"
-  | "manage-admins";
+  | "manage-users";
 
 export interface OrgSummary {
   id: number;

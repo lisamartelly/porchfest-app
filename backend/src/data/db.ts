@@ -246,11 +246,16 @@ export const db = {
     async update(id: number | string, data: {
       first_name?: string | null;
       last_name?: string | null;
+      email?: string;
     }): Promise<User | null> {
       const fields: string[] = [];
       const values: unknown[] = [];
       let idx = 1;
 
+      if (data.email !== undefined) {
+        fields.push(`email = $${idx++}`);
+        values.push(data.email);
+      }
       if (data.first_name !== undefined) {
         fields.push(`first_name = $${idx++}`);
         values.push(data.first_name);
