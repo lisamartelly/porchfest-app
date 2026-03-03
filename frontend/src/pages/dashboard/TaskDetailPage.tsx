@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, Navigate } from "react-router-dom";
 import { api } from "../../lib/api";
+import { useAuthStore } from "../../stores/authStore";
+import { useOrgStore } from "../../stores/orgStore";
 import {
   EventTaskItem,
   EventTaskStatus,
@@ -30,6 +32,11 @@ const STATUSES: EventTaskStatus[] = ["to_do", "in_progress", "blocked", "done"];
 
 export default function TaskDetailPage() {
   const { eventTaskId } = useParams<{ eventTaskId: string }>();
+  const { user } = useAuthStore();
+  const { activeOrgRole } = useOrgStore();
+  const isSuperDuperAdmin = user?.role === "super-duper-admin";
+  const isOrganizer = activeOrgRole === "owner" || activeOrgRole === "organizer" || isSuperDuperAdmin;
+
   const [taskDetail, setTaskDetail] = useState<TaskDetailResponse | null>(null);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,6 +201,10 @@ export default function TaskDetailPage() {
       console.error("Error deleting contact:", error);
     }
   };
+
+  if (!isOrganizer) {
+    return <Navigate to="/admin" replace />;
+  }
 
   if (loading) {
     return (
