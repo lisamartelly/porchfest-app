@@ -86,19 +86,7 @@ export default function AdminDashboard() {
 
   const isSuperDuperAdmin = user?.role === "super-duper-admin";
 
-  useEffect(() => {
-    if (!orgLoading) {
-      fetchData();
-    }
-  }, [activeOrgId, orgLoading]);
-
-  useEffect(() => {
-    if (section === "my-reviews" && !orgLoading) {
-      fetchMyReviews();
-    }
-  }, [section, activeOrgId, orgLoading]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const qs = activeOrgId ? `?org_id=${activeOrgId}` : "";
@@ -122,9 +110,9 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeOrgId]);
 
-  const fetchMyReviews = async () => {
+  const fetchMyReviews = useCallback(async () => {
     try {
       const qs = activeOrgId ? `?org_id=${activeOrgId}` : "";
       const myBands = await api.get(`/api/admin/bands/my-reviews${qs}`);
@@ -132,7 +120,19 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error("Error fetching my reviews:", error);
     }
-  };
+  }, [activeOrgId]);
+  
+  useEffect(() => {
+    if (!orgLoading) {
+      fetchData();
+    }
+  }, [orgLoading, fetchData]);
+
+  useEffect(() => {
+    if (section === "my-reviews" && !orgLoading) {
+      fetchMyReviews();
+    }
+  }, [section, fetchMyReviews, orgLoading]);
 
   const updateEventSettings = useCallback(
     async (updates: Partial<EventSettings>) => {

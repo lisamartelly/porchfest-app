@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import {
@@ -57,21 +57,7 @@ export default function TaskDetailPage() {
     notes: "",
   });
 
-  useEffect(() => {
-    if (eventTaskId) {
-      fetchTaskDetail();
-      fetchAdminUsers();
-    }
-  }, [eventTaskId]);
-
-  useEffect(() => {
-    if (taskDetail) {
-      setLocalName(taskDetail.name || "");
-      setLocalNotes(taskDetail.notes || "");
-    }
-  }, [taskDetail?.id]);
-
-  const fetchTaskDetail = async () => {
+  const fetchTaskDetail = useCallback(async () => {
     if (!eventTaskId) return;
     setLoading(true);
     try {
@@ -82,16 +68,30 @@ export default function TaskDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventTaskId]);
 
-  const fetchAdminUsers = async () => {
+  const fetchAdminUsers = useCallback(async () => {
     try {
       const users = await api.get("/api/admin/users");
       setAdminUsers(users || []);
     } catch {
       setAdminUsers([]);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (eventTaskId) {
+      fetchTaskDetail();
+      fetchAdminUsers();
+    }
+  }, [eventTaskId, fetchTaskDetail, fetchAdminUsers]);
+
+  useEffect(() => {
+    if (taskDetail) {
+      setLocalName(taskDetail.name || "");
+      setLocalNotes(taskDetail.notes || "");
+    }
+  }, [taskDetail]);
 
   const patchField = async (updates: Record<string, unknown>) => {
     if (!eventTaskId) return;

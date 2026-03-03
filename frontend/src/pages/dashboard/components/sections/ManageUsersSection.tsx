@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "../../../../lib/api";
 import { useOrgStore } from "../../../../stores/orgStore";
 
@@ -55,11 +55,7 @@ export default function ManageUsersSection() {
   const [editError, setEditError] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [activeOrgId]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     if (!activeOrgId) return;
     try {
       const data = await api.get(`/api/admin/users?org_id=${activeOrgId}`);
@@ -67,7 +63,11 @@ export default function ManageUsersSection() {
     } catch (error) {
       console.error("Error fetching users:", error);
     }
-  };
+  }, [activeOrgId]);
+  
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../../../lib/api";
 import { useOrgStore } from "../../../../stores/orgStore";
@@ -38,11 +38,7 @@ export default function TasksSection() {
 
   const orgQuery = activeOrgId ? `?org_id=${activeOrgId}` : "";
 
-  useEffect(() => {
-    fetchActiveEventTasks();
-  }, [activeOrgId]);
-
-  const fetchActiveEventTasks = async () => {
+  const fetchActiveEventTasks = useCallback(async () => {
     setLoading(true);
     try {
       const data = await api.get(`/api/admin/tasks/active-event-tasks${orgQuery}`);
@@ -55,7 +51,11 @@ export default function TasksSection() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgQuery]);
+
+  useEffect(() => {
+    fetchActiveEventTasks();
+  }, [fetchActiveEventTasks]);
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();

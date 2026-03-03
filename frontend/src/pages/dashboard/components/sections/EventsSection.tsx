@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "../../../../lib/api";
 import { useOrgStore } from "../../../../stores/orgStore";
 import { EventSettings, EventWithOrg } from "../../types";
@@ -26,11 +26,7 @@ export default function EventsSection({
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
 
-  useEffect(() => {
-    fetchMyEvents();
-  }, [activeOrgId]);
-
-  const fetchMyEvents = async () => {
+  const fetchMyEvents = useCallback(async () => {
     try {
       const events: EventWithOrg[] = await api.get("/api/admin/my-events");
       if (activeOrgId) {
@@ -41,7 +37,13 @@ export default function EventsSection({
     } catch (error) {
       console.error("Error fetching events:", error);
     }
-  };
+  }, [activeOrgId]);
+
+  useEffect(() => {
+    fetchMyEvents();
+  }, [fetchMyEvents]);
+
+  
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
