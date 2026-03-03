@@ -38,6 +38,8 @@ export interface User {
   email: string;
   password_hash: string;
   role: string;
+  first_name: string | null;
+  last_name: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -177,6 +179,8 @@ export interface EventTaskWithDetails extends EventTask {
   task_name: string;
   recurring: boolean;
   assigned_user_email?: string | null;
+  assigned_user_first_name?: string | null;
+  assigned_user_last_name?: string | null;
   contacts?: TaskContact[];
 }
 
@@ -227,14 +231,49 @@ export const db = {
       email: string;
       password_hash: string;
       role: string;
+      first_name?: string | null;
+      last_name?: string | null;
     }): Promise<User> {
       const result = await pool.query<User>(
-        `INSERT INTO users (email, password_hash, role)
-         VALUES ($1, $2, $3)
+        `INSERT INTO users (email, password_hash, role, first_name, last_name)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING *`,
-        [data.email, data.password_hash, data.role]
+        [data.email, data.password_hash, data.role, data.first_name ?? null, data.last_name ?? null]
       );
       return result.rows[0];
+    },
+
+    async update(id: number | string, data: {
+      first_name?: string | null;
+      last_name?: string | null;
+      email?: string;
+    }): Promise<User | null> {
+      const fields: string[] = [];
+      const values: unknown[] = [];
+      let idx = 1;
+
+      if (data.email !== undefined) {
+        fields.push(`email = $${idx++}`);
+        values.push(data.email);
+      }
+      if (data.first_name !== undefined) {
+        fields.push(`first_name = $${idx++}`);
+        values.push(data.first_name);
+      }
+      if (data.last_name !== undefined) {
+        fields.push(`last_name = $${idx++}`);
+        values.push(data.last_name);
+      }
+      if (fields.length === 0) return this.findById(id);
+
+      fields.push(`updated_at = NOW()`);
+      values.push(id);
+
+      const result = await pool.query<User>(
+        `UPDATE users SET ${fields.join(", ")} WHERE id = $${idx} RETURNING *`,
+        values
+      );
+      return result.rows[0] || null;
     },
 
     async updatePassword(id: number | string, passwordHash: string): Promise<User | null> {
@@ -972,7 +1011,10 @@ export const db = {
   eventTasks: {
     async findByEventId(eventId: number | string): Promise<EventTaskWithDetails[]> {
       const result = await pool.query<EventTaskWithDetails>(
-        `SELECT et.*, t.name AS task_name, t.recurring, u.email AS assigned_user_email
+        `SELECT et.*, t.name AS task_name, t.recurring,
+                u.email AS assigned_user_email,
+                u.first_name AS assigned_user_first_name,
+                u.last_name AS assigned_user_last_name
          FROM event_tasks et
          JOIN tasks t ON et.task_id = t.id
          LEFT JOIN users u ON et.assigned_user_id = u.id
@@ -985,7 +1027,10 @@ export const db = {
 
     async findById(id: number | string): Promise<EventTaskWithDetails | null> {
       const result = await pool.query<EventTaskWithDetails>(
-        `SELECT et.*, t.name AS task_name, t.recurring, u.email AS assigned_user_email
+        `SELECT et.*, t.name AS task_name, t.recurring,
+                u.email AS assigned_user_email,
+                u.first_name AS assigned_user_first_name,
+                u.last_name AS assigned_user_last_name
          FROM event_tasks et
          JOIN tasks t ON et.task_id = t.id
          LEFT JOIN users u ON et.assigned_user_id = u.id
@@ -1089,6 +1134,8 @@ export const db = {
       const result = await pool.query<EventTaskWithDetails & { event_name: string; event_date: string }>(
         `SELECT et.*, t.name AS task_name, t.recurring,
                 u.email AS assigned_user_email,
+                u.first_name AS assigned_user_first_name,
+                u.last_name AS assigned_user_last_name,
                 e.name AS event_name, e.date AS event_date
          FROM event_tasks et
          JOIN tasks t ON et.task_id = t.id

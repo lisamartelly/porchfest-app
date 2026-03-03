@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 
@@ -60,16 +60,7 @@ export default function BandApplyPage() {
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
-  useEffect(() => {
-    if (!slug) {
-      setLoadError("No organization specified.");
-      setLoadingEvent(false);
-      return;
-    }
-    fetchEventInfo();
-  }, [slug]);
-
-  const fetchEventInfo = async () => {
+  const fetchEventInfo = useCallback(async () => {
     try {
       const data = await api.get(`/api/events/org/${slug}`);
       setOrgEvent(data);
@@ -78,7 +69,16 @@ export default function BandApplyPage() {
     } finally {
       setLoadingEvent(false);
     }
-  };
+  }, [slug]);
+
+  useEffect(() => {
+    if (!slug) {
+      setLoadError("No organization specified.");
+      setLoadingEvent(false);
+      return;
+    }
+    fetchEventInfo();
+  }, [slug, fetchEventInfo]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

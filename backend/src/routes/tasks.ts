@@ -2,10 +2,36 @@ import { Router, Response } from "express";
 import { body, validationResult } from "express-validator";
 import { adminOnly, AuthRequest } from "../middleware/auth.js";
 import { db } from "../data/db.js";
+import type { Event } from "../data/db.js";
 
 export const tasksRouter: Router = Router();
 
 tasksRouter.use(adminOnly);
+
+async function resolveActiveEvent(req: AuthRequest): Promise<Event | null> {
+  const { org_id } = req.query;
+  if (org_id) {
+    if (req.user?.role !== "super-duper-admin") {
+      const membership = await db.organizationUsers.findByUserAndOrg(
+        req.user!.id,
+        Number(org_id)
+      );
+      if (!membership) return null;
+    }
+    return db.events.findActiveByOrganizationId(Number(org_id));
+  }
+  if (req.user?.role === "super-duper-admin") {
+    return db.events.findActive();
+  }
+  const userOrgs = await db.organizationUsers.getOrganizationsForUser(
+    req.user!.id
+  );
+  for (const org of userOrgs) {
+    const event = await db.events.findActiveByOrganizationId(org.id);
+    if (event) return event;
+  }
+  return null;
+}
 
 // =========================================================================
 // ACTIVE EVENT TASKS (for tasks page - shows tasks for the user's active event)
@@ -15,18 +41,7 @@ tasksRouter.get(
   "/active-event-tasks",
   async (req: AuthRequest, res: Response) => {
     try {
-      let activeEvent = null;
-      if (req.user?.role === "super-duper-admin") {
-        activeEvent = await db.events.findActive();
-      } else {
-        const userOrgs = await db.organizationUsers.getOrganizationsForUser(
-          req.user!.id
-        );
-        for (const org of userOrgs) {
-          activeEvent = await db.events.findActiveByOrganizationId(org.id);
-          if (activeEvent) break;
-        }
-      }
+      const activeEvent = await resolveActiveEvent(req);
       if (!activeEvent) {
         return res.json({ event: null, event_tasks: [] });
       }
@@ -41,6 +56,52 @@ tasksRouter.get(
     } catch (error) {
       console.error("Error fetching active event tasks:", error);
       res.status(500).json({ error: "Failed to fetch active event tasks" });
+    }
+  }
+);
+
+tasksRouter.post(
+  "/active-event-tasks",
+  [
+    body("name").trim().notEmpty().withMessage("Task name is required"),
+    body("due_date").optional({ nullable: true }).isString(),
+    body("notes").optional({ nullable: true }).isString(),
+    body("status").optional().isIn(["to_do", "in_progress", "blocked", "done"]),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const activeEvent = await resolveActiveEvent(req);
+      if (!activeEvent) {
+        return res.status(400).json({ error: "No active event found" });
+      }
+
+      const { name, due_date, notes, status } = req.body;
+
+      const task = await db.tasks.create({
+        organization_id: activeEvent.organization_id,
+        name,
+        recurring: false,
+      });
+
+      const eventTask = await db.eventTasks.create({
+        task_id: task.id,
+        event_id: activeEvent.id,
+        name,
+        notes,
+        due_date,
+        status,
+      });
+
+      const detailed = await db.eventTasks.findById(eventTask.id);
+      res.json({ ...detailed, contacts: [] });
+    } catch (error) {
+      console.error("Error creating task for active event:", error);
+      res.status(500).json({ error: "Failed to create task" });
     }
   }
 );

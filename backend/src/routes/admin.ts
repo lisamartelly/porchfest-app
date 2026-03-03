@@ -3,11 +3,27 @@ import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 import { adminOnly, superDuperAdminOnly, AuthRequest } from "../middleware/auth.js";
 import { db } from "../data/db.js";
+import type { Event } from "../data/db.js";
 
 export const adminRouter: Router = Router();
 
 // All admin routes require admin role (admin or super-duper-admin)
 adminRouter.use(adminOnly);
+
+async function resolveOrgActiveEvent(
+  req: AuthRequest,
+  orgId: number | string
+): Promise<{ authorized: boolean; event: Event | null }> {
+  if (req.user?.role !== "super-duper-admin") {
+    const membership = await db.organizationUsers.findByUserAndOrg(
+      req.user!.id,
+      Number(orgId)
+    );
+    if (!membership) return { authorized: false, event: null };
+  }
+  const event = await db.events.findActiveByOrganizationId(orgId);
+  return { authorized: true, event };
+}
 
 // =========================================================================
 // SUPER-DUPER-ADMIN ONLY: Organization management
@@ -78,9 +94,40 @@ adminRouter.post(
 // SUPER-DUPER-ADMIN ONLY: User management
 // =========================================================================
 
-// List all users with their org memberships
-adminRouter.get("/users", superDuperAdminOnly, async (req: Request, res: Response) => {
+// List users (scoped by org_id when provided)
+adminRouter.get("/users", async (req: AuthRequest, res: Response) => {
   try {
+    const { org_id } = req.query;
+
+    if (org_id) {
+      const orgIdNum = Number(org_id);
+      if (req.user?.role !== "super-duper-admin") {
+        const membership = await db.organizationUsers.findByUserAndOrg(
+          req.user!.id,
+          orgIdNum
+        );
+        if (!membership) {
+          return res.status(403).json({ error: "Not a member of this organization" });
+        }
+      }
+      const users = await db.organizationUsers.getUsersForOrganization(orgIdNum);
+      const orgMemberships = await db.organizationUsers.findByOrganizationId(orgIdNum);
+      const roleMap = new Map(orgMemberships.map((m) => [m.user_id, m.role]));
+      return res.json(
+        users.map((u) => ({
+          id: u.id,
+          email: u.email,
+          first_name: u.first_name,
+          last_name: u.last_name,
+          org_role: roleMap.get(u.id) || "organizer",
+          created_at: u.created_at,
+        }))
+      );
+    }
+
+    if (req.user?.role !== "super-duper-admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const users = await db.users.findAll();
     const usersWithOrgs = await Promise.all(
       users.map(async (u) => {
@@ -89,6 +136,8 @@ adminRouter.get("/users", superDuperAdminOnly, async (req: Request, res: Respons
           id: u.id,
           email: u.email,
           role: u.role,
+          first_name: u.first_name,
+          last_name: u.last_name,
           created_at: u.created_at,
           organizations: orgs.map((o) => ({ id: o.id, name: o.name })),
         };
@@ -101,19 +150,20 @@ adminRouter.get("/users", superDuperAdminOnly, async (req: Request, res: Respons
   }
 });
 
-// Create admin user and assign to organization
+// Create user and assign to organization
 adminRouter.post(
   "/users",
-  superDuperAdminOnly,
   [
     body("email").isEmail().withMessage("Valid email required"),
     body("password")
       .isLength({ min: 6 })
       .withMessage("Password must be at least 6 characters"),
-    body("role")
-      .isIn(["user"])
-      .withMessage("Role must be user"),
-    body("organization_id").optional().isNumeric(),
+    body("organization_id").notEmpty().withMessage("Organization is required"),
+    body("org_role")
+      .isIn(["owner", "organizer", "reviewer"])
+      .withMessage("Role must be owner, organizer, or reviewer"),
+    body("first_name").optional({ nullable: true }).trim(),
+    body("last_name").optional({ nullable: true }).trim(),
   ],
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
@@ -122,48 +172,156 @@ adminRouter.post(
     }
 
     try {
-      const { email, password, role, organization_id } = req.body;
+      const { email, password, organization_id, org_role, first_name, last_name } = req.body;
 
-      const existingUser = await db.users.findByEmail(email);
-      if (existingUser) {
-        return res.status(400).json({ error: "User already exists" });
+      if (req.user?.role !== "super-duper-admin") {
+        const membership = await db.organizationUsers.findByUserAndOrg(
+          req.user!.id,
+          organization_id
+        );
+        if (!membership) {
+          return res.status(403).json({ error: "Not a member of this organization" });
+        }
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = await db.users.create({
-        email,
-        password_hash: hashedPassword,
-        role,
-      });
+      const org = await db.organizations.findById(organization_id);
+      if (!org) {
+        return res.status(400).json({ error: "Organization not found" });
+      }
 
-      if (organization_id) {
-        const org = await db.organizations.findById(organization_id);
-        if (!org) {
-          return res.status(400).json({ error: "Organization not found" });
+      let user = await db.users.findByEmail(email);
+      if (user) {
+        const existing = await db.organizationUsers.findByUserAndOrg(
+          user.id,
+          organization_id
+        );
+        if (existing) {
+          return res.status(400).json({ error: "User is already a member of this organization" });
         }
-        await db.organizationUsers.create({
-          user_id: user.id,
-          organization_id,
-          role: "organizer",
+      } else {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user = await db.users.create({
+          email,
+          password_hash: hashedPassword,
+          role: "user",
+          first_name,
+          last_name,
         });
       }
 
-      const orgs = organization_id
-        ? [await db.organizations.findById(organization_id)]
-        : [];
+      await db.organizationUsers.create({
+        user_id: user.id,
+        organization_id,
+        role: org_role,
+      });
 
       res.json({
         id: user.id,
         email: user.email,
-        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        org_role,
         created_at: user.created_at,
-        organizations: orgs
-          .filter(Boolean)
-          .map((o) => ({ id: o!.id, name: o!.name })),
       });
     } catch (error) {
       console.error("Error creating user:", error);
       res.status(500).json({ error: "Failed to create user" });
+    }
+  }
+);
+
+// Update a user's profile, org role, or password
+adminRouter.patch(
+  "/users/:userId",
+  [
+    body("email").optional().isEmail().withMessage("Valid email required"),
+    body("first_name").optional({ nullable: true }).trim(),
+    body("last_name").optional({ nullable: true }).trim(),
+    body("org_role").optional().isIn(["owner", "organizer", "reviewer"]),
+    body("new_password").optional().isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const targetUserId = Number(req.params.userId);
+      const { org_id } = req.query;
+      const { email, first_name, last_name, org_role, new_password } = req.body;
+
+      if (!org_id) {
+        return res.status(400).json({ error: "org_id query parameter is required" });
+      }
+      const orgIdNum = Number(org_id);
+
+      if (req.user?.role !== "super-duper-admin") {
+        const membership = await db.organizationUsers.findByUserAndOrg(
+          req.user!.id,
+          orgIdNum
+        );
+        if (!membership) {
+          return res.status(403).json({ error: "Not a member of this organization" });
+        }
+      }
+
+      const targetMembership = await db.organizationUsers.findByUserAndOrg(
+        targetUserId,
+        orgIdNum
+      );
+      if (!targetMembership) {
+        return res.status(404).json({ error: "User is not a member of this organization" });
+      }
+
+      if (email) {
+        const existingUser = await db.users.findByEmail(email);
+        if (existingUser && existingUser.id !== targetUserId) {
+          return res.status(400).json({ error: "Another user already has that email" });
+        }
+      }
+
+      const profileUpdates: { email?: string; first_name?: string | null; last_name?: string | null } = {};
+      if (email !== undefined) profileUpdates.email = email;
+      if (first_name !== undefined) profileUpdates.first_name = first_name;
+      if (last_name !== undefined) profileUpdates.last_name = last_name;
+      if (Object.keys(profileUpdates).length > 0) {
+        await db.users.update(targetUserId, profileUpdates);
+      }
+
+      if (org_role) {
+        if (targetMembership.role === "owner" && org_role !== "owner") {
+          const members = await db.organizationUsers.findByOrganizationId(orgIdNum);
+          const ownerCount = members.filter((m) => m.role === "owner").length;
+          if (ownerCount <= 1) {
+            return res.status(400).json({ error: "Cannot remove the last owner. Assign another owner first." });
+          }
+        }
+        await db.organizationUsers.updateRole(targetUserId, orgIdNum, org_role);
+      }
+
+      if (new_password) {
+        const hashedPassword = await bcrypt.hash(new_password, 10);
+        await db.users.updatePassword(targetUserId, hashedPassword);
+      }
+
+      const updatedUser = await db.users.findById(targetUserId);
+      const updatedMembership = await db.organizationUsers.findByUserAndOrg(
+        targetUserId,
+        orgIdNum
+      );
+
+      res.json({
+        id: updatedUser!.id,
+        email: updatedUser!.email,
+        first_name: updatedUser!.first_name,
+        last_name: updatedUser!.last_name,
+        org_role: updatedMembership!.role,
+        created_at: updatedUser!.created_at,
+      });
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ error: "Failed to update user" });
     }
   }
 );
@@ -207,23 +365,35 @@ adminRouter.get("/my-organizations", async (req: AuthRequest, res: Response) => 
   try {
     if (req.user?.role === "super-duper-admin") {
       const allOrgs = await db.organizations.findAll();
-      return res.json(allOrgs);
+      return res.json(allOrgs.map((o) => ({ ...o, org_role: "owner" })));
     }
 
-    const orgs = await db.organizationUsers.getOrganizationsForUser(
-      req.user!.id
-    );
-    res.json(orgs);
+    const memberships = await db.organizationUsers.findByUserId(req.user!.id);
+    const orgs = await db.organizationUsers.getOrganizationsForUser(req.user!.id);
+    const roleMap = new Map(memberships.map((m) => [m.organization_id, m.role]));
+    res.json(orgs.map((o) => ({ ...o, org_role: roleMap.get(o.id) || "organizer" })));
   } catch (error) {
     console.error("Error fetching user organizations:", error);
     res.status(500).json({ error: "Failed to fetch organizations" });
   }
 });
 
-// Get all bands
-adminRouter.get("/bands", async (req: Request, res: Response) => {
+// Get bands (scoped by org_id when provided)
+adminRouter.get("/bands", async (req: AuthRequest, res: Response) => {
   try {
-    const { status } = req.query;
+    const { status, org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      const bands = await db.bands.findByEventId(event.id);
+      if (status) {
+        return res.json(bands.filter((b) => b.status === status));
+      }
+      return res.json(bands);
+    }
     const allBands = await db.bands.findAll(status as string | undefined);
     res.json(allBands);
   } catch (error) {
@@ -259,10 +429,22 @@ adminRouter.patch(
   }
 );
 
-// Get all porches
-adminRouter.get("/porches", async (req: Request, res: Response) => {
+// Get porches (scoped by org_id when provided)
+adminRouter.get("/porches", async (req: AuthRequest, res: Response) => {
   try {
-    const { status } = req.query;
+    const { status, org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      const porches = await db.porches.findByEventId(event.id);
+      if (status) {
+        return res.json(porches.filter((p) => p.status === status));
+      }
+      return res.json(porches);
+    }
     const allPorches = await db.porches.findAll(status as string | undefined);
     res.json(allPorches);
   } catch (error) {
@@ -298,10 +480,20 @@ adminRouter.patch(
   }
 );
 
-// Get active event settings
-adminRouter.get("/event", async (req: Request, res: Response) => {
+// Get active event settings (scoped by org_id when provided)
+adminRouter.get("/event", async (req: AuthRequest, res: Response) => {
   try {
-    const activeEvent = await db.events.findActive();
+    const { org_id } = req.query;
+    let activeEvent;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      activeEvent = event;
+    } else {
+      activeEvent = await db.events.findActive();
+    }
     if (!activeEvent) {
       return res.status(404).json({ error: "No active event found" });
     }
@@ -329,7 +521,17 @@ adminRouter.patch(
   ],
   async (req: AuthRequest, res: Response) => {
     try {
-      const activeEvent = await db.events.findActive();
+      const { org_id } = req.query;
+      let activeEvent;
+      if (org_id) {
+        const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+        if (!authorized) {
+          return res.status(403).json({ error: "Not a member of this organization" });
+        }
+        activeEvent = event;
+      } else {
+        activeEvent = await db.events.findActive();
+      }
       if (!activeEvent) {
         return res.status(404).json({ error: "No active event found" });
       }
@@ -400,6 +602,21 @@ adminRouter.post(
         description: description || null,
         is_active: true,
       });
+
+      // Create event tasks for all recurring task templates in this org
+      try {
+        const orgTasks = await db.tasks.findByOrganizationId(organization_id);
+        for (const task of orgTasks) {
+          if (task.recurring) {
+            await db.eventTasks.create({
+              task_id: task.id,
+              event_id: event.id,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error copying recurring tasks to new event:", err);
+      }
 
       res.json(event);
     } catch (error) {
@@ -495,13 +712,30 @@ adminRouter.post(
   }
 );
 
-// Get scheduling data
-adminRouter.get("/scheduling", async (req: Request, res: Response) => {
+// Get scheduling data (scoped by org_id when provided)
+adminRouter.get("/scheduling", async (req: AuthRequest, res: Response) => {
   try {
+    const { org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json({ bands: [], porches: [], time_slots: [] });
+      const [bands, porches, slots] = await Promise.all([
+        db.bands.findByEventId(event.id),
+        db.porches.findByEventId(event.id),
+        db.timeSlots.findByEventId(event.id),
+      ]);
+      return res.json({
+        bands: bands.filter((b) => b.status === "approved"),
+        porches: porches.filter((p) => p.status === "approved"),
+        time_slots: slots,
+      });
+    }
     const approvedBands = await db.bands.findApproved();
     const approvedPorches = await db.porches.findApproved();
     const allSlots = await db.timeSlots.findAll();
-
     res.json({
       bands: approvedBands,
       porches: approvedPorches,
@@ -525,7 +759,7 @@ function formatTimeDisplay(time: string): string {
 adminRouter.patch(
   "/bands/:id/schedule",
   [
-    body("assigned_porch_id").optional({ nullable: true }).isString(),
+    body("assigned_porch_id").optional({ nullable: true }).isInt().toInt(),
     body("set_start_time").optional({ nullable: true }).isString(),
     body("set_end_time").optional({ nullable: true }).isString(),
   ],
@@ -595,9 +829,19 @@ adminRouter.patch(
   }
 );
 
-// Get approved porches (for scheduling dropdown)
-adminRouter.get("/porches/approved", async (req, res) => {
+// Get approved porches (scoped by org_id when provided)
+adminRouter.get("/porches/approved", async (req: AuthRequest, res: Response) => {
   try {
+    const { org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      const porches = await db.porches.findByEventId(event.id);
+      return res.json(porches.filter((p) => p.status === "approved"));
+    }
     const approvedPorches = await db.porches.findApproved();
     res.json(approvedPorches);
   } catch (error) {
@@ -609,7 +853,17 @@ adminRouter.get("/porches/approved", async (req, res) => {
 // Assign bands to reviewers (random, equal distribution)
 adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
   try {
-    const activeEvent = await db.events.findActive();
+    const { org_id } = req.query;
+    let activeEvent;
+    if (org_id) {
+      const result = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!result.authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      activeEvent = result.event;
+    } else {
+      activeEvent = await db.events.findActive();
+    }
     if (!activeEvent) {
       return res.status(404).json({ error: "No active event found" });
     }
@@ -619,16 +873,13 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
       return res.status(400).json({ error: "No reviewers configured" });
     }
 
-    // Get all bands
-    const allBands = await db.bands.findAll();
+    const allBands = await db.bands.findByEventId(activeEvent.id);
     if (allBands.length === 0) {
       return res.status(400).json({ error: "No bands to assign" });
     }
 
-    // Shuffle bands for random assignment
     const shuffledBands = [...allBands].sort(() => Math.random() - 0.5);
 
-    // Assign bands to reviewers in round-robin fashion
     for (let i = 0; i < shuffledBands.length; i++) {
       const band = shuffledBands[i];
       const reviewerIndex = i % reviewerEmails.length;
@@ -640,10 +891,9 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
       );
     }
 
-    // Mark reviewers as assigned
     await db.events.update(activeEvent.id, { reviewers_assigned: true });
 
-    const updatedBands = await db.bands.findAll();
+    const updatedBands = await db.bands.findByEventId(activeEvent.id);
 
     res.json({
       message: `Successfully assigned ${allBands.length} bands to ${reviewerEmails.length} reviewers`,
@@ -692,7 +942,7 @@ adminRouter.patch(
 );
 
 // Get bands assigned to current user for review
-adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res) => {
+adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res: Response) => {
   try {
     const userEmail = req.user?.email;
     if (!userEmail) {
@@ -700,6 +950,15 @@ adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res) => {
     }
 
     const myBands = await db.bands.findByReviewerEmail(userEmail);
+    const { org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      return res.json(myBands.filter((b) => b.event_id === event.id));
+    }
     res.json(myBands);
   } catch (error) {
     console.error("Error fetching assigned bands:", error);
@@ -708,8 +967,22 @@ adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res) => {
 });
 
 // Get unique reviewer emails from assigned bands
-adminRouter.get("/reviewers", async (req, res) => {
+adminRouter.get("/reviewers", async (req: AuthRequest, res: Response) => {
   try {
+    const { org_id } = req.query;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      const bands = await db.bands.findByEventId(event.id);
+      const emails = [...new Set(bands
+        .map((b) => b.assigned_reviewer_email)
+        .filter(Boolean)
+      )];
+      return res.json(emails);
+    }
     const reviewerEmails = await db.bands.getReviewerEmails();
     res.json(reviewerEmails);
   } catch (error) {
