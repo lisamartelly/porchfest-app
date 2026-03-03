@@ -67,9 +67,10 @@ const SECTION_META: Record<Section, { title: string; description: string }> = {
 
 export default function AdminDashboard() {
   const [searchParams] = useSearchParams();
-  const section = (searchParams.get("section") || "overview") as Section;
   const { user } = useAuthStore();
   const { activeOrgId, activeOrgRole, loading: orgLoading } = useOrgStore();
+  const defaultSection = activeOrgRole === "reviewer" ? "my-reviews" : "overview";
+  const section = (searchParams.get("section") || defaultSection) as Section;
 
   const [bands, setBands] = useState<BandApplication[]>([]);
   const [porches, setPorches] = useState<PorchApplication[]>([]);
@@ -85,6 +86,7 @@ export default function AdminDashboard() {
   const [myReviewBands, setMyReviewBands] = useState<BandApplication[]>([]);
 
   const isSuperDuperAdmin = user?.role === "super-duper-admin";
+  const isOrganizer = activeOrgRole === "owner" || activeOrgRole === "organizer" || isSuperDuperAdmin;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -267,6 +269,8 @@ export default function AdminDashboard() {
   const renderContent = () => {
     switch (section) {
       case "overview":
+        if (!isOrganizer)
+          return <div className="text-gray-500">Access denied. Reviewers do not have access to the overview.</div>;
         return (
           <StatsGrid
             pendingBands={pendingBands}
@@ -277,6 +281,8 @@ export default function AdminDashboard() {
         );
 
       case "bands":
+        if (!isOrganizer)
+          return <div className="text-gray-500">Access denied. Reviewers do not have access to bands.</div>;
         return (
           <BandsSection
             bands={bands}
@@ -292,6 +298,8 @@ export default function AdminDashboard() {
         );
 
       case "porches":
+        if (!isOrganizer)
+          return <div className="text-gray-500">Access denied. Reviewers do not have access to porches.</div>;
         return (
           <PorchesSection
             porches={porches}
@@ -302,6 +310,8 @@ export default function AdminDashboard() {
         );
 
       case "assignments":
+        if (!isOrganizer)
+          return <div className="text-gray-500">Access denied. Reviewers do not have access to assignments.</div>;
         return (
           <AssignmentsSection
             eventSettings={eventSettings}
@@ -330,6 +340,8 @@ export default function AdminDashboard() {
         );
 
       case "scheduler":
+        if (!isOrganizer)
+          return <div className="text-gray-500">Access denied. Reviewers do not have access to the scheduler.</div>;
         return (
           <SchedulerSection
             bands={bands}
@@ -340,6 +352,8 @@ export default function AdminDashboard() {
         );
 
       case "events":
+        if (!isOrganizer)
+          return <div className="text-gray-500">Access denied. Reviewers do not have access to events.</div>;
         return (
           <EventsSection
             eventSettings={eventSettings}
@@ -348,6 +362,8 @@ export default function AdminDashboard() {
         );
 
       case "tasks":
+        if (!isOrganizer)
+          return <div className="text-gray-500">Access denied. Reviewers do not have access to tasks.</div>;
         return <TasksSection />;
 
       case "organizations":

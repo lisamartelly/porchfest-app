@@ -11,6 +11,7 @@ interface NavItem {
   icon: string;
   superDuperAdminOnly?: boolean;
   ownerOnly?: boolean;
+  organizerOnly?: boolean;
 }
 
 const SIDEBAR_KEY = "sidebar_collapsed";
@@ -31,9 +32,11 @@ export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(SIDEBAR_KEY) === "true"
   );
-  const currentSection = searchParams.get("section") || "overview";
+  const defaultSection = activeOrgRole === "reviewer" ? "my-reviews" : "overview";
+  const currentSection = searchParams.get("section") || defaultSection;
   const isSuperDuperAdmin = user?.role === "super-duper-admin";
   const isOwner = activeOrgRole === "owner" || isSuperDuperAdmin;
+  const isOrganizer = activeOrgRole === "owner" || activeOrgRole === "organizer" || isSuperDuperAdmin;
 
   useEffect(() => {
     initOrg();
@@ -48,14 +51,14 @@ export default function DashboardLayout() {
   };
 
   const navItems: NavItem[] = [
-    { to: "/admin", section: "overview", label: "Overview", icon: "🏠" },
-    { to: "/admin?section=bands", section: "bands", label: "Bands", icon: "🎸" },
-    { to: "/admin?section=porches", section: "porches", label: "Porches", icon: "🏡" },
-    { to: "/admin?section=assignments", section: "assignments", label: "Assignments", icon: "👥" },
+    { to: "/admin", section: "overview", label: "Overview", icon: "🏠", organizerOnly: true },
+    { to: "/admin?section=bands", section: "bands", label: "Bands", icon: "🎸", organizerOnly: true },
+    { to: "/admin?section=porches", section: "porches", label: "Porches", icon: "🏡", organizerOnly: true },
+    { to: "/admin?section=assignments", section: "assignments", label: "Assignments", icon: "👥", organizerOnly: true },
     { to: "/admin?section=my-reviews", section: "my-reviews", label: "My Reviews", icon: "⭐" },
-    { to: "/admin?section=scheduler", section: "scheduler", label: "Scheduler", icon: "📅" },
-    { to: "/admin?section=events", section: "events", label: "Events", icon: "🗓️" },
-    { to: "/admin?section=tasks", section: "tasks", label: "Tasks", icon: "✅" },
+    { to: "/admin?section=scheduler", section: "scheduler", label: "Scheduler", icon: "📅", organizerOnly: true },
+    { to: "/admin?section=events", section: "events", label: "Events", icon: "🗓️", organizerOnly: true },
+    { to: "/admin?section=tasks", section: "tasks", label: "Tasks", icon: "✅", organizerOnly: true },
     { to: "/admin?section=organizations", section: "organizations", label: "Organizations", icon: "🏢", superDuperAdminOnly: true },
     { to: "/admin?section=manage-users", section: "manage-users", label: "Manage Users", icon: "👤", ownerOnly: true },
   ];
@@ -63,6 +66,7 @@ export default function DashboardLayout() {
   const visibleNavItems = navItems.filter((item) => {
     if (item.superDuperAdminOnly && !isSuperDuperAdmin) return false;
     if (item.ownerOnly && !isOwner) return false;
+    if (item.organizerOnly && !isOrganizer) return false;
     return true;
   });
 
