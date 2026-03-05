@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { body, validationResult } from "express-validator";
 import { db } from "../data/db.js";
 import { sendBandMagicLink } from "../services/email.js";
+import { getPresignedUploadUrl, deleteObject } from "../services/s3.js";
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
@@ -109,6 +110,38 @@ bandAuthRouter.get(
   }
 );
 
+// GET /upload-url — get a presigned S3 upload URL (requires band-edit JWT)
+bandAuthRouter.get("/upload-url", async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+
+  try {
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      bandId: number;
+      type: string;
+    };
+    if (decoded.type !== "band-edit") {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    const filename = req.query.filename as string;
+    if (!filename) {
+      return res.status(400).json({ error: "filename query parameter is required" });
+    }
+
+    const ext = filename.split(".").pop() || "jpg";
+    const key = `bands/${crypto.randomUUID()}/${Date.now()}.${ext}`;
+    const contentType = req.query.contentType as string || `image/${ext === "jpg" ? "jpeg" : ext}`;
+    const uploadUrl = await getPresignedUploadUrl(key, contentType);
+    return res.json({ uploadUrl, key });
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+});
+
 // PATCH /:id — update band info (requires band-edit JWT)
 bandAuthRouter.patch("/:id", async (req: Request, res: Response) => {
   const bandId = parseInt(req.params.id, 10);
@@ -130,6 +163,15 @@ bandAuthRouter.patch("/:id", async (req: Request, res: Response) => {
 
     if (decoded.type !== "band-edit" || decoded.bandId !== bandId) {
       return res.status(403).json({ error: "Not authorized to edit this band" });
+    }
+
+    if (req.body.photo_key) {
+      const existingBand = await db.bands.findById(bandId);
+      if (existingBand?.photo_key && existingBand.photo_key !== req.body.photo_key) {
+        deleteObject(existingBand.photo_key).catch((err) =>
+          console.error("Failed to delete old photo from S3:", err)
+        );
+      }
     }
 
     const updatedBand = await db.bands.update(bandId, req.body);

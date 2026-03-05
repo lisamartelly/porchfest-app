@@ -1,6 +1,8 @@
 import { Router, type Router as ExpressRouter, type Request, type Response } from "express";
+import crypto from "crypto";
 import { body, validationResult } from "express-validator";
 import { db } from "../data/db.js";
+import { getPresignedUploadUrl } from "../services/s3.js";
 
 export const bandsRouter: ExpressRouter = Router();
 
@@ -45,6 +47,25 @@ bandsRouter.get("/public", async (req, res) => {
   } catch (error) {
     console.error("Error fetching public bands:", error);
     res.status(500).json({ error: "Failed to fetch bands" });
+  }
+});
+
+// Public: Get a presigned S3 upload URL (used during application)
+bandsRouter.get("/upload-url", async (req: Request, res: Response) => {
+  const filename = req.query.filename as string;
+  if (!filename) {
+    return res.status(400).json({ error: "filename query parameter is required" });
+  }
+
+  try {
+    const ext = filename.split(".").pop() || "jpg";
+    const key = `bands/${crypto.randomUUID()}/${Date.now()}.${ext}`;
+    const contentType = req.query.contentType as string || `image/${ext === "jpg" ? "jpeg" : ext}`;
+    const uploadUrl = await getPresignedUploadUrl(key, contentType);
+    return res.json({ uploadUrl, key });
+  } catch (error) {
+    console.error("Error generating upload URL:", error);
+    return res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
 
@@ -113,13 +134,10 @@ bandsRouter.post(
         equipment_consent: req.body.equipment_consent,
         payment_consent: req.body.payment_consent,
         timeline_consent: req.body.timeline_consent,
-        has_photo: req.body.has_photo || false,
-        photo_filename: req.body.photo_filename || null,
+        photo_key: req.body.photo_key || null,
         questions_comments: req.body.questions_comments || null,
         status: "pending",
       });
-
-      console.log("New band application:", band.band_name);
 
       res.json({ success: true, id: band.id });
     } catch (error) {

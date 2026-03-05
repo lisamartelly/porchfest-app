@@ -14,6 +14,8 @@
     "db:seed": "psql $DATABASE_URL -f seed-dev.sql"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1002.0",
+    "@aws-sdk/s3-request-presigner": "^3.1002.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

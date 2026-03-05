@@ -1,6 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
@@ -65,6 +66,36 @@ export class PorchfestStack extends cdk.Stack {
         `arn:aws:ssm:${this.region}:${this.account}:parameter/porchfest/*`,
       ],
     }));
+
+    // --- S3 Bucket for band photos ---
+    const photoBucket = new s3.Bucket(this, "BandPhotoBucket", {
+      bucketName: "porchfest-band-photos-prod",
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicAcls: false,
+        ignorePublicAcls: false,
+        blockPublicPolicy: false,
+        restrictPublicBuckets: false,
+      }),
+      cors: [
+        {
+          allowedHeaders: ["*"],
+          allowedMethods: [s3.HttpMethods.PUT],
+          allowedOrigins: [`https://${DOMAIN_NAME}`],
+          maxAge: 3600,
+        },
+      ],
+    });
+
+    photoBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:GetObject"],
+        resources: [photoBucket.arnForObjects("bands/*")],
+        principals: [new iam.StarPrincipal()],
+      })
+    );
+
+    photoBucket.grantReadWrite(role);
 
     // --- Key Pair (import an existing key pair by name) ---
     const keyPair = ec2.KeyPair.fromKeyPairAttributes(this, "KeyPair", {
@@ -196,6 +227,9 @@ REGION=${this.region}
 DATABASE_URL=$(aws ssm get-parameter --name /porchfest/database-url --with-decryption --query Parameter.Value --output text --region $REGION)
 JWT_SECRET=$(aws ssm get-parameter --name /porchfest/jwt-secret --with-decryption --query Parameter.Value --output text --region $REGION)
 FRONTEND_URL=$(aws ssm get-parameter --name /porchfest/frontend-url --query Parameter.Value --output text --region $REGION)
+S3_BUCKET_NAME=$(aws ssm get-parameter --name /porchfest/s3-bucket-name --query Parameter.Value --output text --region $REGION)
+RESEND_API_KEY=$(aws ssm get-parameter --name /porchfest/resend-api-key --with-decryption --query Parameter.Value --output text --region $REGION)
+FROM_EMAIL=$(aws ssm get-parameter --name /porchfest/from-email --query Parameter.Value --output text --region $REGION)
 
 cat > /opt/porchfest/backend/.env << ENVEOF
 NODE_ENV=production
@@ -203,6 +237,10 @@ PORT=8080
 DATABASE_URL=$DATABASE_URL
 JWT_SECRET=$JWT_SECRET
 FRONTEND_URL=$FRONTEND_URL
+AWS_REGION=$REGION
+S3_BUCKET_NAME=$S3_BUCKET_NAME
+RESEND_API_KEY=$RESEND_API_KEY
+FROM_EMAIL=$FROM_EMAIL
 ENVEOF
 chmod 600 /opt/porchfest/backend/.env
 
@@ -314,11 +352,20 @@ SCRIPTEOF`,
     // Secrets are created manually as SecureString to avoid plaintext in CloudFormation:
     //   aws ssm put-parameter --name /porchfest/database-url --type SecureString --value "<value>"
     //   aws ssm put-parameter --name /porchfest/jwt-secret --type SecureString --value "<value>"
+    //   aws ssm put-parameter --name /porchfest/resend-api-key --type SecureString --value "<value>"
+    //   aws ssm put-parameter --name /porchfest/from-email --type String --value "<value>"
 
     new ssm.StringParameter(this, "FrontendUrl", {
       parameterName: "/porchfest/frontend-url",
       stringValue: `https://${DOMAIN_NAME}`,
       description: "Frontend URL for CORS",
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, "S3BucketName", {
+      parameterName: "/porchfest/s3-bucket-name",
+      stringValue: photoBucket.bucketName,
+      description: "S3 bucket for band photo uploads",
       tier: ssm.ParameterTier.STANDARD,
     });
 

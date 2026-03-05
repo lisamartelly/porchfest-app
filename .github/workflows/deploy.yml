@@ -38,6 +38,9 @@ jobs:
 
       - name: Build frontend
         working-directory: frontend
+        env:
+          VITE_S3_BUCKET: porchfest-band-photos-prod
+          VITE_AWS_REGION: us-east-2
         run: |
           pnpm install --frozen-lockfile
           pnpm build
