@@ -18,7 +18,7 @@ export interface BandApplication {
   facebook: string | null;
   website: string | null;
   scheduling_notes: string | null;
-  has_photo: boolean;
+  photo_key: string | null;
   questions_comments: string | null;
   status: string;
   admin_notes: string | null;

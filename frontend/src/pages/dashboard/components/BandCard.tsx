@@ -24,10 +24,13 @@ interface BandCardProps {
   currentUserEmail?: string;
 }
 
-const getMockPhoto = (bandId: number) => {
-  const seed = String(bandId).split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return `https://picsum.photos/seed/${seed}/400/400`;
-};
+const S3_BUCKET = import.meta.env.VITE_S3_BUCKET || "porchfest-band-photos-dev";
+const AWS_REGION = import.meta.env.VITE_AWS_REGION || "us-east-2";
+
+function getBandPhotoUrl(band: BandApplication): string | null {
+  if (!band.photo_key) return null;
+  return `https://${S3_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${band.photo_key}`;
+}
 
 // Icon components
 const MusicIcon = () => (
@@ -127,47 +130,54 @@ export default function BandCard({
           <div className="flex gap-4 flex-1">
             {/* Photo Thumbnail */}
             <div className="shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowPhoto(true)}
-                className="w-14 h-14 rounded-lg overflow-hidden bg-gray-100 cursor-pointer ring-2 ring-gray-200 hover:ring-porch-400 transition-all"
-              >
-                <img
-                  src={getMockPhoto(band.id)}
-                  alt={band.band_name}
-                  className="w-full h-full object-cover"
-                />
-              </button>
-              
-              {/* Photo Modal */}
-              {showPhoto && (
-                <div
-                  className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 animate-in fade-in duration-200"
-                  onClick={() => setShowPhoto(false)}
-                >
-                  <div
-                    className="relative max-w-md w-full mx-4 animate-in zoom-in-95 duration-200"
-                    onClick={(e) => e.stopPropagation()}
+              {getBandPhotoUrl(band) ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowPhoto(true)}
+                    className="w-14 h-14 rounded-lg overflow-hidden bg-gray-100 cursor-pointer ring-2 ring-gray-200 hover:ring-porch-400 transition-all"
                   >
-                    <div className="rounded-xl overflow-hidden shadow-2xl bg-white">
-                      <img
-                        src={getMockPhoto(band.id)}
-                        alt={band.band_name}
-                        className="w-full h-auto"
-                      />
-                      <div className="p-4 bg-white">
-                        <h3 className="font-semibold text-gray-900">{band.band_name}</h3>
-                        <p className="text-sm text-gray-500">{band.genre}</p>
+                    <img
+                      src={getBandPhotoUrl(band)!}
+                      alt={band.band_name}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+
+                  {showPhoto && (
+                    <div
+                      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 animate-in fade-in duration-200"
+                      onClick={() => setShowPhoto(false)}
+                    >
+                      <div
+                        className="relative max-w-md w-full mx-4 animate-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="rounded-xl overflow-hidden shadow-2xl bg-white">
+                          <img
+                            src={getBandPhotoUrl(band)!}
+                            alt={band.band_name}
+                            className="w-full h-auto"
+                          />
+                          <div className="p-4 bg-white">
+                            <h3 className="font-semibold text-gray-900">{band.band_name}</h3>
+                            <p className="text-sm text-gray-500">{band.genre}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowPhoto(false)}
+                          className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          ✕
+                        </button>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowPhoto(false)}
-                      className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  )}
+                </>
+              ) : (
+                <div className="w-14 h-14 rounded-lg bg-gray-100 ring-2 ring-gray-200 flex items-center justify-center text-gray-400 text-xl">
+                  🎵
                 </div>
               )}
             </div>
