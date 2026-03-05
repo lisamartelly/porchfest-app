@@ -10,6 +10,7 @@ import { porchesRouter } from "./routes/porches.js";
 import { eventsRouter } from "./routes/events.js";
 import { adminRouter } from "./routes/admin.js";
 import { tasksRouter } from "./routes/tasks.js";
+import { bandAuthRouter } from "./routes/bandAuth.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { testConnection, db } from "./data/db.js";
 
@@ -53,6 +54,7 @@ app.use("/api/auth", authRouter);
 
 // Public application routes (no auth required)
 app.use("/api/bands", bandsRouter);
+app.use("/api/bands/auth", bandAuthRouter);
 app.use("/api/porches", porchesRouter);
 
 // Public schedule/venues

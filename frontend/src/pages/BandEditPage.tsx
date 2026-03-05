@@ -1,35 +1,46 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 
-interface OrgEventInfo {
-  organization: { id: string; name: string; slug: string };
-  event: {
-    id: string;
-    name: string;
-    date: string;
-    start_time: string;
-    end_time: string;
-    description: string | null;
-  } | null;
-  band_applications_open: boolean;
-  porch_applications_open: boolean;
-  band_applications_open_date: string | null;
-  band_applications_close_date: string | null;
-  porch_applications_open_date: string | null;
-  porch_applications_close_date: string | null;
+const API_URL = import.meta.env.VITE_API_URL ?? "";
+
+interface BandData {
+  id: number;
+  band_name: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  genre: string;
+  member_count: string;
+  music_sample_link: string;
+  bio: string;
+  set_length: string;
+  venmo_handle: string;
+  instagram: string;
+  spotify: string;
+  soundcloud: string;
+  bandcamp: string;
+  facebook: string;
+  website: string;
+  scheduling_notes: string;
+  equipment_consent: string;
+  payment_consent: string;
+  timeline_consent: string;
+  photo_key: string | null;
+  questions_comments: string;
 }
 
-export default function BandApplyPage() {
-  const { slug } = useParams<{ slug: string }>();
-  const navigate = useNavigate();
-  const [saving, setSaving] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export default function BandEditPage() {
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token");
 
-  const [orgEvent, setOrgEvent] = useState<OrgEventInfo | null>(null);
-  const [loadingEvent, setLoadingEvent] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [bandJwt, setBandJwt] = useState<string | null>(null);
+  const [band, setBand] = useState<BandData | null>(null);
+  const [verifying, setVerifying] = useState(true);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     band_name: "",
@@ -52,36 +63,70 @@ export default function BandApplyPage() {
     equipment_consent: "",
     payment_consent: "",
     timeline_consent: "",
-    confirm_equipment: false,
-    confirm_no_pay: false,
-    confirm_timeline: false,
     questions_comments: "",
   });
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
 
-  const fetchEventInfo = useCallback(async () => {
-    try {
-      const data = await api.get(`/api/events/org/${slug}`);
-      setOrgEvent(data);
-    } catch {
-      setLoadError("Organization not found.");
-    } finally {
-      setLoadingEvent(false);
-    }
-  }, [slug]);
-
   useEffect(() => {
-    if (!slug) {
-      setLoadError("No organization specified.");
-      setLoadingEvent(false);
+    if (!token) {
+      setVerifyError("No token provided. Please use the link from your email.");
+      setVerifying(false);
       return;
     }
-    fetchEventInfo();
-  }, [slug, fetchEventInfo]);
+
+    const verify = async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}/api/bands/auth/magic-link/verify?token=${encodeURIComponent(token)}`
+        );
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Invalid link");
+        }
+        const data = await res.json();
+        setBand(data.band);
+        setBandJwt(data.token);
+
+        setFormData({
+          band_name: data.band.band_name || "",
+          contact_name: data.band.contact_name || "",
+          contact_email: data.band.contact_email || "",
+          contact_phone: data.band.contact_phone || "",
+          genre: data.band.genre || "",
+          member_count: data.band.member_count || "",
+          music_sample_link: data.band.music_sample_link || "",
+          bio: data.band.bio || "",
+          set_length: data.band.set_length || "",
+          venmo_handle: data.band.venmo_handle || "",
+          instagram: data.band.instagram || "",
+          spotify: data.band.spotify || "",
+          soundcloud: data.band.soundcloud || "",
+          bandcamp: data.band.bandcamp || "",
+          facebook: data.band.facebook || "",
+          website: data.band.website || "",
+          scheduling_notes: data.band.scheduling_notes || "",
+          equipment_consent: data.band.equipment_consent || "",
+          payment_consent: data.band.payment_consent || "",
+          timeline_consent: data.band.timeline_consent || "",
+          questions_comments: data.band.questions_comments || "",
+        });
+      } catch (err) {
+        setVerifyError(
+          (err as Error).message || "This link is invalid or has expired."
+        );
+      } finally {
+        setVerifying(false);
+      }
+    };
+
+    verify();
+  }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!band || !bandJwt) return;
+
     setSaving(true);
     setError(null);
 
@@ -90,30 +135,22 @@ export default function BandApplyPage() {
       formData.payment_consent !== "agree" ||
       formData.timeline_consent !== "agree"
     ) {
-      setError(
-        "You must agree to all requirements to submit your application.",
-      );
-      setSaving(false);
-      return;
-    }
-
-    if (
-      !formData.confirm_equipment ||
-      !formData.confirm_no_pay ||
-      !formData.confirm_timeline
-    ) {
-      setError("Please confirm all acknowledgements before submitting.");
+      setError("You must agree to all requirements.");
       setSaving(false);
       return;
     }
 
     try {
-      let photoKey: string | null = null;
+      let photoKey = band.photo_key;
 
       if (photoFile) {
-        const uploadData = await api.get(
-          `/api/bands/upload-url?filename=${encodeURIComponent(photoFile.name)}&contentType=${encodeURIComponent(photoFile.type)}`
+        const uploadRes = await fetch(
+          `${API_URL}/api/bands/auth/upload-url?filename=${encodeURIComponent(photoFile.name)}&contentType=${encodeURIComponent(photoFile.type)}`,
+          { headers: { Authorization: `Bearer ${bandJwt}` } }
         );
+        if (!uploadRes.ok) throw new Error("Failed to get upload URL");
+        const uploadData = await uploadRes.json();
+
         await fetch(uploadData.uploadUrl, {
           method: "PUT",
           body: photoFile,
@@ -122,28 +159,43 @@ export default function BandApplyPage() {
         photoKey = uploadData.key;
       }
 
-      await api.post("/api/bands/apply", {
-        ...formData,
-        event_id: orgEvent!.event!.id,
-        photo_key: photoKey,
+      const res = await fetch(`${API_URL}/api/bands/auth/${band.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${bandJwt}`,
+        },
+        body: JSON.stringify({
+          ...formData,
+          photo_key: photoKey,
+        }),
       });
-      setSubmitted(true);
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save changes");
+      }
+
+      setSaved(true);
     } catch (err) {
-      setError((err as Error).message || "Failed to submit application");
+      setError((err as Error).message || "Failed to save changes");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loadingEvent) {
+  if (verifying) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-porch-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-porch-600 mx-auto"></div>
+          <p className="mt-4 text-gray-700 font-medium">Verifying your link...</p>
+        </div>
       </div>
     );
   }
 
-  if (loadError || !orgEvent) {
+  if (verifyError) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center px-4">
         <div className="max-w-md text-center">
@@ -151,77 +203,15 @@ export default function BandApplyPage() {
             <span className="text-4xl">&#x2717;</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-3">
-            Organization Not Found
+            Link Invalid
           </h1>
-          <p className="text-gray-600">
-            {loadError || "We couldn't find this organization. Please check the URL and try again."}
-          </p>
+          <p className="text-gray-600">{verifyError}</p>
         </div>
       </div>
     );
   }
 
-  if (!orgEvent.event) {
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center px-4">
-        <div className="max-w-md text-center">
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-4xl">&#x1F4C5;</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-3">
-            No Active Event
-          </h1>
-          <p className="text-gray-600">
-            <strong>{orgEvent.organization.name}</strong> doesn't have an active
-            event right now. Check back later!
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!orgEvent.band_applications_open) {
-    const hasWindow =
-      orgEvent.band_applications_open_date ||
-      orgEvent.band_applications_close_date;
-    const windowMessage = hasWindow ? (
-      <>
-        Application window:{" "}
-        {orgEvent.band_applications_open_date
-          ? new Date(
-              orgEvent.band_applications_open_date,
-            ).toLocaleDateString()
-          : "TBD"}
-        {" – "}
-        {orgEvent.band_applications_close_date
-          ? new Date(
-              orgEvent.band_applications_close_date,
-            ).toLocaleDateString()
-          : "TBD"}
-      </>
-    ) : (
-      <>Application window will be set soon.</>
-    );
-
-    return (
-      <div className="min-h-[80vh] flex items-center justify-center px-4">
-        <div className="max-w-md text-center">
-          <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-4xl">&#x1F512;</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-3">
-            Applications Closed
-          </h1>
-          <p className="text-gray-600">
-            Band applications for <strong>{orgEvent.event.name}</strong>.{" "}
-            {windowMessage}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (submitted) {
+  if (saved) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center px-4">
         <div className="max-w-md text-center">
@@ -240,17 +230,11 @@ export default function BandApplyPage() {
               />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-black mb-4">
-            Application Submitted!
-          </h1>
-          <p className="text-gray-700 mb-8 leading-relaxed">
-            Thanks for applying to <strong>{orgEvent.event.name}</strong>! We'll
-            review your application and get back to you at{" "}
-            <strong className="text-black">{formData.contact_email}</strong>.
+          <h1 className="text-3xl font-bold text-black mb-4">Changes Saved!</h1>
+          <p className="text-gray-700 leading-relaxed">
+            Your band information for <strong>{formData.band_name}</strong> has
+            been updated successfully.
           </p>
-          <button onClick={() => navigate("/")} className="btn-primary">
-            Done
-          </button>
         </div>
       </div>
     );
@@ -261,14 +245,10 @@ export default function BandApplyPage() {
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold text-black mb-3">
-            Band Application
+            Edit Band Information
           </h1>
           <p className="text-gray-600 text-lg">
-            Apply to perform at {orgEvent.event.name}
-          </p>
-          <p className="text-gray-500 text-sm mt-1">
-            {orgEvent.organization.name} &middot;{" "}
-            {new Date(orgEvent.event.date).toLocaleDateString()}
+            Update your info for <strong>{band?.band_name}</strong>
           </p>
         </div>
 
@@ -411,9 +391,18 @@ export default function BandApplyPage() {
 
             <div>
               <label className="block text-sm font-semibold text-black mb-2">
-                Upload a band photo for use on our website and social media{" "}
-                <span className="text-red-500">*</span>
+                Upload a new band photo (optional)
               </label>
+              {band?.photo_key && !photoFile && (
+                <div className="mb-3">
+                  <p className="text-sm text-gray-600 mb-2">Current photo:</p>
+                  <img
+                    src={`https://${import.meta.env.VITE_S3_BUCKET || "porchfest-band-photos-dev"}.s3.${import.meta.env.VITE_AWS_REGION || "us-east-2"}.amazonaws.com/${band.photo_key}`}
+                    alt="Current band photo"
+                    className="w-40 h-40 object-cover rounded-lg border border-gray-200"
+                  />
+                </div>
+              )}
               <div className="mt-2">
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -445,7 +434,6 @@ export default function BandApplyPage() {
                       setPhotoFile(e.target.files?.[0] || null)
                     }
                     className="hidden"
-                    required
                   />
                 </label>
                 {photoFile && (
@@ -463,7 +451,7 @@ export default function BandApplyPage() {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
-                    Selected: {photoFile.name}
+                    New photo: {photoFile.name}
                   </p>
                 )}
               </div>
@@ -479,13 +467,6 @@ export default function BandApplyPage() {
                 Musician/Band Bio for Website and Social Media{" "}
                 <span className="text-red-500">*</span>
               </label>
-              <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-                Please take this seriously! We often have bands wanting to change
-                their bio after getting accepted because they threw something
-                together for this application that they don't like. Take your
-                time! We can't guarantee we will be able to make updates like this
-                after the fact.
-              </p>
               <textarea
                 value={formData.bio}
                 onChange={(e) =>
@@ -508,13 +489,6 @@ export default function BandApplyPage() {
                 <label className="block text-sm font-semibold text-black mb-2">
                   Set Length <span className="text-red-500">*</span>
                 </label>
-                <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-                  What is the ideal set length you'd like to perform (up to 2
-                  hours)? We cannot guarantee accommodating set length preferences
-                  depending on the number of bands that participate, but it is
-                  helpful to know how much material you have/would like to
-                  perform.
-                </p>
                 <input
                   type="text"
                   value={formData.set_length}
@@ -531,10 +505,6 @@ export default function BandApplyPage() {
                 <label className="block text-sm font-semibold text-black mb-2">
                   Venmo for Tips
                 </label>
-                <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-                  We will display this during Porchfest and on a band page online
-                  to streamline band tips from attendees
-                </p>
                 <input
                   type="text"
                   value={formData.venmo_handle}
@@ -554,9 +524,7 @@ export default function BandApplyPage() {
               Social Media & Streaming Links
             </h2>
             <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-              If you would like any links included on our website listing for your
-              band, please provide them below. It is NOT required to complete all
-              fields, just provide the ones you would like included.
+              Provide any links you'd like included on the website listing.
             </p>
 
             <div className="grid md:grid-cols-2 gap-5">
@@ -658,10 +626,7 @@ export default function BandApplyPage() {
               Day-of Scheduling Notes
             </h2>
             <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-              Let us know if you have other commitments on the day of Porchfest
-              that need to be scheduled around. Please note that it is pretty
-              complicated to fit all of this together, so please be flexible and
-              only list true conflicts.
+              Let us know if you have other commitments on the day of Porchfest.
             </p>
 
             <textarea
@@ -682,11 +647,9 @@ export default function BandApplyPage() {
             <div className="space-y-8">
               <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
                 <p className="text-sm font-medium text-black mb-4 leading-relaxed">
-                  Bands are in charge of bringing their own sound equipment to
-                  Porchfest. Hosts/the event are not able to provide this. Hosts
-                  will provide an outlet/access to electricity. Please indicate
-                  that you understand this requirement and are prepared to supply
-                  your own PA. <span className="text-red-500">*</span>
+                  Bands are in charge of bringing their own sound equipment.
+                  Hosts will provide an outlet/access to electricity.{" "}
+                  <span className="text-red-500">*</span>
                 </p>
                 <div className="space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-amber-100 transition-colors">
@@ -723,8 +686,8 @@ export default function BandApplyPage() {
                       className="w-5 h-5 text-porch-600"
                     />
                     <span className="text-black">
-                      This is not okay and Porchfest is not a good fit for me/my
-                      band :(
+                      This is not okay and Porchfest is not a good fit for
+                      me/my band :(
                     </span>
                   </label>
                 </div>
@@ -732,10 +695,8 @@ export default function BandApplyPage() {
 
               <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
                 <p className="text-sm font-medium text-black mb-4 leading-relaxed">
-                  Porchfest is not able to pay bands. We wish we could! But we
-                  have no budget and hundreds of performers! Bands play for tips
-                  only. Please indicate that you understand and agree to this as
-                  well! <span className="text-red-500">*</span>
+                  Porchfest is not able to pay bands. Bands play for tips only.{" "}
+                  <span className="text-red-500">*</span>
                 </p>
                 <div className="space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-amber-100 transition-colors">
@@ -772,8 +733,8 @@ export default function BandApplyPage() {
                       className="w-5 h-5 text-porch-600"
                     />
                     <span className="text-black">
-                      This is not okay and Porchfest is not a good fit for me/my
-                      band :(
+                      This is not okay and Porchfest is not a good fit for
+                      me/my band :(
                     </span>
                   </label>
                 </div>
@@ -781,11 +742,8 @@ export default function BandApplyPage() {
 
               <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
                 <p className="text-sm font-medium text-black mb-4 leading-relaxed">
-                  You will not hear an application decision until June! And it
-                  will likely be later than that that you get your porch
-                  assignment! Please indicate that you understand and will be
-                  patient as we wait for all applications to come in before
-                  reviewing. <span className="text-red-500">*</span>
+                  You will not hear an application decision until June!{" "}
+                  <span className="text-red-500">*</span>
                 </p>
                 <div className="space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-amber-100 transition-colors">
@@ -822,78 +780,12 @@ export default function BandApplyPage() {
                       className="w-5 h-5 text-porch-600"
                     />
                     <span className="text-black">
-                      This is not okay and Porchfest is not a good fit for me/my
-                      band :(
+                      This is not okay and Porchfest is not a good fit for
+                      me/my band :(
                     </span>
                   </label>
                 </div>
               </div>
-            </div>
-          </section>
-
-          {/* Confirmation Checkboxes */}
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <h2 className="text-2xl font-bold text-black mb-2">
-              Final Confirmation
-            </h2>
-            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-              Select below all of the things that you just agreed to! We just want
-              to make sure everyone has the right expectations and therefore a
-              great experience :) <span className="text-red-500">*</span>
-            </p>
-
-            <div className="space-y-4">
-              <label className="flex items-center gap-4 cursor-pointer p-4 rounded-lg border border-gray-200 hover:border-porch-300 hover:bg-porch-50 transition-all">
-                <input
-                  type="checkbox"
-                  checked={formData.confirm_equipment}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      confirm_equipment: e.target.checked,
-                    })
-                  }
-                  className="w-5 h-5 text-porch-600 rounded border-gray-300"
-                  required
-                />
-                <span className="text-black font-medium">
-                  Bands are in charge of their own sound/PA
-                </span>
-              </label>
-              <label className="flex items-center gap-4 cursor-pointer p-4 rounded-lg border border-gray-200 hover:border-porch-300 hover:bg-porch-50 transition-all">
-                <input
-                  type="checkbox"
-                  checked={formData.confirm_no_pay}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      confirm_no_pay: e.target.checked,
-                    })
-                  }
-                  className="w-5 h-5 text-porch-600 rounded border-gray-300"
-                  required
-                />
-                <span className="text-black font-medium">
-                  Porchfest does not pay bands directly
-                </span>
-              </label>
-              <label className="flex items-center gap-4 cursor-pointer p-4 rounded-lg border border-gray-200 hover:border-porch-300 hover:bg-porch-50 transition-all">
-                <input
-                  type="checkbox"
-                  checked={formData.confirm_timeline}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      confirm_timeline: e.target.checked,
-                    })
-                  }
-                  className="w-5 h-5 text-porch-600 rounded border-gray-300"
-                  required
-                />
-                <span className="text-black font-medium">
-                  You will find out if you're selected in June
-                </span>
-              </label>
             </div>
           </section>
 
@@ -920,7 +812,7 @@ export default function BandApplyPage() {
               disabled={saving}
               className="flex-1 bg-porch-600 hover:bg-porch-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed text-lg"
             >
-              {saving ? "Submitting..." : "Submit Application"}
+              {saving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>

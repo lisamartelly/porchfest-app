@@ -5,6 +5,8 @@ import { useEffect } from "react";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 
 import BandApplyPage from "./pages/BandApplyPage";
+import BandLoginPage from "./pages/BandLoginPage";
+import BandEditPage from "./pages/BandEditPage";
 import PorchApplyPage from "./pages/PorchApplyPage";
 import LoginPage from "./pages/auth/LoginPage";
 
@@ -36,6 +38,8 @@ function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/bandapplication/:slug" element={<BandApplyPage />} />
+      <Route path="/band-login/:slug" element={<BandLoginPage />} />
+      <Route path="/band-edit" element={<BandEditPage />} />
       <Route path="/porchapplication/:slug" element={<PorchApplyPage />} />
 
       <Route

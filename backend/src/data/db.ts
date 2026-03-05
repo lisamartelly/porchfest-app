@@ -81,8 +81,7 @@ export interface Band {
   equipment_consent: string | null;
   payment_consent: string | null;
   timeline_consent: string | null;
-  has_photo: boolean;
-  photo_filename: string | null;
+  photo_key: string | null;
   questions_comments: string | null;
   status: string;
   admin_notes: string | null;
@@ -192,6 +191,15 @@ export interface TaskContact {
   phone: string | null;
   business: string | null;
   notes: string | null;
+  created_at: Date;
+}
+
+export interface BandMagicToken {
+  id: number;
+  band_id: number;
+  token: string;
+  expires_at: Date;
+  used_at: Date | null;
   created_at: Date;
 }
 
@@ -523,6 +531,46 @@ export const db = {
       return result.rows;
     },
 
+    async findByEventIdAndEmail(eventId: number | string, email: string): Promise<Band | null> {
+      const result = await pool.query<Band>(
+        `SELECT * FROM bands WHERE event_id = $1 AND LOWER(contact_email) = LOWER($2)`,
+        [eventId, email]
+      );
+      return result.rows[0] || null;
+    },
+
+    async update(id: number | string, data: Partial<Band>): Promise<Band | null> {
+      const setClauses: string[] = [];
+      const values: (string | number | boolean | null)[] = [];
+      let paramIndex = 1;
+
+      const fields: (keyof Band)[] = [
+        "band_name", "contact_name", "contact_email", "contact_phone",
+        "genre", "member_count", "music_sample_link", "bio", "set_length",
+        "venmo_handle", "instagram", "spotify", "soundcloud", "bandcamp",
+        "facebook", "website", "scheduling_notes", "equipment_consent",
+        "payment_consent", "timeline_consent", "photo_key",
+        "questions_comments",
+      ];
+
+      for (const field of fields) {
+        if (data[field] !== undefined) {
+          setClauses.push(`${field} = $${paramIndex++}`);
+          values.push(data[field] as string | number | boolean | null);
+        }
+      }
+
+      if (setClauses.length === 0) return this.findById(id);
+
+      setClauses.push(`updated_at = NOW()`);
+      values.push(id as number);
+      const result = await pool.query<Band>(
+        `UPDATE bands SET ${setClauses.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      );
+      return result.rows[0] || null;
+    },
+
     async create(data: Partial<Band>): Promise<Band> {
       const result = await pool.query<Band>(
         `INSERT INTO bands (
@@ -530,8 +578,8 @@ export const db = {
           genre, member_count, music_sample_link, bio, set_length,
           venmo_handle, instagram, spotify, soundcloud, bandcamp, facebook, website,
           scheduling_notes, equipment_consent, payment_consent, timeline_consent,
-          has_photo, photo_filename, questions_comments, status, admin_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+          photo_key, questions_comments, status, admin_notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
         RETURNING *`,
         [
           data.event_id,
@@ -555,8 +603,7 @@ export const db = {
           data.equipment_consent || null,
           data.payment_consent || null,
           data.timeline_consent || null,
-          data.has_photo || false,
-          data.photo_filename || null,
+          data.photo_key || null,
           data.questions_comments || null,
           data.status || "pending",
           data.admin_notes || null,
@@ -1236,6 +1283,36 @@ export const db = {
         [id]
       );
       return (result.rowCount ?? 0) > 0;
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // BAND MAGIC TOKENS
+  // ---------------------------------------------------------------------------
+  bandMagicTokens: {
+    async create(bandId: number, token: string, expiresAt: Date): Promise<BandMagicToken> {
+      const result = await pool.query<BandMagicToken>(
+        `INSERT INTO band_magic_tokens (band_id, token, expires_at)
+         VALUES ($1, $2, $3)
+         RETURNING *`,
+        [bandId, token, expiresAt]
+      );
+      return result.rows[0];
+    },
+
+    async findByToken(token: string): Promise<BandMagicToken | null> {
+      const result = await pool.query<BandMagicToken>(
+        "SELECT * FROM band_magic_tokens WHERE token = $1",
+        [token]
+      );
+      return result.rows[0] || null;
+    },
+
+    async markUsed(token: string): Promise<void> {
+      await pool.query(
+        "UPDATE band_magic_tokens SET used_at = NOW() WHERE token = $1",
+        [token]
+      );
     },
   },
 };
