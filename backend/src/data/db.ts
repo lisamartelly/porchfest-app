@@ -81,8 +81,7 @@ export interface Band {
   equipment_consent: string | null;
   payment_consent: string | null;
   timeline_consent: string | null;
-  has_photo: boolean;
-  photo_filename: string | null;
+  photo_key: string | null;
   questions_comments: string | null;
   status: string;
   admin_notes: string | null;
@@ -550,7 +549,7 @@ export const db = {
         "genre", "member_count", "music_sample_link", "bio", "set_length",
         "venmo_handle", "instagram", "spotify", "soundcloud", "bandcamp",
         "facebook", "website", "scheduling_notes", "equipment_consent",
-        "payment_consent", "timeline_consent", "has_photo", "photo_filename",
+        "payment_consent", "timeline_consent", "photo_key",
         "questions_comments",
       ];
 
@@ -579,8 +578,8 @@ export const db = {
           genre, member_count, music_sample_link, bio, set_length,
           venmo_handle, instagram, spotify, soundcloud, bandcamp, facebook, website,
           scheduling_notes, equipment_consent, payment_consent, timeline_consent,
-          has_photo, photo_filename, questions_comments, status, admin_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+          photo_key, questions_comments, status, admin_notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
         RETURNING *`,
         [
           data.event_id,
@@ -604,8 +603,7 @@ export const db = {
           data.equipment_consent || null,
           data.payment_consent || null,
           data.timeline_consent || null,
-          data.has_photo || false,
-          data.photo_filename || null,
+          data.photo_key || null,
           data.questions_comments || null,
           data.status || "pending",
           data.admin_notes || null,
