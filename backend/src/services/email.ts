@@ -15,9 +15,7 @@ export async function sendBandMagicLink(
   bandName: string,
   eventName: string
 ) {
-  console.log("Sending band magic link to:", to);
   const fromEmail = process.env.FROM_EMAIL || "noreply@porchfest.app";
-  console.log("From email:", fromEmail);
   const { error } = await getResend().emails.send({
     from: fromEmail,
     to,

@@ -27,7 +27,6 @@ bandAuthRouter.post(
     }
 
     const { slug, email } = req.body;
-    console.log("email", email);
 
     // Always return success to avoid email enumeration
     const genericResponse = {
@@ -46,18 +45,15 @@ bandAuthRouter.post(
         activeEvent.id,
         email
       );
-      console.log("Band:", band);
       if (!band) return res.json(genericResponse);
 
       const token = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_MS);
 
-      console.log("Creating band magic token for:", band.id);
       await db.bandMagicTokens.create(band.id, token, expiresAt);
 
       const magicLinkUrl = `${FRONTEND_URL}/band-edit?token=${token}`;
 
-      console.log("Sending band magic link to:", band.contact_email);
       await sendBandMagicLink(
         band.contact_email,
         magicLinkUrl,
