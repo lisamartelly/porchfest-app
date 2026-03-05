@@ -195,6 +195,15 @@ export interface TaskContact {
   created_at: Date;
 }
 
+export interface BandMagicToken {
+  id: number;
+  band_id: number;
+  token: string;
+  expires_at: Date;
+  used_at: Date | null;
+  created_at: Date;
+}
+
 // ============================================================================
 // DATABASE QUERY HELPERS
 // ============================================================================
@@ -521,6 +530,46 @@ export const db = {
         [eventId]
       );
       return result.rows;
+    },
+
+    async findByEventIdAndEmail(eventId: number | string, email: string): Promise<Band | null> {
+      const result = await pool.query<Band>(
+        `SELECT * FROM bands WHERE event_id = $1 AND LOWER(contact_email) = LOWER($2)`,
+        [eventId, email]
+      );
+      return result.rows[0] || null;
+    },
+
+    async update(id: number | string, data: Partial<Band>): Promise<Band | null> {
+      const setClauses: string[] = [];
+      const values: (string | number | boolean | null)[] = [];
+      let paramIndex = 1;
+
+      const fields: (keyof Band)[] = [
+        "band_name", "contact_name", "contact_email", "contact_phone",
+        "genre", "member_count", "music_sample_link", "bio", "set_length",
+        "venmo_handle", "instagram", "spotify", "soundcloud", "bandcamp",
+        "facebook", "website", "scheduling_notes", "equipment_consent",
+        "payment_consent", "timeline_consent", "has_photo", "photo_filename",
+        "questions_comments",
+      ];
+
+      for (const field of fields) {
+        if (data[field] !== undefined) {
+          setClauses.push(`${field} = $${paramIndex++}`);
+          values.push(data[field] as string | number | boolean | null);
+        }
+      }
+
+      if (setClauses.length === 0) return this.findById(id);
+
+      setClauses.push(`updated_at = NOW()`);
+      values.push(id as number);
+      const result = await pool.query<Band>(
+        `UPDATE bands SET ${setClauses.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      );
+      return result.rows[0] || null;
     },
 
     async create(data: Partial<Band>): Promise<Band> {
@@ -1236,6 +1285,36 @@ export const db = {
         [id]
       );
       return (result.rowCount ?? 0) > 0;
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // BAND MAGIC TOKENS
+  // ---------------------------------------------------------------------------
+  bandMagicTokens: {
+    async create(bandId: number, token: string, expiresAt: Date): Promise<BandMagicToken> {
+      const result = await pool.query<BandMagicToken>(
+        `INSERT INTO band_magic_tokens (band_id, token, expires_at)
+         VALUES ($1, $2, $3)
+         RETURNING *`,
+        [bandId, token, expiresAt]
+      );
+      return result.rows[0];
+    },
+
+    async findByToken(token: string): Promise<BandMagicToken | null> {
+      const result = await pool.query<BandMagicToken>(
+        "SELECT * FROM band_magic_tokens WHERE token = $1",
+        [token]
+      );
+      return result.rows[0] || null;
+    },
+
+    async markUsed(token: string): Promise<void> {
+      await pool.query(
+        "UPDATE band_magic_tokens SET used_at = NOW() WHERE token = $1",
+        [token]
+      );
     },
   },
 };
