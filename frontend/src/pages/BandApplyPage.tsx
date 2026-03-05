@@ -108,11 +108,24 @@ export default function BandApplyPage() {
     }
 
     try {
+      let photoKey: string | null = null;
+
+      if (photoFile) {
+        const uploadData = await api.get(
+          `/api/bands/upload-url?filename=${encodeURIComponent(photoFile.name)}&contentType=${encodeURIComponent(photoFile.type)}`
+        );
+        await fetch(uploadData.uploadUrl, {
+          method: "PUT",
+          body: photoFile,
+          headers: { "Content-Type": photoFile.type },
+        });
+        photoKey = uploadData.key;
+      }
+
       await api.post("/api/bands/apply", {
         ...formData,
         event_id: orgEvent!.event!.id,
-        has_photo: !!photoFile,
-        photo_filename: photoFile?.name || null,
+        photo_key: photoKey,
       });
       setSubmitted(true);
     } catch (err) {

@@ -25,8 +25,7 @@ interface BandData {
   equipment_consent: string;
   payment_consent: string;
   timeline_consent: string;
-  has_photo: boolean;
-  photo_filename: string | null;
+  photo_key: string | null;
   questions_comments: string;
 }
 
@@ -142,6 +141,24 @@ export default function BandEditPage() {
     }
 
     try {
+      let photoKey = band.photo_key;
+
+      if (photoFile) {
+        const uploadRes = await fetch(
+          `${API_URL}/api/bands/auth/upload-url?filename=${encodeURIComponent(photoFile.name)}&contentType=${encodeURIComponent(photoFile.type)}`,
+          { headers: { Authorization: `Bearer ${bandJwt}` } }
+        );
+        if (!uploadRes.ok) throw new Error("Failed to get upload URL");
+        const uploadData = await uploadRes.json();
+
+        await fetch(uploadData.uploadUrl, {
+          method: "PUT",
+          body: photoFile,
+          headers: { "Content-Type": photoFile.type },
+        });
+        photoKey = uploadData.key;
+      }
+
       const res = await fetch(`${API_URL}/api/bands/auth/${band.id}`, {
         method: "PATCH",
         headers: {
@@ -150,8 +167,7 @@ export default function BandEditPage() {
         },
         body: JSON.stringify({
           ...formData,
-          has_photo: band.has_photo || !!photoFile,
-          photo_filename: photoFile?.name || band.photo_filename,
+          photo_key: photoKey,
         }),
       });
 
@@ -377,10 +393,15 @@ export default function BandEditPage() {
               <label className="block text-sm font-semibold text-black mb-2">
                 Upload a new band photo (optional)
               </label>
-              {band?.photo_filename && !photoFile && (
-                <p className="text-sm text-gray-600 mb-3">
-                  Current photo: <strong>{band.photo_filename}</strong>
-                </p>
+              {band?.photo_key && !photoFile && (
+                <div className="mb-3">
+                  <p className="text-sm text-gray-600 mb-2">Current photo:</p>
+                  <img
+                    src={`https://${import.meta.env.VITE_S3_BUCKET || "porchfest-band-photos-dev"}.s3.${import.meta.env.VITE_AWS_REGION || "us-east-2"}.amazonaws.com/${band.photo_key}`}
+                    alt="Current band photo"
+                    className="w-40 h-40 object-cover rounded-lg border border-gray-200"
+                  />
+                </div>
               )}
               <div className="mt-2">
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
