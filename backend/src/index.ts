@@ -13,6 +13,7 @@ import { bandAuthRouter } from "./routes/bandAuth.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { testConnection, db } from "./data/db.js";
 import logger from "./lib/logger.js";
+import { getPublicUrl } from "./services/s3.js";
 
 dotenv.config();
 
@@ -175,6 +176,10 @@ app.get("/api/events/org/:slug", async (req, res) => {
       band_applications_close_date: bandCloseDate,
       porch_applications_open_date: porchOpenDate,
       porch_applications_close_date: porchCloseDate,
+      porch_app_description: activeEvent.porch_app_description || null,
+      porch_app_photo_url: activeEvent.porch_app_photo_key
+        ? getPublicUrl(activeEvent.porch_app_photo_key)
+        : null,
     });
   } catch (error) {
     logger.error({ err: error }, "Error fetching org event");

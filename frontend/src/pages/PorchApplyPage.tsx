@@ -16,6 +16,8 @@ interface OrgEventInfo {
   porch_applications_open: boolean;
   porch_applications_open_date: string | null;
   porch_applications_close_date: string | null;
+  porch_app_description: string | null;
+  porch_app_photo_url: string | null;
 }
 
 export default function PorchApplyPage() {
@@ -31,13 +33,15 @@ export default function PorchApplyPage() {
 
   const [formData, setFormData] = useState({
     owner_name: "",
+    phone: "",
     email: "",
     address: "",
-    city: "",
-    capacity: 20,
-    has_power: false,
-    parking_notes: "",
-    accessibility_notes: "",
+    space_description: "",
+    has_band_in_mind: "",
+    music_preferences: "",
+    band_count_preference: "",
+    rain_date_available: "",
+    comments: "",
   });
 
   const fetchEventInfo = useCallback(async () => {
@@ -50,7 +54,7 @@ export default function PorchApplyPage() {
       setLoadingEvent(false);
     }
   }, [slug]);
-  
+
   useEffect(() => {
     if (!slug) {
       setLoadError("No organization specified.");
@@ -76,6 +80,10 @@ export default function PorchApplyPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const updateField = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   if (loadingEvent) {
@@ -190,7 +198,7 @@ export default function PorchApplyPage() {
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            Offer Your Porch
+            Porch Application
           </h1>
           <p className="text-gray-600 mt-1">
             Host a performance at {orgEvent.event.name}
@@ -201,6 +209,24 @@ export default function PorchApplyPage() {
           </p>
         </div>
 
+        {orgEvent.porch_app_photo_url && (
+          <div className="mb-6 rounded-xl overflow-hidden shadow-sm">
+            <img
+              src={orgEvent.porch_app_photo_url}
+              alt={`${orgEvent.event.name} porch application`}
+              className="w-full h-auto max-h-80 object-cover"
+            />
+          </div>
+        )}
+
+        {orgEvent.porch_app_description && (
+          <div className="mb-6 p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
+            <p className="text-gray-700 whitespace-pre-wrap">
+              {orgEvent.porch_app_description}
+            </p>
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
             {error}
@@ -210,139 +236,175 @@ export default function PorchApplyPage() {
         <form onSubmit={handleSubmit} className="card p-8 space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your Name *
+              Name *
             </label>
             <input
               type="text"
               value={formData.owner_name}
-              onChange={(e) =>
-                setFormData({ ...formData, owner_name: e.target.value })
-              }
+              onChange={(e) => updateField("owner_name", e.target.value)}
               className="input-field"
-              placeholder="Jane Smith"
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Contact Email *
+              Phone Number *
+            </label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => updateField("phone", e.target.value)}
+              className="input-field"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Email *
             </label>
             <input
               type="email"
               value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
+              onChange={(e) => updateField("email", e.target.value)}
               className="input-field"
-              placeholder="you@example.com"
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Street Address *
+              Home/Porch Street Address *
             </label>
             <input
               type="text"
               value={formData.address}
-              onChange={(e) =>
-                setFormData({ ...formData, address: e.target.value })
-              }
+              onChange={(e) => updateField("address", e.target.value)}
               className="input-field"
-              placeholder="123 Main Street"
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              City *
+              Brief description of your band-playing space (porch, yard, driveway, etc)
             </label>
-            <input
-              type="text"
-              value={formData.city}
-              onChange={(e) =>
-                setFormData({ ...formData, city: e.target.value })
-              }
-              className="input-field"
-              placeholder="Cambridge"
-              required
+            <textarea
+              value={formData.space_description}
+              onChange={(e) => updateField("space_description", e.target.value)}
+              className="input-field min-h-[80px]"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Audience Capacity
-            </label>
-            <p className="text-sm text-gray-500 mb-2">
-              How many people can comfortably gather to watch?
+          <fieldset>
+            <legend className="block text-sm font-medium text-gray-700 mb-3">
+              Do you already have a band/bands in mind that you want to have play at your house?
+            </legend>
+            <p className="text-sm text-gray-500 mb-3">
+              Could be your own band or one you're connected to
             </p>
-            <input
-              type="number"
-              min="5"
-              max="200"
-              value={formData.capacity}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  capacity: parseInt(e.target.value) || 20,
-                })
-              }
-              className="input-field w-32"
-            />
-          </div>
-
-          <div>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.has_power}
-                onChange={(e) =>
-                  setFormData({ ...formData, has_power: e.target.checked })
-                }
-                className="w-5 h-5 text-porch-600 rounded border-gray-300 focus:ring-porch-500"
-              />
-              <div>
-                <span className="font-medium text-gray-700">
-                  Power outlet available
+            <div className="space-y-2">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="has_band_in_mind"
+                  value="yes"
+                  checked={formData.has_band_in_mind === "yes"}
+                  onChange={(e) => updateField("has_band_in_mind", e.target.value)}
+                  className="mt-1 w-4 h-4 text-porch-600 border-gray-300 focus:ring-porch-500"
+                />
+                <span className="text-gray-700">
+                  Yes <span className="text-sm text-gray-500">(please include band name in comments below and make sure they still submit an application so we have their info)</span>
                 </span>
-                <p className="text-sm text-gray-500">
-                  Can bands plug in amplifiers or equipment?
-                </p>
-              </div>
-            </label>
-          </div>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="has_band_in_mind"
+                  value="no"
+                  checked={formData.has_band_in_mind === "no"}
+                  onChange={(e) => updateField("has_band_in_mind", e.target.value)}
+                  className="w-4 h-4 text-porch-600 border-gray-300 focus:ring-porch-500"
+                />
+                <span className="text-gray-700">No</span>
+              </label>
+            </div>
+          </fieldset>
+
+          {formData.has_band_in_mind === "no" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                If NO to the above, do you have band/music preferences? We cannot make promises here but will definitely do our best.
+              </label>
+              <textarea
+                value={formData.music_preferences}
+                onChange={(e) => updateField("music_preferences", e.target.value)}
+                className="input-field min-h-[80px]"
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Parking Notes
+              How many bands do you want to have play, or how long do you want to have music at your home? You can have just one band or multiple!
             </label>
             <textarea
-              value={formData.parking_notes}
-              onChange={(e) =>
-                setFormData({ ...formData, parking_notes: e.target.value })
-              }
+              value={formData.band_count_preference}
+              onChange={(e) => updateField("band_count_preference", e.target.value)}
               className="input-field min-h-[80px]"
-              placeholder="Street parking available, nearby lot at..."
             />
           </div>
 
+          <fieldset>
+            <legend className="block text-sm font-medium text-gray-700 mb-3">
+              Are you also available to host on the following Sunday if the porchfest Saturday gets rained out?
+            </legend>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="rain_date_available"
+                  value="yes"
+                  checked={formData.rain_date_available === "yes"}
+                  onChange={(e) => updateField("rain_date_available", e.target.value)}
+                  className="w-4 h-4 text-porch-600 border-gray-300 focus:ring-porch-500"
+                />
+                <span className="text-gray-700">Yes</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="rain_date_available"
+                  value="no"
+                  checked={formData.rain_date_available === "no"}
+                  onChange={(e) => updateField("rain_date_available", e.target.value)}
+                  className="w-4 h-4 text-porch-600 border-gray-300 focus:ring-porch-500"
+                />
+                <span className="text-gray-700">No</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="rain_date_available"
+                  value="maybe"
+                  checked={formData.rain_date_available === "maybe"}
+                  onChange={(e) => updateField("rain_date_available", e.target.value)}
+                  className="w-4 h-4 text-porch-600 border-gray-300 focus:ring-porch-500"
+                />
+                <span className="text-gray-700">Maybe</span>
+              </label>
+            </div>
+          </fieldset>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Accessibility Notes
+              Questions/comments/other things to note?
             </label>
             <textarea
-              value={formData.accessibility_notes}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  accessibility_notes: e.target.value,
-                })
-              }
-              className="input-field min-h-[80px]"
-              placeholder="Steps to porch, wheelchair accessibility, etc."
+              value={formData.comments}
+              onChange={(e) => updateField("comments", e.target.value)}
+              className="input-field min-h-[100px]"
             />
           </div>
 
