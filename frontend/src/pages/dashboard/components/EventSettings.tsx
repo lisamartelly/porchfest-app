@@ -1,9 +1,17 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { EventSettings as EventSettingsType } from "../types";
 import TimeSelect from "./TimeSelect";
+import { api } from "../../../lib/api";
 
 const toDateInput = (v: string | null): string => (v ? v.substring(0, 10) : "");
 const toTimeInput = (v: string): string => (v ? v.substring(0, 5) : "");
+
+function getPhotoUrl(key: string | null): string | null {
+  if (!key) return null;
+  const region = "us-east-2";
+  const bucket = "porchfest-band-photos-dev";
+  return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+}
 
 interface EventSettingsProps {
   event: EventSettingsType;
@@ -19,7 +27,11 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
   const [bandAppsClose, setBandAppsClose] = useState(toDateInput(event.band_applications_close));
   const [porchAppsOpen, setPorchAppsOpen] = useState(toDateInput(event.porch_applications_open));
   const [porchAppsClose, setPorchAppsClose] = useState(toDateInput(event.porch_applications_close));
+  const [porchAppDescription, setPorchAppDescription] = useState(event.porch_app_description || "");
+  const [porchAppPhotoKey, setPorchAppPhotoKey] = useState(event.porch_app_photo_key || "");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const hasChanges =
     name !== event.name ||
@@ -29,7 +41,31 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
     bandAppsOpen !== toDateInput(event.band_applications_open) ||
     bandAppsClose !== toDateInput(event.band_applications_close) ||
     porchAppsOpen !== toDateInput(event.porch_applications_open) ||
-    porchAppsClose !== toDateInput(event.porch_applications_close);
+    porchAppsClose !== toDateInput(event.porch_applications_close) ||
+    porchAppDescription !== (event.porch_app_description || "") ||
+    porchAppPhotoKey !== (event.porch_app_photo_key || "");
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingPhoto(true);
+    try {
+      const { uploadUrl, key } = await api.get(
+        `/api/admin/porch-app-photo/upload-url?filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`
+      );
+      await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      setPorchAppPhotoKey(key);
+    } catch (err) {
+      console.error("Photo upload failed:", err);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -43,11 +79,15 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
         band_applications_close: bandAppsClose || null,
         porch_applications_open: porchAppsOpen || null,
         porch_applications_close: porchAppsClose || null,
+        porch_app_description: porchAppDescription || null,
+        porch_app_photo_key: porchAppPhotoKey || null,
       });
     } finally {
       setSaving(false);
     }
   };
+
+  const photoPreviewUrl = getPhotoUrl(porchAppPhotoKey);
 
   return (
     <div className="card p-6 my-3">
@@ -165,6 +205,77 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
                 onChange={(e) => setPorchAppsClose(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500"
               />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Porch Application Form Configuration */}
+      <div className="mt-6 pt-6 border-t border-gray-100">
+        <h3 className="font-medium text-gray-900 mb-4">
+          Porch Application Form
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Customize the description and photo shown to applicants at the top of the porch application form.
+        </p>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Description
+          </label>
+          <textarea
+            value={porchAppDescription}
+            onChange={(e) => setPorchAppDescription(e.target.value)}
+            placeholder="Welcome message, instructions, or details for porch hosts..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500 min-h-[100px]"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Photo
+          </label>
+          <div className="flex items-start gap-4">
+            {photoPreviewUrl && (
+              <div className="relative w-32 h-24 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                <img
+                  src={photoPreviewUrl}
+                  alt="Porch app photo"
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => setPorchAppPhotoKey("")}
+                  className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                  title="Remove photo"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                {uploadingPhoto
+                  ? "Uploading..."
+                  : photoPreviewUrl
+                    ? "Change Photo"
+                    : "Upload Photo"}
+              </button>
+              <p className="text-xs text-gray-400 mt-1">
+                Shown at the top of the porch application form
+              </p>
             </div>
           </div>
         </div>
