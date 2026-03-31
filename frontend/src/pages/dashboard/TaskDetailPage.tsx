@@ -77,14 +77,20 @@ export default function TaskDetailPage() {
     }
   }, [eventTaskId]);
 
+  const { activeOrgId } = useOrgStore();
+
   const fetchAdminUsers = useCallback(async () => {
+    if (!activeOrgId) return;
     try {
-      const users = await api.get("/api/admin/users");
-      setAdminUsers(users || []);
+      const users: AdminUser[] = await api.get(`/api/admin/users?org_id=${activeOrgId}`);
+      const ownersAndOrganizers = (users || []).filter(
+        (u) => u.org_role === "owner" || u.org_role === "organizer"
+      );
+      setAdminUsers(ownersAndOrganizers);
     } catch {
       setAdminUsers([]);
     }
-  }, []);
+  }, [activeOrgId]);
 
   useEffect(() => {
     if (eventTaskId) {

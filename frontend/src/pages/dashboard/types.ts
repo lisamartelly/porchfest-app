@@ -104,11 +104,12 @@ export interface OrgSummary {
 export interface AdminUser {
   id: number;
   email: string;
-  role: string;
+  role?: string;
+  org_role?: string;
   first_name: string | null;
   last_name: string | null;
   created_at: string;
-  organizations: { id: number; name: string }[];
+  organizations?: { id: number; name: string }[];
 }
 
 export interface EventWithOrg {
