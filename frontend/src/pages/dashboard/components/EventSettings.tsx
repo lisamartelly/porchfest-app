@@ -8,8 +8,8 @@ const toTimeInput = (v: string): string => (v ? v.substring(0, 5) : "");
 
 function getPhotoUrl(key: string | null): string | null {
   if (!key) return null;
-  const region = "us-east-2";
-  const bucket = "porchfest-band-photos-dev";
+  const region = import.meta.env.VITE_AWS_REGION || "us-east-2";
+  const bucket = import.meta.env.VITE_S3_BUCKET || "porchfest-band-photos-dev";
   return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
 }
 
