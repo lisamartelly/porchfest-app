@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../../../../lib/api";
+import { formatDate } from "../../../../lib/dateUtils";
 import { useOrgStore } from "../../../../stores/orgStore";
 
 interface OrgUser {
@@ -395,7 +396,7 @@ export default function ManageUsersSection() {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-gray-500">
-                          {new Date(u.created_at).toLocaleDateString()}
+                          {formatDate(u.created_at)}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <button

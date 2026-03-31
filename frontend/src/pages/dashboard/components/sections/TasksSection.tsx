@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../../../lib/api";
+import { formatDate } from "../../../../lib/dateUtils";
 import { useOrgStore } from "../../../../stores/orgStore";
 import { EventTaskItem } from "../../types";
 
@@ -110,7 +111,7 @@ export default function TasksSection() {
               {event.name}
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              {event.date && new Date(event.date).toLocaleDateString()} — Tasks
+              {event.date && formatDate(event.date)} — Tasks
               ordered by due date
             </p>
           </div>
@@ -206,7 +207,7 @@ export default function TasksSection() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {et.due_date
-                        ? new Date(et.due_date).toLocaleDateString()
+                        ? formatDate(et.due_date)
                         : "—"}
                     </td>
                   </tr>

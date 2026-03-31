@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../lib/api";
+import { formatDate } from "../lib/dateUtils";
 
 interface OrgEventInfo {
   organization: { id: string; name: string; slug: string };
@@ -147,7 +148,7 @@ export default function BandLoginPage() {
           </p>
           <p className="text-gray-500 text-sm mt-1">
             {orgEvent.organization.name} &middot;{" "}
-            {new Date(orgEvent.event.date).toLocaleDateString()}
+            {formatDate(orgEvent.event.date)}
           </p>
         </div>
 

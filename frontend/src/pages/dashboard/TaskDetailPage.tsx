@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { api } from "../../lib/api";
+import { formatDate, toDateInputValue } from "../../lib/dateUtils";
 import { useAuthStore } from "../../stores/authStore";
 import { useOrgStore } from "../../stores/orgStore";
 import {
@@ -234,9 +235,7 @@ export default function TaskDetailPage() {
     );
   }
 
-  const dueStr = taskDetail.due_date
-    ? new Date(taskDetail.due_date).toISOString().split("T")[0]
-    : "";
+  const dueStr = toDateInputValue(taskDetail.due_date);
 
   const pastHistory = (taskDetail.history || []).filter(
     (item) => item.id !== taskDetail.id
@@ -616,7 +615,7 @@ export default function TaskDetailPage() {
                     </span>
                     <span className="text-sm text-gray-500">
                       {item.event_date
-                        ? new Date(item.event_date).toLocaleDateString()
+                        ? formatDate(item.event_date)
                         : ""}
                     </span>
                     <span
@@ -656,7 +655,7 @@ export default function TaskDetailPage() {
                         </p>
                         <p className="text-gray-900 mt-0.5">
                           {item.due_date
-                            ? new Date(item.due_date).toLocaleDateString()
+                            ? formatDate(item.due_date)
                             : "—"}
                         </p>
                       </div>
