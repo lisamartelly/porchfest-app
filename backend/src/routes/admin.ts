@@ -1,9 +1,11 @@
 import { Router, Request, Response } from "express";
+import crypto from "crypto";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 import { adminOnly, superDuperAdminOnly, AuthRequest } from "../middleware/auth.js";
 import { db } from "../data/db.js";
 import type { Event } from "../data/db.js";
+import { getPresignedUploadUrl } from "../services/s3.js";
 
 export const adminRouter: Router = Router();
 
@@ -517,6 +519,8 @@ adminRouter.patch(
     body("band_applications_close").optional({ nullable: true }).isString(),
     body("porch_applications_open").optional({ nullable: true }).isString(),
     body("porch_applications_close").optional({ nullable: true }).isString(),
+    body("porch_app_description").optional({ nullable: true }).isString(),
+    body("porch_app_photo_key").optional({ nullable: true }).isString(),
     body("reviewer_emails").optional().isArray(),
   ],
   async (req: AuthRequest, res: Response) => {
@@ -546,6 +550,8 @@ adminRouter.patch(
         band_applications_close: req.body.band_applications_close,
         porch_applications_open: req.body.porch_applications_open,
         porch_applications_close: req.body.porch_applications_close,
+        porch_app_description: req.body.porch_app_description,
+        porch_app_photo_key: req.body.porch_app_photo_key,
         reviewer_emails: req.body.reviewer_emails,
       });
 
@@ -639,6 +645,8 @@ adminRouter.patch(
     body("band_applications_close").optional({ nullable: true }).isString(),
     body("porch_applications_open").optional({ nullable: true }).isString(),
     body("porch_applications_close").optional({ nullable: true }).isString(),
+    body("porch_app_description").optional({ nullable: true }).isString(),
+    body("porch_app_photo_key").optional({ nullable: true }).isString(),
     body("reviewer_emails").optional().isArray(),
     body("is_active").optional().isBoolean(),
   ],
@@ -672,6 +680,8 @@ adminRouter.patch(
         band_applications_close: req.body.band_applications_close,
         porch_applications_open: req.body.porch_applications_open,
         porch_applications_close: req.body.porch_applications_close,
+        porch_app_description: req.body.porch_app_description,
+        porch_app_photo_key: req.body.porch_app_photo_key,
         reviewer_emails: req.body.reviewer_emails,
         is_active: req.body.is_active,
       });
@@ -711,6 +721,25 @@ adminRouter.post(
     }
   }
 );
+
+// Get a presigned S3 upload URL for porch app configuration photo
+adminRouter.get("/porch-app-photo/upload-url", async (req: AuthRequest, res: Response) => {
+  const filename = req.query.filename as string;
+  if (!filename) {
+    return res.status(400).json({ error: "filename query parameter is required" });
+  }
+
+  try {
+    const ext = filename.split(".").pop() || "jpg";
+    const key = `porch-app-config/${crypto.randomUUID()}/${Date.now()}.${ext}`;
+    const contentType = req.query.contentType as string || `image/${ext === "jpg" ? "jpeg" : ext}`;
+    const uploadUrl = await getPresignedUploadUrl(key, contentType);
+    return res.json({ uploadUrl, key });
+  } catch (error) {
+    console.error("Error generating upload URL:", error);
+    return res.status(500).json({ error: "Failed to generate upload URL" });
+  }
+});
 
 // Get scheduling data (scoped by org_id when provided)
 adminRouter.get("/scheduling", async (req: AuthRequest, res: Response) => {

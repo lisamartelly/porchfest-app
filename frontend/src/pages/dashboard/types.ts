@@ -38,12 +38,19 @@ export interface PorchApplication {
   event_id: number;
   owner_name: string;
   email: string;
+  phone: string | null;
   address: string;
   city: string;
   capacity: number | null;
   has_power: boolean;
   parking_notes: string | null;
   accessibility_notes: string | null;
+  space_description: string | null;
+  has_band_in_mind: string | null;
+  music_preferences: string | null;
+  band_count_preference: string | null;
+  rain_date_available: string | null;
+  comments: string | null;
   status: string;
   admin_notes: string | null;
   created_at: string;
@@ -65,6 +72,9 @@ export interface EventSettings {
   band_applications_close: string | null;
   porch_applications_open: string | null;
   porch_applications_close: string | null;
+  // Porch application form configuration
+  porch_app_description: string | null;
+  porch_app_photo_key: string | null;
   // Reviewer assignment fields
   reviewer_emails: string[];
   reviewers_assigned: boolean;
@@ -126,6 +136,8 @@ export interface EventWithOrg {
   band_applications_close: string | null;
   porch_applications_open: string | null;
   porch_applications_close: string | null;
+  porch_app_description: string | null;
+  porch_app_photo_key: string | null;
   reviewer_emails: string[];
   reviewers_assigned: boolean;
 }

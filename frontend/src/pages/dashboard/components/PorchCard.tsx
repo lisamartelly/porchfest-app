@@ -92,12 +92,30 @@ export default function PorchCard({
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-4 text-sm text-gray-500 mb-4">
+            <div className="flex flex-wrap gap-4 text-sm text-gray-500 mb-2">
               <span>👤 {porch.owner_name}</span>
               <a href={`mailto:${porch.email}`} className="hover:text-porch-600 transition-colors">
                 📧 {porch.email}
               </a>
+              {porch.phone && <span>📞 {porch.phone}</span>}
             </div>
+
+            {(porch.space_description || porch.has_band_in_mind || porch.rain_date_available || porch.band_count_preference) && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mb-4">
+                {porch.space_description && (
+                  <span title="Space description">🏠 {porch.space_description}</span>
+                )}
+                {porch.has_band_in_mind && (
+                  <span>Band in mind: {porch.has_band_in_mind}</span>
+                )}
+                {porch.rain_date_available && (
+                  <span>Rain date: {porch.rain_date_available}</span>
+                )}
+                {porch.band_count_preference && (
+                  <span title="Band/duration preference">🎵 {porch.band_count_preference}</span>
+                )}
+              </div>
+            )}
 
             {/* Visual Timeline */}
             {scheduledBands.length > 0 ? (

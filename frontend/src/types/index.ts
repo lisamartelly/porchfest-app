@@ -129,11 +129,14 @@ export interface BandApplicationData {
 export interface PorchApplicationData {
   organization_id: number
   owner_name: string
+  phone: string
+  email: string
   address: string
-  city: string
-  capacity: number
-  has_power: boolean
-  parking_notes: string
-  accessibility_notes: string
+  space_description: string
+  has_band_in_mind: string
+  music_preferences: string
+  band_count_preference: string
+  rain_date_available: string
+  comments: string
 }
 

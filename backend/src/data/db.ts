@@ -101,6 +101,7 @@ export interface Porch {
   event_id: number;
   owner_name: string;
   email: string;
+  phone: string | null;
   address: string;
   city: string;
   lat: number | null;
@@ -109,6 +110,12 @@ export interface Porch {
   has_power: boolean;
   parking_notes: string | null;
   accessibility_notes: string | null;
+  space_description: string | null;
+  has_band_in_mind: string | null;
+  music_preferences: string | null;
+  band_count_preference: string | null;
+  rain_date_available: string | null;
+  comments: string | null;
   status: string;
   admin_notes: string | null;
   created_at: Date;
@@ -128,6 +135,8 @@ export interface Event {
   band_applications_close: string | null;
   porch_applications_open: string | null;
   porch_applications_close: string | null;
+  porch_app_description: string | null;
+  porch_app_photo_key: string | null;
   reviewer_emails: string[];
   reviewers_assigned: boolean;
   created_at: Date;
@@ -754,15 +763,18 @@ export const db = {
     async create(data: Partial<Porch>): Promise<Porch> {
       const result = await pool.query<Porch>(
         `INSERT INTO porches (
-          event_id, owner_name, email, address, city, lat, lng,
+          event_id, owner_name, email, phone, address, city, lat, lng,
           capacity, has_power, parking_notes, accessibility_notes,
+          space_description, has_band_in_mind, music_preferences,
+          band_count_preference, rain_date_available, comments,
           status, admin_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
         RETURNING *`,
         [
           data.event_id,
           data.owner_name,
           data.email,
+          data.phone || null,
           data.address,
           data.city,
           data.lat || null,
@@ -771,6 +783,12 @@ export const db = {
           data.has_power || false,
           data.parking_notes || null,
           data.accessibility_notes || null,
+          data.space_description || null,
+          data.has_band_in_mind || null,
+          data.music_preferences || null,
+          data.band_count_preference || null,
+          data.rain_date_available || null,
+          data.comments || null,
           data.status || "pending",
           data.admin_notes || null,
         ]
@@ -912,6 +930,14 @@ export const db = {
       if (data.porch_applications_close !== undefined) {
         setClauses.push(`porch_applications_close = $${paramIndex++}`);
         values.push(data.porch_applications_close);
+      }
+      if (data.porch_app_description !== undefined) {
+        setClauses.push(`porch_app_description = $${paramIndex++}`);
+        values.push(data.porch_app_description);
+      }
+      if (data.porch_app_photo_key !== undefined) {
+        setClauses.push(`porch_app_photo_key = $${paramIndex++}`);
+        values.push(data.porch_app_photo_key);
       }
       if (data.reviewer_emails !== undefined) {
         setClauses.push(`reviewer_emails = $${paramIndex++}`);
