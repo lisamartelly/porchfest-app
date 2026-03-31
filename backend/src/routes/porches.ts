@@ -1,6 +1,7 @@
 import { Router, type Router as ExpressRouter, type Request, type Response } from "express";
 import { body, validationResult } from "express-validator";
 import { db } from "../data/db.js";
+import logger from "../lib/logger.js";
 
 export const porchesRouter: ExpressRouter = Router();
 
@@ -38,7 +39,7 @@ porchesRouter.post(
 
       res.json({ success: true, id: porch.id });
     } catch (error) {
-      console.error("Error submitting porch application:", error);
+      logger.error({ err: error }, "Error submitting porch application");
       res.status(500).json({ error: "Failed to submit application" });
     }
   }

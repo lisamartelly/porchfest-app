@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { body, validationResult } from "express-validator";
 import { db } from "../data/db.js";
 import { getPresignedUploadUrl } from "../services/s3.js";
+import logger from "../lib/logger.js";
 
 export const bandsRouter: ExpressRouter = Router();
 
@@ -45,7 +46,7 @@ bandsRouter.get("/public", async (req, res) => {
 
     res.json(publicBands);
   } catch (error) {
-    console.error("Error fetching public bands:", error);
+    logger.error({ err: error }, "Error fetching public bands");
     res.status(500).json({ error: "Failed to fetch bands" });
   }
 });
@@ -64,7 +65,7 @@ bandsRouter.get("/upload-url", async (req: Request, res: Response) => {
     const uploadUrl = await getPresignedUploadUrl(key, contentType);
     return res.json({ uploadUrl, key });
   } catch (error) {
-    console.error("Error generating upload URL:", error);
+    logger.error({ err: error }, "Error generating upload URL");
     return res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
@@ -141,7 +142,7 @@ bandsRouter.post(
 
       res.json({ success: true, id: band.id });
     } catch (error) {
-      console.error("Error submitting band application:", error);
+      logger.error({ err: error }, "Error submitting band application");
       res.status(500).json({ error: "Failed to submit application" });
     }
   }

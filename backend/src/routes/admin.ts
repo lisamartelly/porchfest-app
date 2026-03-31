@@ -3,6 +3,7 @@ import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 import { adminOnly, superDuperAdminOnly, AuthRequest } from "../middleware/auth.js";
 import { db } from "../data/db.js";
+import logger from "../lib/logger.js";
 import type { Event } from "../data/db.js";
 
 export const adminRouter: Router = Router();
@@ -35,7 +36,7 @@ adminRouter.get("/organizations", superDuperAdminOnly, async (req: Request, res:
     const orgs = await db.organizations.findAll();
     res.json(orgs);
   } catch (error) {
-    console.error("Error fetching organizations:", error);
+    logger.error({ err: error }, "Error fetching organizations");
     res.status(500).json({ error: "Failed to fetch organizations" });
   }
 });
@@ -84,7 +85,7 @@ adminRouter.post(
 
       res.json(org);
     } catch (error) {
-      console.error("Error creating organization:", error);
+      logger.error({ err: error }, "Error creating organization");
       res.status(500).json({ error: "Failed to create organization" });
     }
   }
@@ -145,7 +146,7 @@ adminRouter.get("/users", async (req: AuthRequest, res: Response) => {
     );
     res.json(usersWithOrgs);
   } catch (error) {
-    console.error("Error fetching users:", error);
+    logger.error({ err: error }, "Error fetching users");
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
@@ -224,7 +225,7 @@ adminRouter.post(
         created_at: user.created_at,
       });
     } catch (error) {
-      console.error("Error creating user:", error);
+      logger.error({ err: error }, "Error creating user");
       res.status(500).json({ error: "Failed to create user" });
     }
   }
@@ -320,7 +321,7 @@ adminRouter.patch(
         created_at: updatedUser!.created_at,
       });
     } catch (error) {
-      console.error("Error updating user:", error);
+      logger.error({ err: error }, "Error updating user");
       res.status(500).json({ error: "Failed to update user" });
     }
   }
@@ -355,7 +356,7 @@ adminRouter.get("/my-events", async (req: AuthRequest, res: Response) => {
     }
     res.json(allEvents);
   } catch (error) {
-    console.error("Error fetching events:", error);
+    logger.error({ err: error }, "Error fetching events");
     res.status(500).json({ error: "Failed to fetch events" });
   }
 });
@@ -373,7 +374,7 @@ adminRouter.get("/my-organizations", async (req: AuthRequest, res: Response) => 
     const roleMap = new Map(memberships.map((m) => [m.organization_id, m.role]));
     res.json(orgs.map((o) => ({ ...o, org_role: roleMap.get(o.id) || "organizer" })));
   } catch (error) {
-    console.error("Error fetching user organizations:", error);
+    logger.error({ err: error }, "Error fetching user organizations");
     res.status(500).json({ error: "Failed to fetch organizations" });
   }
 });
@@ -397,7 +398,7 @@ adminRouter.get("/bands", async (req: AuthRequest, res: Response) => {
     const allBands = await db.bands.findAll(status as string | undefined);
     res.json(allBands);
   } catch (error) {
-    console.error("Error fetching bands:", error);
+    logger.error({ err: error }, "Error fetching bands");
     res.status(500).json({ error: "Failed to fetch bands" });
   }
 });
@@ -423,7 +424,7 @@ adminRouter.patch(
 
       res.json(band);
     } catch (error) {
-      console.error("Error updating band status:", error);
+      logger.error({ err: error }, "Error updating band status");
       res.status(500).json({ error: "Failed to update band status" });
     }
   }
@@ -448,7 +449,7 @@ adminRouter.get("/porches", async (req: AuthRequest, res: Response) => {
     const allPorches = await db.porches.findAll(status as string | undefined);
     res.json(allPorches);
   } catch (error) {
-    console.error("Error fetching porches:", error);
+    logger.error({ err: error }, "Error fetching porches");
     res.status(500).json({ error: "Failed to fetch porches" });
   }
 });
@@ -474,7 +475,7 @@ adminRouter.patch(
 
       res.json(porch);
     } catch (error) {
-      console.error("Error updating porch status:", error);
+      logger.error({ err: error }, "Error updating porch status");
       res.status(500).json({ error: "Failed to update porch status" });
     }
   }
@@ -499,7 +500,7 @@ adminRouter.get("/event", async (req: AuthRequest, res: Response) => {
     }
     res.json(activeEvent);
   } catch (error) {
-    console.error("Error fetching event:", error);
+    logger.error({ err: error }, "Error fetching event");
     res.status(500).json({ error: "Failed to fetch event" });
   }
 });
@@ -551,7 +552,7 @@ adminRouter.patch(
 
       res.json(updatedEvent);
     } catch (error) {
-      console.error("Error updating event:", error);
+      logger.error({ err: error }, "Error updating event");
       res.status(500).json({ error: "Failed to update event" });
     }
   }
@@ -615,12 +616,12 @@ adminRouter.post(
           }
         }
       } catch (err) {
-        console.error("Error copying recurring tasks to new event:", err);
+        logger.error({ err }, "Error copying recurring tasks to new event");
       }
 
       res.json(event);
     } catch (error) {
-      console.error("Error creating event:", error);
+      logger.error({ err: error }, "Error creating event");
       res.status(500).json({ error: "Failed to create event" });
     }
   }
@@ -678,7 +679,7 @@ adminRouter.patch(
 
       res.json(updatedEvent);
     } catch (error) {
-      console.error("Error updating event:", error);
+      logger.error({ err: error }, "Error updating event");
       res.status(500).json({ error: "Failed to update event" });
     }
   }
@@ -706,7 +707,7 @@ adminRouter.post(
 
       res.json(slot);
     } catch (error) {
-      console.error("Error creating time slot:", error);
+      logger.error({ err: error }, "Error creating time slot");
       res.status(500).json({ error: "Failed to create time slot" });
     }
   }
@@ -742,7 +743,7 @@ adminRouter.get("/scheduling", async (req: AuthRequest, res: Response) => {
       time_slots: allSlots,
     });
   } catch (error) {
-    console.error("Error fetching scheduling data:", error);
+    logger.error({ err: error }, "Error fetching scheduling data");
     res.status(500).json({ error: "Failed to fetch scheduling data" });
   }
 });
@@ -823,7 +824,7 @@ adminRouter.patch(
 
       res.json(updatedBand);
     } catch (error) {
-      console.error("Error scheduling band:", error);
+      logger.error({ err: error }, "Error scheduling band");
       res.status(500).json({ error: "Failed to schedule band" });
     }
   }
@@ -845,7 +846,7 @@ adminRouter.get("/porches/approved", async (req: AuthRequest, res: Response) => 
     const approvedPorches = await db.porches.findApproved();
     res.json(approvedPorches);
   } catch (error) {
-    console.error("Error fetching approved porches:", error);
+    logger.error({ err: error }, "Error fetching approved porches");
     res.status(500).json({ error: "Failed to fetch approved porches" });
   }
 });
@@ -900,7 +901,7 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
       bands: updatedBands,
     });
   } catch (error) {
-    console.error("Error assigning reviewers:", error);
+    logger.error({ err: error }, "Error assigning reviewers");
     res.status(500).json({ error: "Failed to assign reviewers" });
   }
 });
@@ -935,7 +936,7 @@ adminRouter.patch(
 
       res.json(band);
     } catch (error) {
-      console.error("Error updating band review:", error);
+      logger.error({ err: error }, "Error updating band review");
       res.status(500).json({ error: "Failed to update band review" });
     }
   }
@@ -961,7 +962,7 @@ adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res: Response) => 
     }
     res.json(myBands);
   } catch (error) {
-    console.error("Error fetching assigned bands:", error);
+    logger.error({ err: error }, "Error fetching assigned bands");
     res.status(500).json({ error: "Failed to fetch assigned bands" });
   }
 });
@@ -986,7 +987,7 @@ adminRouter.get("/reviewers", async (req: AuthRequest, res: Response) => {
     const reviewerEmails = await db.bands.getReviewerEmails();
     res.json(reviewerEmails);
   } catch (error) {
-    console.error("Error fetching reviewers:", error);
+    logger.error({ err: error }, "Error fetching reviewers");
     res.status(500).json({ error: "Failed to fetch reviewers" });
   }
 });

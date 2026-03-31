@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { body, validationResult } from "express-validator";
 import { adminOnly, AuthRequest } from "../middleware/auth.js";
 import { db } from "../data/db.js";
+import logger from "../lib/logger.js";
 import type { Event } from "../data/db.js";
 
 export const tasksRouter: Router = Router();
@@ -54,7 +55,7 @@ tasksRouter.get(
       );
       res.json({ event: activeEvent, event_tasks: withContacts });
     } catch (error) {
-      console.error("Error fetching active event tasks:", error);
+      logger.error({ err: error }, "Error fetching active event tasks");
       res.status(500).json({ error: "Failed to fetch active event tasks" });
     }
   }
@@ -100,7 +101,7 @@ tasksRouter.post(
       const detailed = await db.eventTasks.findById(eventTask.id);
       res.json({ ...detailed, contacts: [] });
     } catch (error) {
-      console.error("Error creating task for active event:", error);
+      logger.error({ err: error }, "Error creating task for active event");
       res.status(500).json({ error: "Failed to create task" });
     }
   }
@@ -118,7 +119,7 @@ tasksRouter.get(
       const tasks = await db.tasks.findByOrganizationId(orgId);
       res.json(tasks);
     } catch (error) {
-      console.error("Error fetching tasks:", error);
+      logger.error({ err: error }, "Error fetching tasks");
       res.status(500).json({ error: "Failed to fetch tasks" });
     }
   }
@@ -152,7 +153,7 @@ tasksRouter.post(
       });
       res.json(task);
     } catch (error) {
-      console.error("Error creating task:", error);
+      logger.error({ err: error }, "Error creating task");
       res.status(500).json({ error: "Failed to create task" });
     }
   }
@@ -181,7 +182,7 @@ tasksRouter.patch(
       }
       res.json(task);
     } catch (error) {
-      console.error("Error updating task:", error);
+      logger.error({ err: error }, "Error updating task");
       res.status(500).json({ error: "Failed to update task" });
     }
   }
@@ -196,7 +197,7 @@ tasksRouter.delete("/:id", async (req: AuthRequest, res: Response) => {
     }
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting task:", error);
+    logger.error({ err: error }, "Error deleting task");
     res.status(500).json({ error: "Failed to delete task" });
   }
 });
@@ -221,7 +222,7 @@ tasksRouter.get(
 
       res.json(withContacts);
     } catch (error) {
-      console.error("Error fetching event tasks:", error);
+      logger.error({ err: error }, "Error fetching event tasks");
       res.status(500).json({ error: "Failed to fetch event tasks" });
     }
   }
@@ -271,7 +272,7 @@ tasksRouter.post(
       const detailed = await db.eventTasks.findById(eventTask.id);
       res.json({ ...detailed, contacts: [] });
     } catch (error) {
-      console.error("Error creating event task:", error);
+      logger.error({ err: error }, "Error creating event task");
       res.status(500).json({ error: "Failed to create event task" });
     }
   }
@@ -304,7 +305,7 @@ tasksRouter.patch(
       const contacts = await db.taskContacts.findByEventTaskId(updated.id);
       res.json({ ...detailed, contacts });
     } catch (error) {
-      console.error("Error updating event task:", error);
+      logger.error({ err: error }, "Error updating event task");
       res.status(500).json({ error: "Failed to update event task" });
     }
   }
@@ -333,7 +334,7 @@ tasksRouter.get(
         history: historyWithContacts,
       });
     } catch (error) {
-      console.error("Error fetching event task:", error);
+      logger.error({ err: error }, "Error fetching event task");
       res.status(500).json({ error: "Failed to fetch event task" });
     }
   }
@@ -350,7 +351,7 @@ tasksRouter.delete(
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting event task:", error);
+      logger.error({ err: error }, "Error deleting event task");
       res.status(500).json({ error: "Failed to delete event task" });
     }
   }
@@ -373,7 +374,7 @@ tasksRouter.get(
 
       res.json(withContacts);
     } catch (error) {
-      console.error("Error fetching task history:", error);
+      logger.error({ err: error }, "Error fetching task history");
       res.status(500).json({ error: "Failed to fetch task history" });
     }
   }
@@ -415,7 +416,7 @@ tasksRouter.post(
       });
       res.json(contact);
     } catch (error) {
-      console.error("Error creating contact:", error);
+      logger.error({ err: error }, "Error creating contact");
       res.status(500).json({ error: "Failed to create contact" });
     }
   }
@@ -445,7 +446,7 @@ tasksRouter.patch(
       }
       res.json(updated);
     } catch (error) {
-      console.error("Error updating contact:", error);
+      logger.error({ err: error }, "Error updating contact");
       res.status(500).json({ error: "Failed to update contact" });
     }
   }
@@ -462,7 +463,7 @@ tasksRouter.delete(
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting contact:", error);
+      logger.error({ err: error }, "Error deleting contact");
       res.status(500).json({ error: "Failed to delete contact" });
     }
   }
@@ -545,7 +546,7 @@ tasksRouter.post(
         event_tasks: withContacts,
       });
     } catch (error) {
-      console.error("Error generating tasks:", error);
+      logger.error({ err: error }, "Error generating tasks");
       res.status(500).json({ error: "Failed to generate tasks" });
     }
   }

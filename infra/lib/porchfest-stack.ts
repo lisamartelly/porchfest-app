@@ -56,6 +56,7 @@ export class PorchfestStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"),
+        iam.ManagedPolicy.fromAwsManagedPolicyName("CloudWatchAgentServerPolicy"),
       ],
     });
 
@@ -256,6 +257,47 @@ sudo systemctl restart porchfest-api
 sudo systemctl restart nginx
 SCRIPTEOF`,
       "chmod +x /opt/porchfest/activate.sh",
+
+      // Install and configure CloudWatch agent
+      "dnf install -y amazon-cloudwatch-agent",
+
+      `cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWEOF'
+{
+  "logs": {
+    "logs_collected": {
+      "journald": {
+        "collect_list": [
+          {
+            "unit": "porchfest-api",
+            "log_group_name": "/porchfest/api",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 30
+          }
+        ]
+      },
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/nginx/access.log",
+            "log_group_name": "/porchfest/nginx/access",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 30
+          },
+          {
+            "file_path": "/var/log/nginx/error.log",
+            "log_group_name": "/porchfest/nginx/error",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 30
+          }
+        ]
+      }
+    }
+  }
+}
+CWEOF`,
+
+      "/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+      "systemctl enable amazon-cloudwatch-agent",
     );
 
     this.instance = new ec2.Instance(this, "Server", {

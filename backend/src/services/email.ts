@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import logger from "../lib/logger.js";
 
 let resend: Resend;
 
@@ -45,7 +46,7 @@ export async function sendBandMagicLink(
   });
 
   if (error) {
-    console.error("Failed to send magic link email:", error);
+    logger.error({ err: error }, "Failed to send magic link email");
     throw new Error("Failed to send email");
   }
 }
