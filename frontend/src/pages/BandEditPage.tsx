@@ -369,7 +369,7 @@ export default function BandEditPage() {
                   <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.music_sample_link}
                   onChange={(e) =>
                     setFormData({
@@ -533,7 +533,7 @@ export default function BandEditPage() {
                   Instagram
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.instagram}
                   onChange={(e) =>
                     setFormData({ ...formData, instagram: e.target.value })
@@ -548,7 +548,7 @@ export default function BandEditPage() {
                   Spotify
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.spotify}
                   onChange={(e) =>
                     setFormData({ ...formData, spotify: e.target.value })
@@ -563,7 +563,7 @@ export default function BandEditPage() {
                   SoundCloud
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.soundcloud}
                   onChange={(e) =>
                     setFormData({ ...formData, soundcloud: e.target.value })
@@ -578,7 +578,7 @@ export default function BandEditPage() {
                   Bandcamp
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.bandcamp}
                   onChange={(e) =>
                     setFormData({ ...formData, bandcamp: e.target.value })
@@ -593,7 +593,7 @@ export default function BandEditPage() {
                   Facebook
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.facebook}
                   onChange={(e) =>
                     setFormData({ ...formData, facebook: e.target.value })
@@ -608,7 +608,7 @@ export default function BandEditPage() {
                   Band website/other
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.website}
                   onChange={(e) =>
                     setFormData({ ...formData, website: e.target.value })
