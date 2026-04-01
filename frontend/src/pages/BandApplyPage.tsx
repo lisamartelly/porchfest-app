@@ -59,6 +59,62 @@ export default function BandApplyPage() {
   });
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      if (Object.keys(next).length === 0) setError(null);
+      return next;
+    });
+  };
+
+  const FIELD_LIMITS: Record<string, number> = {
+    band_name: 255,
+    contact_name: 255,
+    contact_email: 255,
+    contact_phone: 50,
+    genre: 100,
+    member_count: 100,
+    set_length: 100,
+    venmo_handle: 100,
+    instagram: 100,
+    spotify: 100,
+    soundcloud: 100,
+    bandcamp: 100,
+    facebook: 100,
+  };
+
+  const validate = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    if (!formData.band_name.trim()) errors.band_name = "Band name is required.";
+    if (!formData.contact_name.trim()) errors.contact_name = "Contact name is required.";
+    if (!formData.contact_email.trim()) errors.contact_email = "Email is required.";
+    if (!formData.contact_phone.trim()) errors.contact_phone = "Phone number is required.";
+    if (!formData.genre.trim()) errors.genre = "Genre is required.";
+    if (!formData.member_count.trim()) errors.member_count = "Member count is required.";
+    if (!formData.music_sample_link.trim()) errors.music_sample_link = "Music sample link is required.";
+    if (!formData.bio.trim()) errors.bio = "Bio is required.";
+    if (!formData.set_length.trim()) errors.set_length = "Set length is required.";
+    if (!photoFile) errors.photo = "A band photo is required.";
+    if (formData.equipment_consent !== "agree") errors.equipment_consent = "You must agree to bring your own equipment.";
+    if (formData.payment_consent !== "agree") errors.payment_consent = "You must agree to the payment terms.";
+    if (formData.timeline_consent !== "agree") errors.timeline_consent = "You must agree to the timeline.";
+    if (!formData.confirm_equipment) errors.confirm_equipment = "Please confirm all acknowledgements.";
+    if (!formData.confirm_no_pay) errors.confirm_no_pay = "Please confirm all acknowledgements.";
+    if (!formData.confirm_timeline) errors.confirm_timeline = "Please confirm all acknowledgements.";
+
+    for (const [field, max] of Object.entries(FIELD_LIMITS)) {
+      const val = formData[field as keyof typeof formData];
+      if (typeof val === "string" && val.length > max && !errors[field]) {
+        errors[field] = `Must be ${max} characters or fewer.`;
+      }
+    }
+
+    return errors;
+  };
 
   const fetchEventInfo = useCallback(async () => {
     try {
@@ -85,27 +141,16 @@ export default function BandApplyPage() {
     setSaving(true);
     setError(null);
 
-    if (
-      formData.equipment_consent !== "agree" ||
-      formData.payment_consent !== "agree" ||
-      formData.timeline_consent !== "agree"
-    ) {
-      setError(
-        "You must agree to all requirements to submit your application.",
-      );
+    const errors = validate();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fill in all required fields before submitting.");
       setSaving(false);
+      const firstErrorEl = document.querySelector("[data-field-error]");
+      firstErrorEl?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-
-    if (
-      !formData.confirm_equipment ||
-      !formData.confirm_no_pay ||
-      !formData.confirm_timeline
-    ) {
-      setError("Please confirm all acknowledgements before submitting.");
-      setSaving(false);
-      return;
-    }
+    setFieldErrors({});
 
     try {
       let photoKey: string | null = null;
@@ -294,12 +339,14 @@ export default function BandApplyPage() {
                 <input
                   type="text"
                   value={formData.band_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, band_name: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
-                  required
+                  onChange={(e) => {
+                    setFormData({ ...formData, band_name: e.target.value });
+                    clearFieldError("band_name");
+                  }}
+                  maxLength={255}
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all ${fieldErrors.band_name ? "border-red-400" : "border-gray-300"}`}
                 />
+                {fieldErrors.band_name && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.band_name}</p>}
               </div>
 
               <div>
@@ -310,12 +357,14 @@ export default function BandApplyPage() {
                 <input
                   type="text"
                   value={formData.contact_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, contact_name: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
-                  required
+                  onChange={(e) => {
+                    setFormData({ ...formData, contact_name: e.target.value });
+                    clearFieldError("contact_name");
+                  }}
+                  maxLength={255}
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all ${fieldErrors.contact_name ? "border-red-400" : "border-gray-300"}`}
                 />
+                {fieldErrors.contact_name && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.contact_name}</p>}
               </div>
 
               <div>
@@ -326,12 +375,14 @@ export default function BandApplyPage() {
                 <input
                   type="email"
                   value={formData.contact_email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, contact_email: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
-                  required
+                  onChange={(e) => {
+                    setFormData({ ...formData, contact_email: e.target.value });
+                    clearFieldError("contact_email");
+                  }}
+                  maxLength={255}
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all ${fieldErrors.contact_email ? "border-red-400" : "border-gray-300"}`}
                 />
+                {fieldErrors.contact_email && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.contact_email}</p>}
               </div>
 
               <div>
@@ -342,12 +393,14 @@ export default function BandApplyPage() {
                 <input
                   type="tel"
                   value={formData.contact_phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, contact_phone: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
-                  required
+                  onChange={(e) => {
+                    setFormData({ ...formData, contact_phone: e.target.value });
+                    clearFieldError("contact_phone");
+                  }}
+                  maxLength={50}
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all ${fieldErrors.contact_phone ? "border-red-400" : "border-gray-300"}`}
                 />
+                {fieldErrors.contact_phone && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.contact_phone}</p>}
               </div>
 
               <div>
@@ -358,13 +411,15 @@ export default function BandApplyPage() {
                 <input
                   type="text"
                   value={formData.genre}
-                  onChange={(e) =>
-                    setFormData({ ...formData, genre: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
+                  onChange={(e) => {
+                    setFormData({ ...formData, genre: e.target.value });
+                    clearFieldError("genre");
+                  }}
+                  maxLength={100}
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all ${fieldErrors.genre ? "border-red-400" : "border-gray-300"}`}
                   placeholder="e.g. Indie Folk, Jazz Fusion"
-                  required
                 />
+                {fieldErrors.genre && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.genre}</p>}
               </div>
 
               <div>
@@ -375,12 +430,14 @@ export default function BandApplyPage() {
                 <input
                   type="text"
                   value={formData.member_count}
-                  onChange={(e) =>
-                    setFormData({ ...formData, member_count: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
-                  required
+                  onChange={(e) => {
+                    setFormData({ ...formData, member_count: e.target.value });
+                    clearFieldError("member_count");
+                  }}
+                  maxLength={100}
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all ${fieldErrors.member_count ? "border-red-400" : "border-gray-300"}`}
                 />
+                {fieldErrors.member_count && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.member_count}</p>}
               </div>
 
               <div>
@@ -391,16 +448,17 @@ export default function BandApplyPage() {
                 <input
                   type="url"
                   value={formData.music_sample_link}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setFormData({
                       ...formData,
                       music_sample_link: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
+                    });
+                    clearFieldError("music_sample_link");
+                  }}
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all ${fieldErrors.music_sample_link ? "border-red-400" : "border-gray-300"}`}
                   placeholder="https://..."
-                  required
                 />
+                {fieldErrors.music_sample_link && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.music_sample_link}</p>}
               </div>
             </div>
           </section>
@@ -441,11 +499,11 @@ export default function BandApplyPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) =>
-                      setPhotoFile(e.target.files?.[0] || null)
-                    }
+                    onChange={(e) => {
+                      setPhotoFile(e.target.files?.[0] || null);
+                      clearFieldError("photo");
+                    }}
                     className="hidden"
-                    required
                   />
                 </label>
                 {photoFile && (
@@ -466,6 +524,7 @@ export default function BandApplyPage() {
                     Selected: {photoFile.name}
                   </p>
                 )}
+                {fieldErrors.photo && <p data-field-error className="mt-2 text-sm text-red-600">{fieldErrors.photo}</p>}
               </div>
             </div>
           </section>
@@ -488,12 +547,13 @@ export default function BandApplyPage() {
               </p>
               <textarea
                 value={formData.bio}
-                onChange={(e) =>
-                  setFormData({ ...formData, bio: e.target.value })
-                }
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all min-h-[150px]"
-                required
+                onChange={(e) => {
+                  setFormData({ ...formData, bio: e.target.value });
+                  clearFieldError("bio");
+                }}
+                className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all min-h-[150px] ${fieldErrors.bio ? "border-red-400" : "border-gray-300"}`}
               />
+              {fieldErrors.bio && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.bio}</p>}
             </div>
           </section>
 
@@ -518,13 +578,15 @@ export default function BandApplyPage() {
                 <input
                   type="text"
                   value={formData.set_length}
-                  onChange={(e) =>
-                    setFormData({ ...formData, set_length: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
+                  onChange={(e) => {
+                    setFormData({ ...formData, set_length: e.target.value });
+                    clearFieldError("set_length");
+                  }}
+                  maxLength={100}
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all ${fieldErrors.set_length ? "border-red-400" : "border-gray-300"}`}
                   placeholder="e.g. 1 hour, 45 minutes"
-                  required
                 />
+                {fieldErrors.set_length && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.set_length}</p>}
               </div>
 
               <div>
@@ -541,6 +603,7 @@ export default function BandApplyPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, venmo_handle: e.target.value })
                   }
+                  maxLength={100}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
                   placeholder="@yourvenmo"
                 />
@@ -570,6 +633,7 @@ export default function BandApplyPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, instagram: e.target.value })
                   }
+                  maxLength={100}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
                   placeholder="https://instagram.com/..."
                 />
@@ -585,6 +649,7 @@ export default function BandApplyPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, spotify: e.target.value })
                   }
+                  maxLength={100}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
                   placeholder="https://open.spotify.com/..."
                 />
@@ -600,6 +665,7 @@ export default function BandApplyPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, soundcloud: e.target.value })
                   }
+                  maxLength={100}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
                   placeholder="https://soundcloud.com/..."
                 />
@@ -615,6 +681,7 @@ export default function BandApplyPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, bandcamp: e.target.value })
                   }
+                  maxLength={100}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
                   placeholder="https://yourband.bandcamp.com"
                 />
@@ -630,6 +697,7 @@ export default function BandApplyPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, facebook: e.target.value })
                   }
+                  maxLength={100}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 focus:bg-white transition-all"
                   placeholder="https://facebook.com/..."
                 />
@@ -695,14 +763,14 @@ export default function BandApplyPage() {
                       name="equipment_consent"
                       value="agree"
                       checked={formData.equipment_consent === "agree"}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
                           equipment_consent: e.target.value,
-                        })
-                      }
+                        });
+                        clearFieldError("equipment_consent");
+                      }}
                       className="w-5 h-5 text-porch-600"
-                      required
                     />
                     <span className="text-black">
                       I understand and that's okay!
@@ -728,6 +796,7 @@ export default function BandApplyPage() {
                     </span>
                   </label>
                 </div>
+                {fieldErrors.equipment_consent && <p data-field-error className="mt-2 text-sm text-red-600">{fieldErrors.equipment_consent}</p>}
               </div>
 
               <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
@@ -744,14 +813,14 @@ export default function BandApplyPage() {
                       name="payment_consent"
                       value="agree"
                       checked={formData.payment_consent === "agree"}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
                           payment_consent: e.target.value,
-                        })
-                      }
+                        });
+                        clearFieldError("payment_consent");
+                      }}
                       className="w-5 h-5 text-porch-600"
-                      required
                     />
                     <span className="text-black">
                       I understand! This is also okay!
@@ -777,6 +846,7 @@ export default function BandApplyPage() {
                     </span>
                   </label>
                 </div>
+                {fieldErrors.payment_consent && <p data-field-error className="mt-2 text-sm text-red-600">{fieldErrors.payment_consent}</p>}
               </div>
 
               <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
@@ -794,14 +864,14 @@ export default function BandApplyPage() {
                       name="timeline_consent"
                       value="agree"
                       checked={formData.timeline_consent === "agree"}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
                           timeline_consent: e.target.value,
-                        })
-                      }
+                        });
+                        clearFieldError("timeline_consent");
+                      }}
                       className="w-5 h-5 text-porch-600"
-                      required
                     />
                     <span className="text-black">
                       I understand yet again! A-okay!
@@ -827,6 +897,7 @@ export default function BandApplyPage() {
                     </span>
                   </label>
                 </div>
+                {fieldErrors.timeline_consent && <p data-field-error className="mt-2 text-sm text-red-600">{fieldErrors.timeline_consent}</p>}
               </div>
             </div>
           </section>
@@ -843,57 +914,60 @@ export default function BandApplyPage() {
             </p>
 
             <div className="space-y-4">
-              <label className="flex items-center gap-4 cursor-pointer p-4 rounded-lg border border-gray-200 hover:border-porch-300 hover:bg-porch-50 transition-all">
+              <label className={`flex items-center gap-4 cursor-pointer p-4 rounded-lg border hover:border-porch-300 hover:bg-porch-50 transition-all ${fieldErrors.confirm_equipment ? "border-red-400" : "border-gray-200"}`}>
                 <input
                   type="checkbox"
                   checked={formData.confirm_equipment}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setFormData({
                       ...formData,
                       confirm_equipment: e.target.checked,
-                    })
-                  }
+                    });
+                    clearFieldError("confirm_equipment");
+                  }}
                   className="w-5 h-5 text-porch-600 rounded border-gray-300"
-                  required
                 />
                 <span className="text-black font-medium">
                   Bands are in charge of their own sound/PA
                 </span>
               </label>
-              <label className="flex items-center gap-4 cursor-pointer p-4 rounded-lg border border-gray-200 hover:border-porch-300 hover:bg-porch-50 transition-all">
+              <label className={`flex items-center gap-4 cursor-pointer p-4 rounded-lg border hover:border-porch-300 hover:bg-porch-50 transition-all ${fieldErrors.confirm_no_pay ? "border-red-400" : "border-gray-200"}`}>
                 <input
                   type="checkbox"
                   checked={formData.confirm_no_pay}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setFormData({
                       ...formData,
                       confirm_no_pay: e.target.checked,
-                    })
-                  }
+                    });
+                    clearFieldError("confirm_no_pay");
+                  }}
                   className="w-5 h-5 text-porch-600 rounded border-gray-300"
-                  required
                 />
                 <span className="text-black font-medium">
                   Porchfest does not pay bands directly
                 </span>
               </label>
-              <label className="flex items-center gap-4 cursor-pointer p-4 rounded-lg border border-gray-200 hover:border-porch-300 hover:bg-porch-50 transition-all">
+              <label className={`flex items-center gap-4 cursor-pointer p-4 rounded-lg border hover:border-porch-300 hover:bg-porch-50 transition-all ${fieldErrors.confirm_timeline ? "border-red-400" : "border-gray-200"}`}>
                 <input
                   type="checkbox"
                   checked={formData.confirm_timeline}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setFormData({
                       ...formData,
                       confirm_timeline: e.target.checked,
-                    })
-                  }
+                    });
+                    clearFieldError("confirm_timeline");
+                  }}
                   className="w-5 h-5 text-porch-600 rounded border-gray-300"
-                  required
                 />
                 <span className="text-black font-medium">
                   You will find out if you're selected in June
                 </span>
               </label>
+              {(fieldErrors.confirm_equipment || fieldErrors.confirm_no_pay || fieldErrors.confirm_timeline) && (
+                <p data-field-error className="mt-1 text-sm text-red-600">Please confirm all acknowledgements.</p>
+              )}
             </div>
           </section>
 

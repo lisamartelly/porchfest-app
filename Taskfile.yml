@@ -71,3 +71,19 @@ tasks:
     cmds:
       - task server-lint
       - task frontend-lint
+
+  install-backend:
+    desc: "Install backend dependencies"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd backend && pnpm install
+
+  install-frontend:
+    desc: "Install frontend dependencies"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd frontend && pnpm install
+
+  install:
+    desc: "Install dependencies"
+    cmds:
+      - task install-backend
+      - task install-frontend

@@ -1,0 +1,7 @@
+-- Up Migration
+ALTER TABLE bands ALTER COLUMN set_length TYPE VARCHAR(100);
+ALTER TABLE bands ALTER COLUMN member_count TYPE VARCHAR(100);
+
+-- Down Migration
+ALTER TABLE bands ALTER COLUMN set_length TYPE VARCHAR(20);
+ALTER TABLE bands ALTER COLUMN member_count TYPE VARCHAR(20);

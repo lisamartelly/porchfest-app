@@ -43,6 +43,41 @@ export default function PorchApplyPage() {
     rain_date_available: "",
     comments: "",
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      if (Object.keys(next).length === 0) setError(null);
+      return next;
+    });
+  };
+
+  const FIELD_LIMITS: Record<string, number> = {
+    owner_name: 255,
+    email: 255,
+    phone: 50,
+    address: 255,
+  };
+
+  const validate = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    if (!formData.owner_name.trim()) errors.owner_name = "Name is required.";
+    if (!formData.phone.trim()) errors.phone = "Phone number is required.";
+    if (!formData.email.trim()) errors.email = "Email is required.";
+    if (!formData.address.trim()) errors.address = "Address is required.";
+
+    for (const [field, max] of Object.entries(FIELD_LIMITS)) {
+      const val = formData[field as keyof typeof formData];
+      if (val.length > max && !errors[field]) {
+        errors[field] = `Must be ${max} characters or fewer.`;
+      }
+    }
+
+    return errors;
+  };
 
   const fetchEventInfo = useCallback(async () => {
     try {
@@ -69,6 +104,17 @@ export default function PorchApplyPage() {
     setSaving(true);
     setError(null);
 
+    const errors = validate();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setError("Please fill in all required fields before submitting.");
+      setSaving(false);
+      const firstErrorEl = document.querySelector("[data-field-error]");
+      firstErrorEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setFieldErrors({});
+
     try {
       await api.post("/api/porches/apply", {
         ...formData,
@@ -84,6 +130,7 @@ export default function PorchApplyPage() {
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    clearFieldError(field);
   };
 
   if (loadingEvent) {
@@ -242,9 +289,10 @@ export default function PorchApplyPage() {
               type="text"
               value={formData.owner_name}
               onChange={(e) => updateField("owner_name", e.target.value)}
-              className="input-field"
-              required
+              maxLength={255}
+              className={`input-field ${fieldErrors.owner_name ? "!border-red-400" : ""}`}
             />
+            {fieldErrors.owner_name && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.owner_name}</p>}
           </div>
 
           <div>
@@ -255,9 +303,10 @@ export default function PorchApplyPage() {
               type="tel"
               value={formData.phone}
               onChange={(e) => updateField("phone", e.target.value)}
-              className="input-field"
-              required
+              maxLength={50}
+              className={`input-field ${fieldErrors.phone ? "!border-red-400" : ""}`}
             />
+            {fieldErrors.phone && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.phone}</p>}
           </div>
 
           <div>
@@ -268,9 +317,10 @@ export default function PorchApplyPage() {
               type="email"
               value={formData.email}
               onChange={(e) => updateField("email", e.target.value)}
-              className="input-field"
-              required
+              maxLength={255}
+              className={`input-field ${fieldErrors.email ? "!border-red-400" : ""}`}
             />
+            {fieldErrors.email && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>}
           </div>
 
           <div>
@@ -281,9 +331,10 @@ export default function PorchApplyPage() {
               type="text"
               value={formData.address}
               onChange={(e) => updateField("address", e.target.value)}
-              className="input-field"
-              required
+              maxLength={255}
+              className={`input-field ${fieldErrors.address ? "!border-red-400" : ""}`}
             />
+            {fieldErrors.address && <p data-field-error className="mt-1 text-sm text-red-600">{fieldErrors.address}</p>}
           </div>
 
           <div>
