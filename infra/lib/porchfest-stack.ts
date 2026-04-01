@@ -91,7 +91,10 @@ export class PorchfestStack extends cdk.Stack {
     photoBucket.addToResourcePolicy(
       new iam.PolicyStatement({
         actions: ["s3:GetObject"],
-        resources: [photoBucket.arnForObjects("bands/*")],
+        resources: [
+          photoBucket.arnForObjects("bands/*"),
+          photoBucket.arnForObjects("porch-app-config/*"),
+        ],
         principals: [new iam.StarPrincipal()],
       })
     );
