@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { body, validationResult } from "express-validator";
 import { db } from "../data/db.js";
 import { getPresignedUploadUrl } from "../services/s3.js";
+import logger from "../lib/logger.js";
 
 export const porchesRouter: ExpressRouter = Router();
 
@@ -20,7 +21,7 @@ porchesRouter.get("/upload-url", async (req: Request, res: Response) => {
     const uploadUrl = await getPresignedUploadUrl(key, contentType);
     return res.json({ uploadUrl, key });
   } catch (error) {
-    console.error("Error generating upload URL:", error);
+    logger.error({ err: error }, "Error generating porch upload URL");
     return res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
@@ -30,16 +31,18 @@ porchesRouter.post(
   "/apply",
   [
     body("event_id").trim().notEmpty().withMessage("Event ID is required"),
-    body("owner_name").trim().notEmpty().withMessage("Name is required"),
-    body("email").isEmail().withMessage("Valid email is required"),
-    body("phone").trim().notEmpty().withMessage("Phone number is required"),
-    body("address").trim().notEmpty().withMessage("Address is required"),
+    body("owner_name").trim().notEmpty().withMessage("Name is required").isLength({ max: 255 }).withMessage("Name must be 255 characters or fewer"),
+    body("email").isEmail().withMessage("Valid email is required").isLength({ max: 255 }).withMessage("Email must be 255 characters or fewer"),
+    body("phone").trim().notEmpty().withMessage("Phone number is required").isLength({ max: 50 }).withMessage("Phone number must be 50 characters or fewer"),
+    body("address").trim().notEmpty().withMessage("Address is required").isLength({ max: 255 }).withMessage("Address must be 255 characters or fewer"),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
+
+    logger.info({ body: req.body }, "Porch application received");
 
     try {
       const porch = await db.porches.create({
@@ -66,7 +69,7 @@ porchesRouter.post(
 
       res.json({ success: true, id: porch.id });
     } catch (error) {
-      console.error("Error submitting porch application:", error);
+      logger.error({ err: error }, "Error submitting porch application");
       res.status(500).json({ error: "Failed to submit application" });
     }
   }

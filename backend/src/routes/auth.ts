@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { body, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
+import logger from "../lib/logger.js";
 import {
   generateToken,
   authMiddleware,
@@ -63,7 +64,7 @@ authRouter.post(
         },
       });
     } catch (error) {
-      console.error("Register error:", error);
+      logger.error({ err: error }, "Register error");
       res.status(500).json({ error: "Registration failed" });
     }
   }
@@ -114,7 +115,7 @@ authRouter.post(
         },
       });
     } catch (error) {
-      console.error("Login error:", error);
+      logger.error({ err: error }, "Login error");
       res.status(500).json({ error: "Login failed" });
     }
   }
@@ -157,7 +158,7 @@ authRouter.patch(
 
       res.json({ message: "Password updated successfully" });
     } catch (error) {
-      console.error("Change password error:", error);
+      logger.error({ err: error }, "Change password error");
       res.status(500).json({ error: "Failed to change password" });
     }
   },
@@ -196,7 +197,7 @@ authRouter.patch(
         updated_at: user.updated_at,
       });
     } catch (error) {
-      console.error("Update profile error:", error);
+      logger.error({ err: error }, "Update profile error");
       res.status(500).json({ error: "Failed to update profile" });
     }
   }
@@ -220,7 +221,7 @@ authRouter.get("/me", authMiddleware, async (req: AuthRequest, res) => {
       updated_at: user.updated_at,
     });
   } catch (error) {
-    console.error("Get user error:", error);
+    logger.error({ err: error }, "Get user error");
     res.status(500).json({ error: "Failed to get user" });
   }
 });

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
+import logger from '../lib/logger.js'
 
 export type Role = 'super-duper-admin' | 'user'
 
@@ -45,7 +46,7 @@ export const authMiddleware = async (
       return res.status(401).json({ error: 'Invalid token' })
     }
   } catch (error) {
-    console.error('Auth middleware error:', error)
+    logger.error({ err: error }, 'Auth middleware error')
     res.status(500).json({ error: 'Authentication failed' })
   }
 }

@@ -5,6 +5,7 @@ import { body, validationResult } from "express-validator";
 import { db } from "../data/db.js";
 import { sendBandMagicLink } from "../services/email.js";
 import { getPresignedUploadUrl, deleteObject } from "../services/s3.js";
+import logger from "../lib/logger.js";
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
@@ -64,7 +65,7 @@ bandAuthRouter.post(
 
       return res.json(genericResponse);
     } catch (error) {
-      console.error("Error sending magic link:", error);
+      logger.error({ err: error }, "Error sending magic link");
       return res.json(genericResponse);
     }
   }
@@ -104,7 +105,7 @@ bandAuthRouter.get(
 
       return res.json({ band, token: bandJwt });
     } catch (error) {
-      console.error("Error verifying magic link:", error);
+      logger.error({ err: error }, "Error verifying magic link");
       return res.status(500).json({ error: "Failed to verify link" });
     }
   }
@@ -169,7 +170,7 @@ bandAuthRouter.patch("/:id", async (req: Request, res: Response) => {
       const existingBand = await db.bands.findById(bandId);
       if (existingBand?.photo_key && existingBand.photo_key !== req.body.photo_key) {
         deleteObject(existingBand.photo_key).catch((err) =>
-          console.error("Failed to delete old photo from S3:", err)
+          logger.error({ err }, "Failed to delete old photo from S3")
         );
       }
     }

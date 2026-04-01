@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import morgan from "morgan";
 import dotenv from "dotenv";
 
 import { authRouter } from "./routes/auth.js";
@@ -13,6 +12,7 @@ import { tasksRouter } from "./routes/tasks.js";
 import { bandAuthRouter } from "./routes/bandAuth.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { testConnection, db } from "./data/db.js";
+import logger from "./lib/logger.js";
 import { getPublicUrl } from "./services/s3.js";
 
 dotenv.config();
@@ -28,7 +28,18 @@ app.use(
     credentials: true,
   })
 );
-app.use(morgan("combined"));
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    logger.info({
+      method: req.method,
+      url: req.originalUrl,
+      status: res.statusCode,
+      duration: Date.now() - start,
+    }, "request");
+  });
+  next();
+});
 app.use(express.json());
 
 // Health check
@@ -78,7 +89,7 @@ app.get("/api/schedule", async (req, res) => {
 
     res.json({ performances, timeSlots });
   } catch (error) {
-    console.error("Error fetching schedule:", error);
+    logger.error({ err: error }, "Error fetching schedule");
     res.status(500).json({ error: "Failed to fetch schedule" });
   }
 });
@@ -99,7 +110,7 @@ app.get("/api/venues", async (req, res) => {
       }))
     );
   } catch (error) {
-    console.error("Error fetching venues:", error);
+    logger.error({ err: error }, "Error fetching venues");
     res.status(500).json({ error: "Failed to fetch venues" });
   }
 });
@@ -171,7 +182,7 @@ app.get("/api/events/org/:slug", async (req, res) => {
         : null,
     });
   } catch (error) {
-    console.error("Error fetching org event:", error);
+    logger.error({ err: error }, "Error fetching org event");
     res.status(500).json({ error: "Failed to fetch event info" });
   }
 });
@@ -189,7 +200,7 @@ app.use(
     res: express.Response,
     _next: express.NextFunction
   ) => {
-    console.error(err.stack);
+    logger.error({ err }, "Unhandled error");
     res.status(500).json({ error: "Something went wrong!" });
   }
 );
@@ -199,13 +210,12 @@ async function start() {
   // Test database connection before starting
   const dbConnected = await testConnection();
   if (!dbConnected) {
-    console.error("❌ Failed to connect to database. Exiting...");
+    logger.fatal("Failed to connect to database — exiting");
     process.exit(1);
   }
 
   app.listen(PORT, () => {
-    console.log(`🚀 Porchfest API running on port ${PORT}`);
-    console.log(`📍 Frontend URL: ${process.env.FRONTEND_URL || "http://localhost:5173"}`);
+    logger.info({ port: PORT, frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173" }, "Porchfest API started");
   });
 }
 

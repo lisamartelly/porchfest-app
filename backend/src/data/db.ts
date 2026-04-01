@@ -1,4 +1,5 @@
 import pg from "pg";
+import logger from "../lib/logger.js";
 const { Pool } = pg;
 
 // Return DATE columns as plain "YYYY-MM-DD" strings instead of JS Date objects.
@@ -24,11 +25,11 @@ const pool = new Pool({
 
 // Test connection on startup
 pool.on("connect", () => {
-  console.log("✅ Connected to PostgreSQL database");
+  logger.info("Connected to PostgreSQL database");
 });
 
 pool.on("error", (err) => {
-  console.error("❌ Unexpected error on idle client", err);
+  logger.fatal({ err }, "Unexpected error on idle client");
   process.exit(-1);
 });
 
@@ -1353,10 +1354,10 @@ export const db = {
 export async function testConnection(): Promise<boolean> {
   try {
     const result = await pool.query("SELECT NOW()");
-    console.log("✅ Database connection test successful:", result.rows[0].now);
+    logger.info({ time: result.rows[0].now }, "Database connection test successful");
     return true;
   } catch (error) {
-    console.error("❌ Database connection test failed:", error);
+    logger.error({ err: error }, "Database connection test failed");
     return false;
   }
 }

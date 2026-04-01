@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db } from "../data/db.js";
+import logger from "../lib/logger.js";
 
 export const eventsRouter: Router = Router();
 
@@ -8,7 +9,7 @@ eventsRouter.get("/", async (req, res) => {
     const allEvents = await db.events.findAll();
     res.json(allEvents);
   } catch (error) {
-    console.error("Error fetching events:", error);
+    logger.error({ err: error }, "Error fetching events");
     res.status(500).json({ error: "Failed to fetch events" });
   }
 });
@@ -28,7 +29,7 @@ eventsRouter.get("/active", async (req, res) => {
       time_slots: eventSlots,
     });
   } catch (error) {
-    console.error("Error fetching active event:", error);
+    logger.error({ err: error }, "Error fetching active event");
     res.status(500).json({ error: "Failed to fetch active event" });
   }
 });
@@ -39,7 +40,7 @@ eventsRouter.get("/:eventId/slots", async (req, res) => {
     const slots = await db.timeSlots.findByEventId(eventId);
     res.json(slots);
   } catch (error) {
-    console.error("Error fetching time slots:", error);
+    logger.error({ err: error }, "Error fetching time slots");
     res.status(500).json({ error: "Failed to fetch time slots" });
   }
 });

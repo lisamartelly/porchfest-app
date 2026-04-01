@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { body, validationResult } from "express-validator";
 import { db } from "../data/db.js";
 import { getPresignedUploadUrl } from "../services/s3.js";
+import logger from "../lib/logger.js";
 
 export const bandsRouter: ExpressRouter = Router();
 
@@ -45,7 +46,7 @@ bandsRouter.get("/public", async (req, res) => {
 
     res.json(publicBands);
   } catch (error) {
-    console.error("Error fetching public bands:", error);
+    logger.error({ err: error }, "Error fetching public bands");
     res.status(500).json({ error: "Failed to fetch bands" });
   }
 });
@@ -64,7 +65,7 @@ bandsRouter.get("/upload-url", async (req: Request, res: Response) => {
     const uploadUrl = await getPresignedUploadUrl(key, contentType);
     return res.json({ uploadUrl, key });
   } catch (error) {
-    console.error("Error generating upload URL:", error);
+    logger.error({ err: error }, "Error generating upload URL");
     return res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
@@ -74,27 +75,21 @@ bandsRouter.post(
   "/apply",
   [
     body("event_id").trim().notEmpty().withMessage("Event ID is required"),
-    body("band_name").trim().notEmpty().withMessage("Band name is required"),
-    body("contact_name")
-      .trim()
-      .notEmpty()
-      .withMessage("Contact name is required"),
-    body("contact_email").isEmail().withMessage("Valid email is required"),
-    body("contact_phone")
-      .trim()
-      .notEmpty()
-      .withMessage("Phone number is required"),
-    body("genre").trim().notEmpty().withMessage("Genre is required"),
-    body("member_count")
-      .trim()
-      .notEmpty()
-      .withMessage("Member count is required"),
-    body("music_sample_link")
-      .trim()
-      .notEmpty()
-      .withMessage("Music sample link is required"),
+    body("band_name").trim().notEmpty().withMessage("Band name is required").isLength({ max: 255 }).withMessage("Band name must be 255 characters or fewer"),
+    body("contact_name").trim().notEmpty().withMessage("Contact name is required").isLength({ max: 255 }).withMessage("Contact name must be 255 characters or fewer"),
+    body("contact_email").isEmail().withMessage("Valid email is required").isLength({ max: 255 }).withMessage("Email must be 255 characters or fewer"),
+    body("contact_phone").trim().notEmpty().withMessage("Phone number is required").isLength({ max: 50 }).withMessage("Phone number must be 50 characters or fewer"),
+    body("genre").trim().notEmpty().withMessage("Genre is required").isLength({ max: 100 }).withMessage("Genre must be 100 characters or fewer"),
+    body("member_count").trim().notEmpty().withMessage("Member count is required").isLength({ max: 100 }).withMessage("Member count must be 100 characters or fewer"),
+    body("music_sample_link").trim().notEmpty().withMessage("Music sample link is required"),
     body("bio").trim().notEmpty().withMessage("Bio is required"),
-    body("set_length").trim().notEmpty().withMessage("Set length is required"),
+    body("set_length").trim().notEmpty().withMessage("Set length is required").isLength({ max: 100 }).withMessage("Set length must be 100 characters or fewer"),
+    body("venmo_handle").optional().isLength({ max: 100 }).withMessage("Venmo handle must be 100 characters or fewer"),
+    body("instagram").optional().isLength({ max: 100 }).withMessage("Instagram link must be 100 characters or fewer"),
+    body("spotify").optional().isLength({ max: 100 }).withMessage("Spotify link must be 100 characters or fewer"),
+    body("soundcloud").optional().isLength({ max: 100 }).withMessage("SoundCloud link must be 100 characters or fewer"),
+    body("bandcamp").optional().isLength({ max: 100 }).withMessage("Bandcamp link must be 100 characters or fewer"),
+    body("facebook").optional().isLength({ max: 100 }).withMessage("Facebook link must be 100 characters or fewer"),
     body("equipment_consent")
       .equals("agree")
       .withMessage("You must agree to bring your own equipment"),
@@ -110,6 +105,8 @@ bandsRouter.post(
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
+
+    logger.info({ body: req.body }, "Band application received");
 
     try {
       const band = await db.bands.create({
@@ -141,7 +138,7 @@ bandsRouter.post(
 
       res.json({ success: true, id: band.id });
     } catch (error) {
-      console.error("Error submitting band application:", error);
+      logger.error({ err: error }, "Error submitting band application");
       res.status(500).json({ error: "Failed to submit application" });
     }
   }
