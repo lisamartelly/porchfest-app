@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
+import { formatDate } from "../lib/dateUtils";
 
 interface OrgEventInfo {
   organization: { id: string; name: string; slug: string };
@@ -139,15 +140,11 @@ export default function PorchApplyPage() {
       <>
         Application window:{" "}
         {orgEvent.porch_applications_open_date
-          ? new Date(
-              orgEvent.porch_applications_open_date,
-            ).toLocaleDateString()
+          ? formatDate(orgEvent.porch_applications_open_date)
           : "TBD"}
         {" – "}
         {orgEvent.porch_applications_close_date
-          ? new Date(
-              orgEvent.porch_applications_close_date,
-            ).toLocaleDateString()
+          ? formatDate(orgEvent.porch_applications_close_date)
           : "TBD"}
       </>
     ) : (
@@ -205,7 +202,7 @@ export default function PorchApplyPage() {
           </p>
           <p className="text-gray-500 text-sm mt-1">
             {orgEvent.organization.name} &middot;{" "}
-            {new Date(orgEvent.event.date).toLocaleDateString()}
+            {formatDate(orgEvent.event.date)}
           </p>
         </div>
 

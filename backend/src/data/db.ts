@@ -1,6 +1,12 @@
 import pg from "pg";
 const { Pool } = pg;
 
+// Return DATE columns as plain "YYYY-MM-DD" strings instead of JS Date objects.
+// The default parser creates a Date at midnight local time, which JSON.stringify
+// converts to a UTC ISO string — shifting the calendar day for users in
+// timezones behind UTC.
+pg.types.setTypeParser(1082, (val: string) => val);
+
 // ============================================================================
 // DATABASE CONNECTION
 // ============================================================================

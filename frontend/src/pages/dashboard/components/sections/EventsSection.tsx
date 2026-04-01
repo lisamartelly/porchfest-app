@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../../../../lib/api";
+import { formatDate } from "../../../../lib/dateUtils";
 import { useOrgStore } from "../../../../stores/orgStore";
 import { EventSettings, EventWithOrg } from "../../types";
 import EventSettingsEditor from "../EventSettings";
@@ -245,7 +246,7 @@ export default function EventsSection({
                     <div>
                       <p className="font-medium text-gray-900">{event.name}</p>
                       <p className="text-sm text-gray-500">
-                        {new Date(event.date).toLocaleDateString()} &middot;{" "}
+                        {formatDate(event.date)} &middot;{" "}
                         {event.start_time} - {event.end_time}
                       </p>
                     </div>
