@@ -28,7 +28,6 @@ export interface BandApplication {
   set_end_time: string | null;
   // Reviewer fields
   assigned_reviewer_id: number | null;
-  assigned_reviewer_email: string | null;
   reviewer_rating: number | null;
   reviewer_notes: string | null;
 }
@@ -75,9 +74,6 @@ export interface EventSettings {
   // Porch application form configuration
   porch_app_description: string | null;
   porch_app_photo_key: string | null;
-  // Reviewer assignment fields
-  reviewer_emails: string[];
-  reviewers_assigned: boolean;
 }
 
 export type FilterStatus =
@@ -138,8 +134,13 @@ export interface EventWithOrg {
   porch_applications_close: string | null;
   porch_app_description: string | null;
   porch_app_photo_key: string | null;
-  reviewer_emails: string[];
-  reviewers_assigned: boolean;
+}
+
+export interface ReviewerUser {
+  id: number;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
 }
 
 export type BandSortOption =

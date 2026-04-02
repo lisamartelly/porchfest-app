@@ -9,6 +9,7 @@ import {
   Status,
   EventSettings,
   Section,
+  ReviewerUser,
 } from "./types";
 import StatsGrid from "./components/StatsGrid";
 import BandsSection from "./components/sections/BandsSection";
@@ -82,7 +83,7 @@ export default function AdminDashboard() {
   );
   const [loading, setLoading] = useState(true);
   const [schedulingError, setSchedulingError] = useState<string | null>(null);
-  const [reviewers, setReviewers] = useState<string[]>([]);
+  const [reviewers, setReviewers] = useState<ReviewerUser[]>([]);
   const [myReviewBands, setMyReviewBands] = useState<BandApplication[]>([]);
 
   const isSuperDuperAdmin = user?.role === "super-duper-admin";
@@ -135,19 +136,6 @@ export default function AdminDashboard() {
       fetchMyReviews();
     }
   }, [section, fetchMyReviews, orgLoading]);
-
-  const updateEventSettings = useCallback(
-    async (updates: Partial<EventSettings>) => {
-      try {
-        const qs = activeOrgId ? `?org_id=${activeOrgId}` : "";
-        const updated = await api.patch(`/api/admin/event${qs}`, updates);
-        setEventSettings(updated);
-      } catch (error) {
-        console.error("Error updating event settings:", error);
-      }
-    },
-    [activeOrgId],
-  );
 
   const updateBandStatus = useCallback(
     async (bandId: number, status: Status) => {
@@ -314,13 +302,10 @@ export default function AdminDashboard() {
           return <div className="text-gray-500">Access denied. Reviewers do not have access to assignments.</div>;
         return (
           <AssignmentsSection
-            eventSettings={eventSettings}
-            reviewers={reviewers}
             bands={bands}
+            reviewers={reviewers}
             onBandsUpdate={setBands}
             onReviewersUpdate={setReviewers}
-            onEventSettingsUpdate={setEventSettings}
-            updateEventSettings={updateEventSettings}
           />
         );
 
@@ -331,7 +316,7 @@ export default function AdminDashboard() {
             approvedPorches={approvedPorches}
             eventSettings={eventSettings}
             schedulingError={schedulingError}
-            currentUserEmail={user?.email}
+            currentUserId={user?.id}
             onStatusChange={updateBandStatus}
             onSchedule={scheduleBand}
             getPorchAddress={getPorchAddress}

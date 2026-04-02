@@ -96,7 +96,6 @@ export interface Band {
   set_start_time: string | null;
   set_end_time: string | null;
   assigned_reviewer_id: number | null;
-  assigned_reviewer_email: string | null;
   reviewer_rating: number | null;
   reviewer_notes: string | null;
   created_at: Date;
@@ -144,8 +143,6 @@ export interface Event {
   porch_applications_close: string | null;
   porch_app_description: string | null;
   porch_app_photo_key: string | null;
-  reviewer_emails: string[];
-  reviewers_assigned: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -524,10 +521,10 @@ export const db = {
       return result.rows[0] || null;
     },
 
-    async findByReviewerEmail(email: string): Promise<Band[]> {
+    async findByReviewerId(userId: number): Promise<Band[]> {
       const result = await pool.query<Band>(
-        "SELECT * FROM bands WHERE assigned_reviewer_email = $1 ORDER BY created_at DESC",
-        [email]
+        "SELECT * FROM bands WHERE assigned_reviewer_id = $1 ORDER BY created_at DESC",
+        [userId]
       );
       return result.rows;
     },
@@ -680,23 +677,22 @@ export const db = {
 
     async assignReviewer(
       id: number | string,
-      reviewerId: number | string,
-      reviewerEmail: string
+      reviewerId: number
     ): Promise<Band | null> {
       const result = await pool.query<Band>(
         `UPDATE bands 
-         SET assigned_reviewer_id = $1, assigned_reviewer_email = $2
-         WHERE id = $3 RETURNING *`,
-        [reviewerId, reviewerEmail, id]
+         SET assigned_reviewer_id = $1
+         WHERE id = $2 RETURNING *`,
+        [reviewerId, id]
       );
       return result.rows[0] || null;
     },
 
-    async getReviewerEmails(): Promise<string[]> {
-      const result = await pool.query<{ assigned_reviewer_email: string }>(
-        "SELECT DISTINCT assigned_reviewer_email FROM bands WHERE assigned_reviewer_email IS NOT NULL"
+    async getReviewerUserIds(): Promise<number[]> {
+      const result = await pool.query<{ assigned_reviewer_id: number }>(
+        "SELECT DISTINCT assigned_reviewer_id FROM bands WHERE assigned_reviewer_id IS NOT NULL"
       );
-      return result.rows.map((r) => r.assigned_reviewer_email);
+      return result.rows.map((r) => r.assigned_reviewer_id);
     },
 
     async findOverlappingAtPorch(
@@ -895,7 +891,7 @@ export const db = {
 
     async update(id: number | string, data: Partial<Event>): Promise<Event | null> {
       const setClauses: string[] = [];
-      const values: (string | number | boolean | string[] | null)[] = [];
+      const values: (string | number | boolean | null)[] = [];
       let paramIndex = 1;
 
       if (data.organization_id !== undefined) {
@@ -945,14 +941,6 @@ export const db = {
       if (data.porch_app_photo_key !== undefined) {
         setClauses.push(`porch_app_photo_key = $${paramIndex++}`);
         values.push(data.porch_app_photo_key);
-      }
-      if (data.reviewer_emails !== undefined) {
-        setClauses.push(`reviewer_emails = $${paramIndex++}`);
-        values.push(data.reviewer_emails);
-      }
-      if (data.reviewers_assigned !== undefined) {
-        setClauses.push(`reviewers_assigned = $${paramIndex++}`);
-        values.push(data.reviewers_assigned);
       }
       if (data.is_active !== undefined) {
         setClauses.push(`is_active = $${paramIndex++}`);

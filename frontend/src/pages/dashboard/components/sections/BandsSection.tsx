@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   BandApplication,
   PorchApplication,
@@ -6,6 +6,7 @@ import {
   Status,
   FilterStatus,
   BandSortOption,
+  ReviewerUser,
 } from "../../types";
 import BandCard from "../BandCard";
 
@@ -14,7 +15,7 @@ interface BandsSectionProps {
   approvedPorches: PorchApplication[];
   eventSettings: EventSettings | null;
   schedulingError: string | null;
-  reviewers: string[];
+  reviewers: ReviewerUser[];
   onStatusChange: (bandId: number, status: Status) => Promise<void>;
   onSchedule: (
     bandId: number,
@@ -65,6 +66,20 @@ export default function BandsSection({
   const [bandSort, setBandSort] = useState<BandSortOption>("created_at");
   const [reviewerFilter, setReviewerFilter] = useState<string>("all");
 
+  const reviewerMap = useMemo(
+    () => new Map(reviewers.map((r) => [r.id, r])),
+    [reviewers],
+  );
+
+  const getReviewerName = useCallback((id: number | null) => {
+    if (id == null) return null;
+    const r = reviewerMap.get(id);
+    if (!r) return null;
+    return r.first_name || r.last_name
+      ? `${r.first_name || ""} ${r.last_name || ""}`.trim()
+      : r.email.split("@")[0];
+  }, [reviewerMap]);
+
   const filteredAndSortedBands = useMemo(() => {
     let result = [...bands];
 
@@ -74,7 +89,7 @@ export default function BandsSection({
 
     if (reviewerFilter !== "all") {
       result = result.filter(
-        (b) => b.assigned_reviewer_email === reviewerFilter,
+        (b) => String(b.assigned_reviewer_id) === reviewerFilter,
       );
     }
 
@@ -108,8 +123,8 @@ export default function BandsSection({
           return parsedB.houseNumber - parsedA.houseNumber;
         }
         case "reviewer": {
-          const reviewerA = a.assigned_reviewer_email || "zzz";
-          const reviewerB = b.assigned_reviewer_email || "zzz";
+          const reviewerA = getReviewerName(a.assigned_reviewer_id) || "zzz";
+          const reviewerB = getReviewerName(b.assigned_reviewer_id) || "zzz";
           return reviewerA.localeCompare(reviewerB);
         }
         case "rating":
@@ -123,7 +138,7 @@ export default function BandsSection({
     });
 
     return result;
-  }, [bands, filter, bandSearch, bandSort, reviewerFilter, getPorchAddress]);
+  }, [bands, filter, bandSearch, bandSort, reviewerFilter, getPorchAddress, getReviewerName]);
 
   return (
     <>
@@ -170,9 +185,11 @@ export default function BandsSection({
               className="input-field w-full lg:w-48"
             >
               <option value="all">All Reviewers</option>
-              {reviewers.map((email) => (
-                <option key={email} value={email}>
-                  {email.split("@")[0]}
+              {reviewers.map((r) => (
+                <option key={r.id} value={String(r.id)}>
+                  {r.first_name || r.last_name
+                    ? `${r.first_name || ""} ${r.last_name || ""}`.trim()
+                    : r.email.split("@")[0]}
                 </option>
               ))}
             </select>
@@ -227,7 +244,8 @@ export default function BandsSection({
               onSchedule={onSchedule}
               getPorchAddress={getPorchAddress}
               schedulingError={schedulingError}
-              showReviewerInfo={eventSettings?.reviewers_assigned || false}
+              showReviewerInfo={reviewers.length > 0}
+              reviewerUsers={reviewers}
               onReviewUpdate={onReviewUpdate}
             />
           ))}

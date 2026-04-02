@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { BandApplication, PorchApplication, Status } from "../types";
+import { useState, useMemo } from "react";
+import { BandApplication, PorchApplication, Status, ReviewerUser } from "../types";
 import { formatTime } from "../utils";
 import StatusSelect from "./StatusSelect";
 import SchedulingForm from "./SchedulingForm";
@@ -19,9 +19,10 @@ interface BandCardProps {
   getPorchAddress: (porchId: number | null) => string | null;
   schedulingError: string | null;
   showReviewerInfo?: boolean;
+  reviewerUsers?: ReviewerUser[];
   onReviewUpdate?: (bandId: number, rating: number | null, notes: string | null) => void;
   isMyReview?: boolean;
-  currentUserEmail?: string;
+  currentUserId?: number;
 }
 
 const S3_BUCKET = import.meta.env.VITE_S3_BUCKET || "porchfest-band-photos-dev";
@@ -91,9 +92,10 @@ export default function BandCard({
   getPorchAddress,
   schedulingError,
   showReviewerInfo = false,
+  reviewerUsers = [],
   onReviewUpdate,
   isMyReview = false,
-  currentUserEmail,
+  currentUserId,
 }: BandCardProps) {
   const [showPhoto, setShowPhoto] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -103,7 +105,16 @@ export default function BandCard({
   const [savingReview, setSavingReview] = useState(false);
 
   const hasNotes = band.scheduling_notes || band.questions_comments;
-  const canEditReview = isMyReview && band.assigned_reviewer_email === currentUserEmail;
+  const canEditReview = isMyReview && band.assigned_reviewer_id === currentUserId;
+
+  const reviewerName = useMemo(() => {
+    if (band.assigned_reviewer_id == null) return null;
+    const r = reviewerUsers.find((u) => u.id === band.assigned_reviewer_id);
+    if (!r) return null;
+    return r.first_name || r.last_name
+      ? `${r.first_name || ""} ${r.last_name || ""}`.trim()
+      : r.email.split("@")[0];
+  }, [band.assigned_reviewer_id, reviewerUsers]);
 
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -306,12 +317,12 @@ export default function BandCard({
 
           <div className="flex flex-col items-end gap-3">
             {/* Reviewer Info - Top Right */}
-            {showReviewerInfo && band.assigned_reviewer_email && (
+            {showReviewerInfo && band.assigned_reviewer_id != null && reviewerName && (
               <div className="flex flex-col items-end gap-2">
                 <div className="flex items-center gap-1.5 text-sm bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg">
                   <PersonIcon />
                   <span className="font-medium">
-                    {band.assigned_reviewer_email.split("@")[0]}
+                    {reviewerName}
                   </span>
                 </div>
                 {band.reviewer_rating !== null && (
@@ -358,7 +369,7 @@ export default function BandCard({
               <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-2">
                 📝 Reviewer Notes
                 <span className="text-indigo-600 font-normal normal-case">
-                  ({band.assigned_reviewer_email?.split("@")[0]})
+                  ({reviewerName})
                 </span>
               </h4>
               <p className="text-sm text-gray-700 whitespace-pre-wrap">

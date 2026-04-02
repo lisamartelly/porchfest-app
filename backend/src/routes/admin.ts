@@ -7,6 +7,7 @@ import { db } from "../data/db.js";
 import logger from "../lib/logger.js";
 import type { Event } from "../data/db.js";
 import { getPresignedUploadUrl } from "../services/s3.js";
+import { sendReviewerAssignmentEmail } from "../services/email.js";
 
 export const adminRouter: Router = Router();
 
@@ -522,7 +523,6 @@ adminRouter.patch(
     body("porch_applications_close").optional({ nullable: true }).isString(),
     body("porch_app_description").optional({ nullable: true }).isString(),
     body("porch_app_photo_key").optional({ nullable: true }).isString(),
-    body("reviewer_emails").optional().isArray(),
   ],
   async (req: AuthRequest, res: Response) => {
     try {
@@ -553,7 +553,6 @@ adminRouter.patch(
         porch_applications_close: req.body.porch_applications_close,
         porch_app_description: req.body.porch_app_description,
         porch_app_photo_key: req.body.porch_app_photo_key,
-        reviewer_emails: req.body.reviewer_emails,
       });
 
       res.json(updatedEvent);
@@ -648,7 +647,6 @@ adminRouter.patch(
     body("porch_applications_close").optional({ nullable: true }).isString(),
     body("porch_app_description").optional({ nullable: true }).isString(),
     body("porch_app_photo_key").optional({ nullable: true }).isString(),
-    body("reviewer_emails").optional().isArray(),
     body("is_active").optional().isBoolean(),
   ],
   async (req: AuthRequest, res: Response) => {
@@ -683,7 +681,6 @@ adminRouter.patch(
         porch_applications_close: req.body.porch_applications_close,
         porch_app_description: req.body.porch_app_description,
         porch_app_photo_key: req.body.porch_app_photo_key,
-        reviewer_emails: req.body.reviewer_emails,
         is_active: req.body.is_active,
       });
 
@@ -884,6 +881,12 @@ adminRouter.get("/porches/approved", async (req: AuthRequest, res: Response) => 
 adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
   try {
     const { org_id } = req.query;
+    const { userIds, sendEmail } = req.body;
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: "userIds must be a non-empty array" });
+    }
+
     let activeEvent;
     if (org_id) {
       const result = await resolveOrgActiveEvent(req, Number(org_id));
@@ -898,35 +901,49 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
       return res.status(404).json({ error: "No active event found" });
     }
 
-    const reviewerEmails = activeEvent.reviewer_emails || [];
-    if (reviewerEmails.length === 0) {
-      return res.status(400).json({ error: "No reviewers configured" });
-    }
-
     const allBands = await db.bands.findByEventId(activeEvent.id);
-    if (allBands.length === 0) {
-      return res.status(400).json({ error: "No bands to assign" });
+    const unassignedBands = allBands.filter((b) => b.assigned_reviewer_id == null);
+    if (unassignedBands.length === 0) {
+      return res.status(400).json({ error: "No unassigned bands to assign" });
     }
 
-    const shuffledBands = [...allBands].sort(() => Math.random() - 0.5);
+    const shuffledBands = [...unassignedBands].sort(() => Math.random() - 0.5);
 
     for (let i = 0; i < shuffledBands.length; i++) {
       const band = shuffledBands[i];
-      const reviewerIndex = i % reviewerEmails.length;
-      const reviewerEmail = reviewerEmails[reviewerIndex];
-      await db.bands.assignReviewer(
-        band.id,
-        `reviewer-${reviewerIndex}`,
-        reviewerEmail
-      );
+      const reviewerIndex = i % userIds.length;
+      await db.bands.assignReviewer(band.id, userIds[reviewerIndex]);
     }
-
-    await db.events.update(activeEvent.id, { reviewers_assigned: true });
 
     const updatedBands = await db.bands.findByEventId(activeEvent.id);
 
+    if (sendEmail) {
+      const newlyAssignedUserIds = new Set(userIds as number[]);
+      const bandCountByUser = new Map<number, number>();
+      for (const band of updatedBands) {
+        if (band.assigned_reviewer_id != null && newlyAssignedUserIds.has(band.assigned_reviewer_id)) {
+          bandCountByUser.set(
+            band.assigned_reviewer_id,
+            (bandCountByUser.get(band.assigned_reviewer_id) || 0) + 1
+          );
+        }
+      }
+
+      for (const [userId, count] of bandCountByUser) {
+        try {
+          const user = await db.users.findById(userId);
+          if (user) {
+            const name = user.first_name || user.email.split("@")[0];
+            await sendReviewerAssignmentEmail(user.email, name, count, activeEvent.name);
+          }
+        } catch (emailErr) {
+          logger.error({ err: emailErr, userId }, "Failed to send reviewer assignment email");
+        }
+      }
+    }
+
     res.json({
-      message: `Successfully assigned ${allBands.length} bands to ${reviewerEmails.length} reviewers`,
+      message: `Successfully assigned ${unassignedBands.length} bands to ${userIds.length} reviewers`,
       bands: updatedBands,
     });
   } catch (error) {
@@ -974,12 +991,12 @@ adminRouter.patch(
 // Get bands assigned to current user for review
 adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res: Response) => {
   try {
-    const userEmail = req.user?.email;
-    if (!userEmail) {
+    const userId = req.user?.id;
+    if (!userId) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const myBands = await db.bands.findByReviewerEmail(userEmail);
+    const myBands = await db.bands.findByReviewerId(userId);
     const { org_id } = req.query;
     if (org_id) {
       const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
@@ -996,10 +1013,12 @@ adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res: Response) => 
   }
 });
 
-// Get unique reviewer emails from assigned bands
+// Get reviewer users who have bands assigned to them
 adminRouter.get("/reviewers", async (req: AuthRequest, res: Response) => {
   try {
     const { org_id } = req.query;
+
+    let reviewerIds: number[];
     if (org_id) {
       const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
       if (!authorized) {
@@ -1007,14 +1026,27 @@ adminRouter.get("/reviewers", async (req: AuthRequest, res: Response) => {
       }
       if (!event) return res.json([]);
       const bands = await db.bands.findByEventId(event.id);
-      const emails = [...new Set(bands
-        .map((b) => b.assigned_reviewer_email)
-        .filter(Boolean)
+      reviewerIds = [...new Set(
+        bands.map((b) => b.assigned_reviewer_id).filter((id): id is number => id != null)
       )];
-      return res.json(emails);
+    } else {
+      reviewerIds = await db.bands.getReviewerUserIds();
     }
-    const reviewerEmails = await db.bands.getReviewerEmails();
-    res.json(reviewerEmails);
+
+    const reviewerUsers = await Promise.all(
+      reviewerIds.map(async (id) => {
+        const user = await db.users.findById(id);
+        if (!user) return null;
+        return {
+          id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+        };
+      })
+    );
+
+    res.json(reviewerUsers.filter(Boolean));
   } catch (error) {
     logger.error({ err: error }, "Error fetching reviewers");
     res.status(500).json({ error: "Failed to fetch reviewers" });

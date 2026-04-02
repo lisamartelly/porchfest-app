@@ -11,7 +11,7 @@ interface MyReviewsSectionProps {
   approvedPorches: PorchApplication[];
   eventSettings: EventSettings | null;
   schedulingError: string | null;
-  currentUserEmail?: string;
+  currentUserId?: number;
   onStatusChange: (bandId: number, status: Status) => Promise<void>;
   onSchedule: (
     bandId: number,
@@ -32,7 +32,7 @@ export default function MyReviewsSection({
   approvedPorches,
   eventSettings,
   schedulingError,
-  currentUserEmail,
+  currentUserId,
   onStatusChange,
   onSchedule,
   getPorchAddress,
@@ -41,9 +41,7 @@ export default function MyReviewsSection({
   if (myReviewBands.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-500">
-        {eventSettings?.reviewers_assigned
-          ? "No bands have been assigned to you for review."
-          : "Reviewer assignments have not been made yet. Check the Assignments section."}
+        No bands have been assigned to you for review yet.
       </div>
     );
   }
@@ -70,7 +68,7 @@ export default function MyReviewsSection({
           showReviewerInfo={true}
           onReviewUpdate={onReviewUpdate}
           isMyReview={true}
-          currentUserEmail={currentUserEmail}
+          currentUserId={currentUserId}
         />
       ))}
     </div>
