@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { formatDate } from "../lib/dateUtils";
 
 interface OrgEventInfo {
@@ -84,8 +84,12 @@ export default function PorchApplyPage() {
     try {
       const data = await api.get(`/api/events/org/${slug}`);
       setOrgEvent(data);
-    } catch {
-      setLoadError("Organization not found.");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setLoadError("Organization not found.");
+      } else {
+        setLoadError("Something went wrong. Please try again in a moment.");
+      }
     } finally {
       setLoadingEvent(false);
     }
