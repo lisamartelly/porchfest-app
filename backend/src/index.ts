@@ -38,6 +38,7 @@ app.use(
       if (!origin || allowed.includes(origin)) {
         callback(null, true);
       } else {
+        logger.warn({ origin, allowed }, "CORS request rejected");
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -52,6 +53,8 @@ app.use((req, res, next) => {
       url: req.originalUrl,
       status: res.statusCode,
       duration: Date.now() - start,
+      origin: req.headers.origin,
+      userAgent: req.headers["user-agent"],
     }, "request");
   });
   next();

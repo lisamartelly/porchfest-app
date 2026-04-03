@@ -63,6 +63,7 @@ bandsRouter.get("/upload-url", async (req: Request, res: Response) => {
     const key = `bands/${crypto.randomUUID()}/${Date.now()}.${ext}`;
     const contentType = req.query.contentType as string || `image/${ext === "jpg" ? "jpeg" : ext}`;
     const uploadUrl = await getPresignedUploadUrl(key, contentType);
+    logger.info({ key, contentType, filename }, "Presigned upload URL generated");
     return res.json({ uploadUrl, key });
   } catch (error) {
     logger.error({ err: error }, "Error generating upload URL");
@@ -103,6 +104,7 @@ bandsRouter.post(
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      logger.warn({ errors: errors.array(), band_name: req.body.band_name }, "Band application validation failed");
       return res.status(400).json({ errors: errors.array() });
     }
 
