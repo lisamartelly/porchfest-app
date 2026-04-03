@@ -82,7 +82,10 @@ export class PorchfestStack extends cdk.Stack {
         {
           allowedHeaders: ["*"],
           allowedMethods: [s3.HttpMethods.PUT],
-          allowedOrigins: [`https://${DOMAIN_NAME}`],
+          allowedOrigins: [
+            `https://${DOMAIN_NAME}`,
+            `https://www.${DOMAIN_NAME}`,
+          ],
           maxAge: 3600,
         },
       ],

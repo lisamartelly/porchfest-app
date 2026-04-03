@@ -24,7 +24,24 @@ const PORT = process.env.PORT || 8080;
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: function (origin, callback) {
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+      const allowed = [frontendUrl];
+      try {
+        const parsed = new URL(frontendUrl);
+        if (parsed.hostname.startsWith("www.")) {
+          allowed.push(frontendUrl.replace("www.", ""));
+        } else {
+          allowed.push(`${parsed.protocol}//www.${parsed.host}`);
+        }
+      } catch { /* keep only the original */ }
+      if (!origin || allowed.includes(origin)) {
+        callback(null, true);
+      } else {
+        logger.warn({ origin, allowed }, "CORS request rejected");
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
@@ -36,6 +53,8 @@ app.use((req, res, next) => {
       url: req.originalUrl,
       status: res.statusCode,
       duration: Date.now() - start,
+      origin: req.headers.origin,
+      userAgent: req.headers["user-agent"],
     }, "request");
   });
   next();

@@ -164,11 +164,34 @@ export default function BandApplyPage() {
         const uploadData = await api.get(
           `/api/bands/upload-url?filename=${encodeURIComponent(photoFile.name)}&contentType=${encodeURIComponent(photoFile.type)}`
         );
-        await fetch(uploadData.uploadUrl, {
-          method: "PUT",
-          body: photoFile,
-          headers: { "Content-Type": photoFile.type },
-        });
+
+        const MAX_RETRIES = 3;
+        let lastUploadError: unknown;
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          try {
+            const uploadRes = await fetch(uploadData.uploadUrl, {
+              method: "PUT",
+              body: photoFile,
+              headers: { "Content-Type": photoFile.type },
+            });
+            if (!uploadRes.ok) {
+              throw new Error(`Photo upload failed (status ${uploadRes.status})`);
+            }
+            lastUploadError = null;
+            break;
+          } catch (uploadErr) {
+            lastUploadError = uploadErr;
+            if (attempt < MAX_RETRIES - 1) {
+              await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+            }
+          }
+        }
+        if (lastUploadError) {
+          throw new Error(
+            "Failed to upload photo. Please check your connection and try again."
+          );
+        }
+
         photoKey = uploadData.key;
       }
 
