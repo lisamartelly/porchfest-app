@@ -263,6 +263,8 @@ describe("tasksRouter", () => {
       notes: "Contact team leads",
       due_date: "2026-05-01",
       status: "to_do",
+      assigned_user_id: undefined,
+      category: undefined,
     });
     expect(response.body).toEqual({
       id: 88,
@@ -272,6 +274,61 @@ describe("tasksRouter", () => {
       status: "to_do",
       contacts: [],
     });
+  });
+
+  it("creates active-event task with assigned_user_id and category", async () => {
+    mocks.findActive.mockResolvedValue({ id: 7, organization_id: 55 });
+    mocks.tasksCreate.mockResolvedValue({ id: 42 });
+    mocks.eventTasksCreate.mockResolvedValue({ id: 89 });
+    mocks.eventTasksFindById.mockResolvedValue({
+      id: 89,
+      task_id: 42,
+      event_id: 7,
+      name: "Book sound equipment",
+      status: "to_do",
+      category: "vendors",
+      assigned_user_id: 3,
+    });
+
+    const app = buildApp();
+    const response = await request(app)
+      .post("/api/admin/tasks/active-event-tasks")
+      .set("x-role", "super-duper-admin")
+      .send({
+        name: "Book sound equipment",
+        due_date: "2026-04-15",
+        assigned_user_id: 3,
+        category: "vendors",
+      });
+
+    expect(response.status).toBe(200);
+    expect(mocks.eventTasksCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assigned_user_id: 3,
+        category: "vendors",
+      })
+    );
+    expect(response.body).toEqual({
+      id: 89,
+      task_id: 42,
+      event_id: 7,
+      name: "Book sound equipment",
+      status: "to_do",
+      category: "vendors",
+      assigned_user_id: 3,
+      contacts: [],
+    });
+  });
+
+  it("rejects active-event task with invalid category", async () => {
+    const app = buildApp();
+    const response = await request(app)
+      .post("/api/admin/tasks/active-event-tasks")
+      .set("x-role", "super-duper-admin")
+      .send({ name: "Some task", category: "invalid_category" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.errors).toBeDefined();
   });
 
   it("handles active-event task create errors", async () => {
@@ -798,6 +855,33 @@ describe("tasksRouter", () => {
       name: "Updated",
       contacts: [{ id: 9, name: "Morgan" }],
     });
+  });
+
+  it("updates event task with category", async () => {
+    mocks.eventTasksUpdate.mockResolvedValue({ id: 811 });
+    mocks.eventTasksFindById.mockResolvedValue({ id: 811, name: "Updated", category: "permits" });
+    mocks.taskContactsFindByEventTaskId.mockResolvedValue([]);
+
+    const app = buildApp();
+    const response = await request(app)
+      .patch("/api/admin/tasks/event-tasks/811")
+      .set("x-role", "user")
+      .send({ category: "permits" });
+
+    expect(response.status).toBe(200);
+    expect(mocks.eventTasksUpdate).toHaveBeenCalledWith("811", expect.objectContaining({ category: "permits" }));
+    expect(response.body.category).toBe("permits");
+  });
+
+  it("rejects event task update with invalid category", async () => {
+    const app = buildApp();
+    const response = await request(app)
+      .patch("/api/admin/tasks/event-tasks/811")
+      .set("x-role", "user")
+      .send({ category: "not_a_category" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.errors).toBeDefined();
   });
 
   it("handles event task update errors", async () => {

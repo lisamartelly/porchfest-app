@@ -61,22 +61,22 @@ FROM organizations WHERE slug = 'uptown-porchfest'
 AND NOT EXISTS (SELECT 1 FROM tasks t WHERE t.organization_id = (SELECT id FROM organizations WHERE slug = 'uptown-porchfest') AND t.name = 'Recruit volunteer coordinators');
 
 -- 4. Create event_tasks for 2024 (historical)
-INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status)
-SELECT t.id, e.id, NULL, 'Booked with Acme Sound for $500', '2024-05-01', 'done'
+INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status, category)
+SELECT t.id, e.id, NULL, 'Booked with Acme Sound for $500', '2024-05-01', 'done', 'vendors'
 FROM tasks t, events e, organizations o
 WHERE t.organization_id = o.id AND o.slug = 'uptown-porchfest' AND t.name = 'Book sound equipment'
   AND e.organization_id = o.id AND e.name = 'Uptown Porchfest 2024'
   AND NOT EXISTS (SELECT 1 FROM event_tasks et WHERE et.task_id = t.id AND et.event_id = e.id);
 
-INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status)
-SELECT t.id, e.id, NULL, 'City permit approved', '2024-04-15', 'done'
+INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status, category)
+SELECT t.id, e.id, NULL, 'City permit approved', '2024-04-15', 'done', 'permits'
 FROM tasks t, events e, organizations o
 WHERE t.organization_id = o.id AND o.slug = 'uptown-porchfest' AND t.name = 'Secure permits'
   AND e.organization_id = o.id AND e.name = 'Uptown Porchfest 2024'
   AND NOT EXISTS (SELECT 1 FROM event_tasks et WHERE et.task_id = t.id AND et.event_id = e.id);
 
-INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status)
-SELECT t.id, e.id, NULL, 'Posters and flyers printed', '2024-05-20', 'done'
+INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status, category)
+SELECT t.id, e.id, NULL, 'Posters and flyers printed', '2024-05-20', 'done', 'merch'
 FROM tasks t, events e, organizations o
 WHERE t.organization_id = o.id AND o.slug = 'uptown-porchfest' AND t.name = 'Print marketing materials'
   AND e.organization_id = o.id AND e.name = 'Uptown Porchfest 2024'
@@ -102,29 +102,29 @@ WHERE o.slug = 'uptown-porchfest' AND e.name = 'Uptown Porchfest 2024' AND t.nam
 AND NOT EXISTS (SELECT 1 FROM task_contacts tc WHERE tc.event_task_id = et.id AND tc.name = 'City Permits Office');
 
 -- 6. Create event_tasks for 2025 (active event)
-INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status)
-SELECT t.id, e.id, NULL, 'Need to get quotes', '2025-04-01', 'in_progress'
+INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status, category)
+SELECT t.id, e.id, NULL, 'Need to get quotes', '2025-04-01', 'in_progress', 'vendors'
 FROM tasks t, events e, organizations o
 WHERE t.organization_id = o.id AND o.slug = 'uptown-porchfest' AND t.name = 'Book sound equipment'
   AND e.organization_id = o.id AND e.name = 'Uptown Porchfest 2025'
   AND NOT EXISTS (SELECT 1 FROM event_tasks et WHERE et.task_id = t.id AND et.event_id = e.id);
 
-INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status)
-SELECT t.id, e.id, NULL, 'Application submitted', '2025-03-15', 'to_do'
+INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status, category)
+SELECT t.id, e.id, NULL, 'Application submitted', '2025-03-15', 'to_do', 'permits'
 FROM tasks t, events e, organizations o
 WHERE t.organization_id = o.id AND o.slug = 'uptown-porchfest' AND t.name = 'Secure permits'
   AND e.organization_id = o.id AND e.name = 'Uptown Porchfest 2025'
   AND NOT EXISTS (SELECT 1 FROM event_tasks et WHERE et.task_id = t.id AND et.event_id = e.id);
 
-INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status)
-SELECT t.id, e.id, NULL, 'Waiting on final design', '2025-05-01', 'blocked'
+INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status, category)
+SELECT t.id, e.id, NULL, 'Waiting on final design', '2025-05-01', 'blocked', 'merch'
 FROM tasks t, events e, organizations o
 WHERE t.organization_id = o.id AND o.slug = 'uptown-porchfest' AND t.name = 'Print marketing materials'
   AND e.organization_id = o.id AND e.name = 'Uptown Porchfest 2025'
   AND NOT EXISTS (SELECT 1 FROM event_tasks et WHERE et.task_id = t.id AND et.event_id = e.id);
 
-INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status)
-SELECT t.id, e.id, NULL, 'Reach out to last year''s coordinators', '2025-02-28', 'to_do'
+INSERT INTO event_tasks (task_id, event_id, name, notes, due_date, status, category)
+SELECT t.id, e.id, NULL, 'Reach out to last year''s coordinators', '2025-02-28', 'to_do', 'volunteers'
 FROM tasks t, events e, organizations o
 WHERE t.organization_id = o.id AND o.slug = 'uptown-porchfest' AND t.name = 'Recruit volunteer coordinators'
   AND e.organization_id = o.id AND e.name = 'Uptown Porchfest 2025'
