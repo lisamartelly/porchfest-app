@@ -169,8 +169,8 @@ authRouter.patch(
   "/me",
   authMiddleware,
   [
-    body("first_name").optional({ nullable: true }).trim(),
-    body("last_name").optional({ nullable: true }).trim(),
+    body("first_name").optional({ nullable: true }).isString().trim(),
+    body("last_name").optional({ nullable: true }).isString().trim(),
   ],
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);

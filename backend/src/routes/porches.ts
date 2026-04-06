@@ -49,7 +49,7 @@ porchesRouter.post(
         event_id: req.body.event_id,
         owner_name: req.body.owner_name,
         email: req.body.email,
-        phone: req.body.phone || null,
+        phone: req.body.phone,
         address: req.body.address,
         city: req.body.city || "",
         lat: null,

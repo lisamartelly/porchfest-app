@@ -21,6 +21,16 @@ tasks:
     cmds:
       - source ~/.nvm/nvm.sh && nvm use && cd backend && pnpm lint
 
+  server-test:
+    desc: "Run backend unit tests"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd backend && pnpm test
+
+  server-test-coverage:
+    desc: "Run backend unit tests with coverage"
+    cmds:
+      - source ~/.nvm/nvm.sh && nvm use && cd backend && pnpm test:coverage
+
   migrate-up:
     desc: "Run database migrations"
     cmds:
