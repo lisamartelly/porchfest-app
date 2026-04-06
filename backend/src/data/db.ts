@@ -17,10 +17,12 @@ const pool = new Pool({
   connectionString:
     process.env.DATABASE_URL ||
     "postgresql://porchfest:porchfest_dev@localhost:5432/porchfest",
-  // Production-ready settings
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 5000,
+  // Prevent AWS NAT gateways / load balancers from silently killing idle connections
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 });
 
 // Test connection on startup
@@ -29,8 +31,7 @@ pool.on("connect", () => {
 });
 
 pool.on("error", (err) => {
-  logger.fatal({ err }, "Unexpected error on idle client");
-  process.exit(-1);
+  logger.error({ err }, "Unexpected error on idle client — pool will reconnect");
 });
 
 // Export pool for direct queries if needed

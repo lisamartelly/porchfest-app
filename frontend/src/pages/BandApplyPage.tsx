@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { formatDate } from "../lib/dateUtils";
 
 interface OrgEventInfo {
@@ -121,8 +121,12 @@ export default function BandApplyPage() {
     try {
       const data = await api.get(`/api/events/org/${slug}`);
       setOrgEvent(data);
-    } catch {
-      setLoadError("Organization not found.");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setLoadError("Organization not found.");
+      } else {
+        setLoadError("Something went wrong. Please try again in a moment.");
+      }
     } finally {
       setLoadingEvent(false);
     }
@@ -160,11 +164,34 @@ export default function BandApplyPage() {
         const uploadData = await api.get(
           `/api/bands/upload-url?filename=${encodeURIComponent(photoFile.name)}&contentType=${encodeURIComponent(photoFile.type)}`
         );
-        await fetch(uploadData.uploadUrl, {
-          method: "PUT",
-          body: photoFile,
-          headers: { "Content-Type": photoFile.type },
-        });
+
+        const MAX_RETRIES = 3;
+        let lastUploadError: unknown;
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          try {
+            const uploadRes = await fetch(uploadData.uploadUrl, {
+              method: "PUT",
+              body: photoFile,
+              headers: { "Content-Type": photoFile.type },
+            });
+            if (!uploadRes.ok) {
+              throw new Error(`Photo upload failed (status ${uploadRes.status})`);
+            }
+            lastUploadError = null;
+            break;
+          } catch (uploadErr) {
+            lastUploadError = uploadErr;
+            if (attempt < MAX_RETRIES - 1) {
+              await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+            }
+          }
+        }
+        if (lastUploadError) {
+          throw new Error(
+            "Failed to upload photo. Please check your connection and try again."
+          );
+        }
+
         photoKey = uploadData.key;
       }
 
@@ -443,7 +470,7 @@ export default function BandApplyPage() {
                   <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.music_sample_link}
                   onChange={(e) => {
                     setFormData({
@@ -625,7 +652,7 @@ export default function BandApplyPage() {
                   Instagram
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.instagram}
                   onChange={(e) =>
                     setFormData({ ...formData, instagram: e.target.value })
@@ -641,7 +668,7 @@ export default function BandApplyPage() {
                   Spotify
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.spotify}
                   onChange={(e) =>
                     setFormData({ ...formData, spotify: e.target.value })
@@ -657,7 +684,7 @@ export default function BandApplyPage() {
                   SoundCloud
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.soundcloud}
                   onChange={(e) =>
                     setFormData({ ...formData, soundcloud: e.target.value })
@@ -673,7 +700,7 @@ export default function BandApplyPage() {
                   Bandcamp
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.bandcamp}
                   onChange={(e) =>
                     setFormData({ ...formData, bandcamp: e.target.value })
@@ -689,7 +716,7 @@ export default function BandApplyPage() {
                   Facebook
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.facebook}
                   onChange={(e) =>
                     setFormData({ ...formData, facebook: e.target.value })
@@ -705,7 +732,7 @@ export default function BandApplyPage() {
                   Band website/other
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={formData.website}
                   onChange={(e) =>
                     setFormData({ ...formData, website: e.target.value })

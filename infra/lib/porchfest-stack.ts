@@ -82,7 +82,10 @@ export class PorchfestStack extends cdk.Stack {
         {
           allowedHeaders: ["*"],
           allowedMethods: [s3.HttpMethods.PUT],
-          allowedOrigins: [`https://${DOMAIN_NAME}`],
+          allowedOrigins: [
+            `https://${DOMAIN_NAME}`,
+            `https://www.${DOMAIN_NAME}`,
+          ],
           maxAge: 3600,
         },
       ],
@@ -200,7 +203,12 @@ NGINXMAIN`,
       "rm -f /etc/nginx/conf.d/default.conf",
       "systemctl start nginx",
 
-      // Write systemd service for the backend
+      // Create log directory for the API
+      "mkdir -p /var/log/porchfest",
+      "touch /var/log/porchfest/api.log",
+      "chown ec2-user:ec2-user /var/log/porchfest/api.log",
+
+      // Write systemd service for the backend (stdout/stderr -> log file)
       `cat > /etc/systemd/system/porchfest-api.service << 'SERVICEEOF'
 [Unit]
 Description=Porchfest API
@@ -212,6 +220,8 @@ User=ec2-user
 WorkingDirectory=/opt/porchfest/backend
 EnvironmentFile=/opt/porchfest/backend/.env
 ExecStart=/usr/bin/node dist/index.js
+StandardOutput=append:/var/log/porchfest/api.log
+StandardError=append:/var/log/porchfest/api.log
 Restart=always
 RestartSec=5
 
@@ -268,18 +278,14 @@ SCRIPTEOF`,
 {
   "logs": {
     "logs_collected": {
-      "journald": {
+      "files": {
         "collect_list": [
           {
-            "unit": "porchfest-api",
+            "file_path": "/var/log/porchfest/api.log",
             "log_group_name": "/porchfest/api",
             "log_stream_name": "{instance_id}",
             "retention_in_days": 30
-          }
-        ]
-      },
-      "files": {
-        "collect_list": [
+          },
           {
             "file_path": "/var/log/nginx/access.log",
             "log_group_name": "/porchfest/nginx/access",

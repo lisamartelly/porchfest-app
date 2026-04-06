@@ -83,6 +83,34 @@ pnpm dev
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8080
 
+## Backend Unit Tests
+
+Run backend tests with the Node version from `.nvmrc`:
+
+```bash
+source ~/.nvm/nvm.sh && nvm use
+cd backend
+pnpm test
+```
+
+Run backend tests in watch mode:
+
+```bash
+source ~/.nvm/nvm.sh && nvm use
+cd backend
+pnpm test:watch
+```
+
+Generate backend coverage report:
+
+```bash
+source ~/.nvm/nvm.sh && nvm use
+cd backend
+pnpm test:coverage
+```
+
+Coverage output is written to `backend/coverage/` (including `lcov.info`).
+
 ## 📁 Project Structure
 
 ```
