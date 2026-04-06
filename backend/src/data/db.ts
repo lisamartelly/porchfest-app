@@ -178,6 +178,8 @@ export interface Task {
 
 export type EventTaskStatus = "to_do" | "in_progress" | "blocked" | "done";
 
+export type EventTaskCategory = "vendors" | "bands" | "porches" | "permits" | "volunteers" | "website" | "merch" | "misc";
+
 export interface EventTask {
   id: number;
   task_id: number;
@@ -187,6 +189,7 @@ export interface EventTask {
   assigned_user_id: number | null;
   due_date: Date | null;
   status: EventTaskStatus;
+  category: EventTaskCategory | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -1140,10 +1143,11 @@ export const db = {
       assigned_user_id?: number | string | null;
       due_date?: string | null;
       status?: EventTaskStatus | null;
+      category?: EventTaskCategory | null;
     }): Promise<EventTask> {
       const result = await pool.query<EventTask>(
-        `INSERT INTO event_tasks (task_id, event_id, name, notes, assigned_user_id, due_date, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO event_tasks (task_id, event_id, name, notes, assigned_user_id, due_date, status, category)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
         [
           data.task_id,
@@ -1153,6 +1157,7 @@ export const db = {
           data.assigned_user_id || null,
           data.due_date || null,
           data.status || "to_do",
+          data.category || null,
         ]
       );
       return result.rows[0];
@@ -1166,6 +1171,7 @@ export const db = {
         assigned_user_id?: number | string | null;
         due_date?: string | null;
         status?: EventTaskStatus | null;
+        category?: EventTaskCategory | null;
       }
     ): Promise<EventTask | null> {
       const setClauses: string[] = [];
@@ -1191,6 +1197,10 @@ export const db = {
       if (data.status !== undefined) {
         setClauses.push(`status = $${paramIndex++}`);
         values.push(data.status ?? "to_do");
+      }
+      if (data.category !== undefined) {
+        setClauses.push(`category = $${paramIndex++}`);
+        values.push(data.category ?? null);
       }
 
       if (setClauses.length === 0) return null;

@@ -7,6 +7,7 @@ import { useOrgStore } from "../../stores/orgStore";
 import {
   EventTaskItem,
   EventTaskStatus,
+  EventTaskCategory,
   TaskContact,
   AdminUser,
 } from "./types";
@@ -30,6 +31,21 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUSES: EventTaskStatus[] = ["to_do", "in_progress", "blocked", "done"];
+
+const CATEGORIES: EventTaskCategory[] = [
+  "vendors", "bands", "porches", "permits", "volunteers", "website", "merch", "misc",
+];
+
+const CATEGORY_LABELS: Record<EventTaskCategory, string> = {
+  vendors: "Vendors",
+  bands: "Bands",
+  porches: "Porches",
+  permits: "Permits",
+  volunteers: "Volunteers",
+  website: "Website",
+  merch: "Merch",
+  misc: "Misc",
+};
 
 export default function TaskDetailPage() {
   const { eventTaskId } = useParams<{ eventTaskId: string }>();
@@ -337,6 +353,27 @@ export default function TaskDetailPage() {
               }
               className="input-field"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category
+            </label>
+            <select
+              value={taskDetail.category || ""}
+              onChange={(e) =>
+                patchField({
+                  category: e.target.value || null,
+                })
+              }
+              className="input-field"
+            >
+              <option value="">None</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORY_LABELS[c]}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
