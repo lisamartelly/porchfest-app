@@ -175,6 +175,8 @@ export interface TaskContact {
 
 export type EventTaskStatus = "to_do" | "in_progress" | "blocked" | "done";
 
+export type EventTaskCategory = "vendors" | "bands" | "porches" | "permits" | "volunteers" | "website" | "merch" | "misc";
+
 export interface EventTaskItem {
   id: number;
   task_id: number;
@@ -184,6 +186,7 @@ export interface EventTaskItem {
   assigned_user_id: number | null;
   due_date: string | null;
   status: EventTaskStatus;
+  category: EventTaskCategory | null;
   task_name: string;
   recurring: boolean;
   assigned_user_email: string | null;

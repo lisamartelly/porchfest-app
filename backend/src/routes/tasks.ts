@@ -68,6 +68,10 @@ tasksRouter.post(
     body("due_date").optional({ nullable: true }).isString(),
     body("notes").optional({ nullable: true }).isString(),
     body("status").optional().isIn(["to_do", "in_progress", "blocked", "done"]),
+    body("assigned_user_id").optional({ nullable: true }),
+    body("category")
+      .optional({ nullable: true })
+      .isIn(["vendors", "bands", "porches", "permits", "volunteers", "website", "merch", "misc"]),
   ],
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
@@ -81,7 +85,7 @@ tasksRouter.post(
         return res.status(400).json({ error: "No active event found" });
       }
 
-      const { name, due_date, notes, status } = req.body;
+      const { name, due_date, notes, status, assigned_user_id, category } = req.body;
 
       const task = await db.tasks.create({
         organization_id: activeEvent.organization_id,
@@ -96,6 +100,8 @@ tasksRouter.post(
         notes,
         due_date,
         status,
+        assigned_user_id,
+        category,
       });
 
       const detailed = await db.eventTasks.findById(eventTask.id);
@@ -238,6 +244,9 @@ tasksRouter.post(
     body("assigned_user_id").optional({ nullable: true }),
     body("due_date").optional({ nullable: true }).isString(),
     body("status").optional().isIn(["to_do", "in_progress", "blocked", "done"]),
+    body("category")
+      .optional({ nullable: true })
+      .isIn(["vendors", "bands", "porches", "permits", "volunteers", "website", "merch", "misc"]),
   ],
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
@@ -246,7 +255,7 @@ tasksRouter.post(
     }
 
     try {
-      const { task_id, event_id, name, notes, assigned_user_id, due_date, status } =
+      const { task_id, event_id, name, notes, assigned_user_id, due_date, status, category } =
         req.body;
 
       const existing = await db.eventTasks.findByTaskAndEvent(
@@ -267,6 +276,7 @@ tasksRouter.post(
         assigned_user_id,
         due_date,
         status,
+        category,
       });
 
       const detailed = await db.eventTasks.findById(eventTask.id);
@@ -286,8 +296,16 @@ tasksRouter.patch(
     body("assigned_user_id").optional({ nullable: true }),
     body("due_date").optional({ nullable: true }).isString(),
     body("status").optional().isIn(["to_do", "in_progress", "blocked", "done"]),
+    body("category")
+      .optional({ nullable: true })
+      .isIn(["vendors", "bands", "porches", "permits", "volunteers", "website", "merch", "misc"]),
   ],
   async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
     try {
       const { id } = req.params;
       const updated = await db.eventTasks.update(id, {
@@ -296,6 +314,7 @@ tasksRouter.patch(
         assigned_user_id: req.body.assigned_user_id,
         due_date: req.body.due_date,
         status: req.body.status,
+        category: req.body.category,
       });
       if (!updated) {
         return res.status(404).json({ error: "Event task not found" });
