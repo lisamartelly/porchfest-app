@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../../../lib/api";
 import { formatDate } from "../../../../lib/dateUtils";
 import { useOrgStore } from "../../../../stores/orgStore";
-import { EventTaskItem, EventTaskCategory, AdminUser } from "../../types";
+import { EventTaskItem, EventTaskCategory, EventTaskStatus, AdminUser } from "../../types";
 import FilterPill from "../../../../components/ui/FilterPill";
 import InlineSelect from "../../../../components/ui/InlineSelect";
 import StatusPill, { TASK_STATUSES } from "../../../../components/ui/StatusPill";
@@ -154,7 +154,7 @@ export default function TasksSection() {
     navigate(`/admin/tasks/${eventTask.id}`);
   };
 
-  const handleInlineStatusChange = async (eventTaskId: number, status: string) => {
+  const handleInlineStatusChange = async (eventTaskId: number, status: EventTaskStatus) => {
     try {
       await api.patch(`/api/admin/tasks/event-tasks/${eventTaskId}`, { status });
       setEventTasks((prev) =>
@@ -434,7 +434,7 @@ export default function TasksSection() {
                 { value: "", label: "All Assignees" },
                 { value: "unassigned", label: "Unassigned" },
                 ...assignedUserOptions.map((u) => ({
-                  value: u.id,
+                  value: String(u.id),
                   label: u.label,
                 })),
               ]}
@@ -512,7 +512,7 @@ export default function TasksSection() {
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <StatusPill
                           value={et.status || "to_do"}
-                          onChange={(v) => handleInlineStatusChange(et.id, v)}
+                          onChange={(v) => handleInlineStatusChange(et.id, v as EventTaskStatus)}
                           options={TASK_STATUSES}
                         />
                       </td>

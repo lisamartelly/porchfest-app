@@ -269,10 +269,7 @@ function ThemedPorchCard({ theme }: { theme: ThemeConfig }) {
   const porch = DUMMY_PORCH;
   const scheduledBands = DUMMY_BANDS;
 
-  const eventStartTime = "12:00";
-  const eventEndTime = "18:00";
   const eventStartMinutes = 720;
-  const eventEndMinutes = 1080;
   const totalMinutes = 360;
 
   const hourMarkers = [
