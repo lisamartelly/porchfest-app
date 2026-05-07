@@ -144,6 +144,11 @@ export default function BandLoginPage() {
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-md mx-auto">
         <div className="text-center mb-10">
+          <img
+            src="/logo.png"
+            alt="Porchfest Pal"
+            className="w-28 h-28 mx-auto mb-4 object-contain"
+          />
           <h1 className="text-4xl font-bold text-black mb-3">
             Edit Your Band Info
           </h1>

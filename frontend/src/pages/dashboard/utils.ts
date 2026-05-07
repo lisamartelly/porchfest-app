@@ -15,7 +15,7 @@ export function getStatusStyles(status: string): string {
     case "rejected":
       return "bg-red-100 text-red-700";
     case "under_review":
-      return "bg-blue-100 text-blue-700";
+      return "bg-porch-100 text-porch-700";
     default:
       return "bg-yellow-100 text-yellow-700";
   }
@@ -29,7 +29,7 @@ export function getStatusSelectStyles(status: string): string {
     case "rejected":
       return "bg-red-50 border-red-300 text-red-700";
     case "under_review":
-      return "bg-blue-50 border-blue-300 text-blue-700";
+      return "bg-porch-50 border-porch-300 text-porch-700";
     default:
       return "bg-yellow-50 border-yellow-300 text-yellow-700";
   }

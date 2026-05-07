@@ -25,7 +25,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   to_do: "bg-gray-100 text-gray-700",
-  in_progress: "bg-blue-100 text-blue-700",
+  in_progress: "bg-porch-100 text-porch-700",
   blocked: "bg-amber-100 text-amber-700",
   done: "bg-green-100 text-green-700",
 };

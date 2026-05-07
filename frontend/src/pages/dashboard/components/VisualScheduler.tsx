@@ -58,17 +58,13 @@ const formatTime12Hour = (time24: string): string => {
 // Generate distinct colors for bands
 const BAND_COLORS = [
   { bg: "bg-amber-400", border: "border-amber-500", text: "text-amber-900" },
-  { bg: "bg-emerald-400", border: "border-emerald-500", text: "text-emerald-900" },
-  { bg: "bg-sky-400", border: "border-sky-500", text: "text-sky-900" },
-  { bg: "bg-rose-400", border: "border-rose-500", text: "text-rose-900" },
-  { bg: "bg-violet-400", border: "border-violet-500", text: "text-violet-900" },
   { bg: "bg-orange-400", border: "border-orange-500", text: "text-orange-900" },
-  { bg: "bg-teal-400", border: "border-teal-500", text: "text-teal-900" },
+  { bg: "bg-rose-400", border: "border-rose-500", text: "text-rose-900" },
   { bg: "bg-pink-400", border: "border-pink-500", text: "text-pink-900" },
-  { bg: "bg-lime-400", border: "border-lime-500", text: "text-lime-900" },
-  { bg: "bg-cyan-400", border: "border-cyan-500", text: "text-cyan-900" },
-  { bg: "bg-fuchsia-400", border: "border-fuchsia-500", text: "text-fuchsia-900" },
+  { bg: "bg-red-300", border: "border-red-400", text: "text-red-900" },
   { bg: "bg-yellow-400", border: "border-yellow-500", text: "text-yellow-900" },
+  { bg: "bg-porch-300", border: "border-porch-400", text: "text-porch-900" },
+  { bg: "bg-amber-300", border: "border-amber-400", text: "text-amber-900" },
 ];
 
 export default function VisualScheduler({
@@ -814,7 +810,7 @@ export default function VisualScheduler({
       {/* Stats Footer */}
       <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-600">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+          <div className="w-2 h-2 rounded-full bg-porch-600"></div>
           <span>
             <strong>{availableBands.filter((b) => b.assigned_porch_id).length}</strong> scheduled
           </span>

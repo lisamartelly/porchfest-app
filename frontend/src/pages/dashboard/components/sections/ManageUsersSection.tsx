@@ -19,8 +19,8 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  owner: "bg-purple-100 text-purple-700",
-  organizer: "bg-blue-100 text-blue-700",
+  owner: "bg-porch-100 text-porch-700",
+  organizer: "bg-orange-100 text-orange-700",
   reviewer: "bg-amber-100 text-amber-700",
 };
 
