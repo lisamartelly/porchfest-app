@@ -169,15 +169,15 @@ export default function BandCard({
                           onClick={() => setShowPhoto(false)}
                           className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
                         >
-                          ✕
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                         </button>
                       </div>
                     </div>
                   )}
                 </>
               ) : (
-                <div className="w-14 h-14 rounded-lg bg-gray-100 ring-2 ring-gray-200 flex items-center justify-center text-gray-400 text-xl">
-                  🎵
+                <div className="w-14 h-14 rounded-lg bg-porch-50 ring-2 ring-porch-200 flex items-center justify-center text-porch-400">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" /></svg>
                 </div>
               )}
             </div>
@@ -188,28 +188,30 @@ export default function BandCard({
                 <h3 className="font-semibold text-lg text-gray-900">
                   {band.band_name}
                 </h3>
-                <span className="text-xs font-medium text-purple-700 bg-purple-100 px-2.5 py-1 rounded-md border border-purple-200">
+                <span className="text-xs font-medium text-porch-700 bg-porch-100 px-2.5 py-1 rounded-md border border-porch-200">
                   {band.genre}
                 </span>
               </div>
 
               <div className="flex flex-wrap gap-4 text-sm text-gray-500 mb-2">
-                <span>👤 {band.contact_name}</span>
-                <a href={`mailto:${band.contact_email}`} className="hover:text-porch-600 transition-colors">
-                  📧 {band.contact_email}
+                <span className="inline-flex items-center gap-1"><PersonIcon /> {band.contact_name}</span>
+                <a href={`mailto:${band.contact_email}`} className="hover:text-porch-600 transition-colors inline-flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" /></svg>
+                  {band.contact_email}
                 </a>
-                <a href={`tel:${band.contact_phone}`} className="hover:text-porch-600 transition-colors">
-                  📱 {band.contact_phone}
+                <a href={`tel:${band.contact_phone}`} className="hover:text-porch-600 transition-colors inline-flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" /></svg>
+                  {band.contact_phone}
                 </a>
               </div>
               <div className="flex flex-wrap gap-4 text-sm text-gray-500 mb-3">
-                <span>👥 {band.member_count} members</span>
-                <span>⏱️ {band.set_length}</span>
+                <span className="inline-flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" /></svg> {band.member_count} members</span>
+                <span className="inline-flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg> {band.set_length}</span>
               </div>
 
               {band.assigned_porch_id && band.set_start_time && (
                 <div className="flex items-center gap-2 text-sm bg-porch-50 text-porch-700 px-3 py-2 rounded-lg mb-3 w-fit">
-                  <span>📍 {getPorchAddress(band.assigned_porch_id)}</span>
+                  <span className="inline-flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg> {getPorchAddress(band.assigned_porch_id)}</span>
                   <span>•</span>
                   <span>
                     {formatTime(band.set_start_time)} -{" "}
@@ -234,7 +236,7 @@ export default function BandCard({
                     href={band.instagram}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-purple-100 to-pink-100 text-pink-600 hover:from-purple-200 hover:to-pink-200 transition-colors"
+                    className="flex items-center justify-center w-9 h-9 rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200 hover:text-rose-700 transition-colors"
                     title="Instagram"
                   >
                     <InstagramIcon />
@@ -267,7 +269,7 @@ export default function BandCard({
                     href={band.bandcamp}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center w-9 h-9 rounded-full bg-cyan-100 text-cyan-600 hover:bg-cyan-200 hover:text-cyan-700 transition-colors"
+                    className="flex items-center justify-center w-9 h-9 rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 hover:text-amber-700 transition-colors"
                     title="Bandcamp"
                   >
                     <BandcampIcon />
@@ -278,7 +280,7 @@ export default function BandCard({
                     href={band.facebook}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 transition-colors"
+                    className="flex items-center justify-center w-9 h-9 rounded-full bg-porch-100 text-porch-600 hover:bg-porch-200 hover:text-porch-700 transition-colors"
                     title="Facebook"
                   >
                     <FacebookIcon />
@@ -308,7 +310,7 @@ export default function BandCard({
             {/* Reviewer Info - Top Right */}
             {showReviewerInfo && band.assigned_reviewer_email && (
               <div className="flex flex-col items-end gap-2">
-                <div className="flex items-center gap-1.5 text-sm bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg">
+                <div className="flex items-center gap-1.5 text-sm bg-porch-50 text-porch-700 px-3 py-1.5 rounded-lg">
                   <PersonIcon />
                   <span className="font-medium">
                     {band.assigned_reviewer_email.split("@")[0]}
@@ -337,7 +339,7 @@ export default function BandCard({
                     onClick={() => setReviewExpanded(!reviewExpanded)}
                     className="flex items-center gap-1.5 text-sm bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
                   >
-                    <span>📝</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                     <span>{reviewExpanded ? "Hide Notes" : "Show Notes"}</span>
                   </button>
                 )}
@@ -356,8 +358,9 @@ export default function BandCard({
           <div className="mt-4 pt-4 border-t border-gray-100">
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
               <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-2">
-                📝 Reviewer Notes
-                <span className="text-indigo-600 font-normal normal-case">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                Reviewer Notes
+                <span className="text-porch-600 font-normal normal-case">
                   ({band.assigned_reviewer_email?.split("@")[0]})
                 </span>
               </h4>
@@ -401,7 +404,7 @@ export default function BandCard({
                     <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">
                       Questions/Comments
                     </h4>
-                    <p className="text-sm text-gray-700 bg-blue-50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-700 bg-porch-50 p-3 rounded-lg">
                       {band.questions_comments}
                     </p>
                   </div>
@@ -413,7 +416,8 @@ export default function BandCard({
             {canEditReview && onReviewUpdate && (
               <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
                 <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  ⭐ Your Review
+                  <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>
+                  Your Review
                 </h4>
                 
                 {/* Star Rating */}
@@ -485,7 +489,8 @@ export default function BandCard({
             {band.status === "approved" && (
               <div className="bg-porch-50 p-4 rounded-lg border border-porch-200">
                 <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  📅 Schedule Performance
+                  <svg className="w-5 h-5 text-porch-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>
+                  Schedule Performance
                 </h4>
 
                 {schedulingError && (

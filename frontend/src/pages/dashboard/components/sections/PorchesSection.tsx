@@ -8,6 +8,7 @@ import {
   PorchSortOption,
 } from "../../types";
 import PorchCard from "../PorchCard";
+import FilterPill from "../../../../components/ui/FilterPill";
 
 interface PorchesSectionProps {
   porches: PorchApplication[];
@@ -90,44 +91,39 @@ export default function PorchesSection({
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <select
+      <div className="mb-6">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <FilterPill
             value={filter}
-            onChange={(e) => setFilter(e.target.value as FilterStatus)}
-            className="input-field w-full lg:w-48"
-          >
-            <option value="all">All Status ({porches.length})</option>
-            <option value="pending">
-              Pending ({porches.filter((p) => p.status === "pending").length})
-            </option>
-            <option value="under_review">
-              Under Review (
-              {porches.filter((p) => p.status === "under_review").length})
-            </option>
-            <option value="approved">
-              Approved ({porches.filter((p) => p.status === "approved").length})
-            </option>
-            <option value="rejected">
-              Rejected ({porches.filter((p) => p.status === "rejected").length})
-            </option>
-          </select>
+            onChange={(v) => setFilter(v as FilterStatus)}
+            placeholder="All Status"
+            color="porch"
+            options={[
+              { value: "all", label: `All Status (${porches.length})` },
+              { value: "pending", label: `Pending (${porches.filter((p) => p.status === "pending").length})` },
+              { value: "under_review", label: `Under Review (${porches.filter((p) => p.status === "under_review").length})` },
+              { value: "approved", label: `Approved (${porches.filter((p) => p.status === "approved").length})` },
+              { value: "rejected", label: `Rejected (${porches.filter((p) => p.status === "rejected").length})` },
+            ]}
+          />
 
-          <select
+          <FilterPill
             value={porchSort}
-            onChange={(e) => setPorchSort(e.target.value as PorchSortOption)}
-            className="input-field w-full lg:w-56"
-          >
-            <option value="address">Sort: Street Name & Number</option>
-            <option value="owner_name">Sort: Owner Name (A-Z)</option>
-            <option value="status">Sort: Status</option>
-            <option value="created_at">Sort: Newest First</option>
-          </select>
+            onChange={(v) => setPorchSort(v as PorchSortOption)}
+            placeholder="Sort"
+            color="amber"
+            options={[
+              { value: "address", label: "Street Name & Number" },
+              { value: "owner_name", label: "Owner Name (A-Z)" },
+              { value: "status", label: "Status" },
+              { value: "created_at", label: "Newest First" },
+            ]}
+          />
         </div>
 
-        <div className="mt-3 text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           Showing {filteredAndSortedPorches.length} of {porches.length} porches
-        </div>
+        </p>
       </div>
 
       {filteredAndSortedPorches.length === 0 ? (

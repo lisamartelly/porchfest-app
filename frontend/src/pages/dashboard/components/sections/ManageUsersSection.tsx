@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "../../../../lib/api";
 import { formatDate } from "../../../../lib/dateUtils";
 import { useOrgStore } from "../../../../stores/orgStore";
+import InlineSelect from "../../../../components/ui/InlineSelect";
 
 interface OrgUser {
   id: number;
@@ -19,8 +20,8 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  owner: "bg-purple-100 text-purple-700",
-  organizer: "bg-blue-100 text-blue-700",
+  owner: "bg-porch-100 text-porch-700",
+  organizer: "bg-orange-100 text-orange-700",
   reviewer: "bg-amber-100 text-amber-700",
 };
 
@@ -223,22 +224,16 @@ export default function ManageUsersSection() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Role *
-            </label>
-            <select
-              value={newUserForm.org_role}
-              onChange={(e) =>
-                setNewUserForm({ ...newUserForm, org_role: e.target.value })
-              }
-              className="input-field max-w-xs"
-            >
-              <option value="owner">Owner</option>
-              <option value="organizer">Organizer</option>
-              <option value="reviewer">Reviewer</option>
-            </select>
-          </div>
+          <InlineSelect
+            label="Role *"
+            value={newUserForm.org_role}
+            onChange={(v) => setNewUserForm({ ...newUserForm, org_role: v })}
+            options={[
+              { value: "owner", label: "Owner" },
+              { value: "organizer", label: "Organizer" },
+              { value: "reviewer", label: "Reviewer" },
+            ]}
+          />
 
           <button
             type="submit"
@@ -331,22 +326,17 @@ export default function ManageUsersSection() {
                                 className="input-field text-sm"
                               />
                             </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">
-                                Role
-                              </label>
-                              <select
-                                value={editForm.org_role}
-                                onChange={(e) =>
-                                  setEditForm({ ...editForm, org_role: e.target.value })
-                                }
-                                className="input-field text-sm"
-                              >
-                                <option value="owner">Owner</option>
-                                <option value="organizer">Organizer</option>
-                                <option value="reviewer">Reviewer</option>
-                              </select>
-                            </div>
+                            <InlineSelect
+                              label="Role"
+                              value={editForm.org_role}
+                              onChange={(v) => setEditForm({ ...editForm, org_role: v })}
+                              size="sm"
+                              options={[
+                                { value: "owner", label: "Owner" },
+                                { value: "organizer", label: "Organizer" },
+                                { value: "reviewer", label: "Reviewer" },
+                              ]}
+                            />
                           </div>
                           <div className="mb-3 max-w-sm">
                             <label className="block text-xs font-medium text-gray-500 mb-1">

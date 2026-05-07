@@ -20,7 +20,7 @@ export default function SchedulerSection({
   onScheduleBand,
 }: SchedulerSectionProps) {
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-md p-6">
       {approvedPorches.length === 0 ? (
         <div className="p-8 text-center text-gray-500">
           No approved porches available. Approve some porches first to start

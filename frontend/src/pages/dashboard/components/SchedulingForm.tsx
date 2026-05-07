@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BandApplication, PorchApplication } from "../types";
 import TimeSelect from "./TimeSelect";
+import InlineSelect from "../../../components/ui/InlineSelect";
 
 interface SchedulingFormProps {
   band: BandApplication;
@@ -55,23 +56,19 @@ export default function SchedulingForm({
 
   return (
     <div className="grid md:grid-cols-4 gap-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Porch
-        </label>
-        <select
-          value={porchId}
-          onChange={(e) => setPorchId(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500"
-        >
-          <option value="">Select a porch...</option>
-          {approvedPorches.map((porch) => (
-            <option key={porch.id} value={porch.id}>
-              {porch.address} ({porch.capacity || "?"} capacity)
-            </option>
-          ))}
-        </select>
-      </div>
+      <InlineSelect
+        label="Porch"
+        value={porchId}
+        onChange={setPorchId}
+        placeholder="Select a porch..."
+        options={[
+          { value: "", label: "Select a porch..." },
+          ...approvedPorches.map((porch) => ({
+            value: String(porch.id),
+            label: `${porch.address} (${porch.capacity || "?"} capacity)`,
+          })),
+        ]}
+      />
 
       <TimeSelect
         label="Start Time"
