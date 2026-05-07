@@ -350,7 +350,7 @@ export default function VisualScheduler({
 
       setPickerPosition({
         left: Math.min(startX, gridRect.width - 320),
-        top: Math.min(centerY + 20, gridRect.height - 350),
+        top: centerY + 20,
       });
     }
   }, [showBandPicker, selection, groupedPorches]);
