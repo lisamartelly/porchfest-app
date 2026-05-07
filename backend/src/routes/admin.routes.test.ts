@@ -1061,6 +1061,28 @@ describe("adminRouter", () => {
     expect(response.body.message).toContain("Successfully assigned 2 bands");
   });
 
+  it("succeeds even when sending reviewer email fails", async () => {
+    mocks.eventsFindActive.mockResolvedValue({ id: 55, name: "Fest 2026" });
+    mocks.bandsFindByEventId
+      .mockResolvedValueOnce([{ id: 1, assigned_reviewer_id: null }])
+      .mockResolvedValueOnce([{ id: 1, assigned_reviewer_id: 10 }]);
+    mocks.bandsAssignReviewer.mockResolvedValue(undefined);
+    mocks.usersFindById.mockResolvedValue({ id: 10, email: "rev@example.com", first_name: "Rev" });
+    mocks.sendReviewerAssignmentEmail.mockRejectedValue(new Error("smtp down"));
+    const app = buildApp();
+
+    const response = await request(app)
+      .post("/api/admin/bands/assign-reviewers")
+      .set("x-role", "super-duper-admin")
+      .send({ userIds: [10], sendEmail: true });
+
+    expect(response.status).toBe(200);
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error), userId: 10 }),
+      "Failed to send reviewer assignment email"
+    );
+  });
+
   it("updates band review", async () => {
     mocks.bandsUpdateReview.mockResolvedValue({ id: 8, reviewer_rating: 5 });
     const app = buildApp();

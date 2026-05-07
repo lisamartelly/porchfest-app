@@ -145,6 +145,7 @@ export default function AdminDashboard() {
           { status },
         );
         setBands((prev) => prev.map((b) => (b.id === bandId ? updatedBand : b)));
+        setMyReviewBands((prev) => prev.map((b) => (b.id === bandId ? updatedBand : b)));
       } catch (error) {
         console.error("Error updating band status:", error);
       }
@@ -197,6 +198,9 @@ export default function AdminDashboard() {
           { assigned_porch_id, set_start_time, set_end_time },
         );
         setBands((prev) =>
+          prev.map((b) => (b.id === bandId ? updatedBand : b)),
+        );
+        setMyReviewBands((prev) =>
           prev.map((b) => (b.id === bandId ? updatedBand : b)),
         );
       } catch (error: unknown) {

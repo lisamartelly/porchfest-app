@@ -379,6 +379,80 @@ export default function BandCard({
           </div>
         )}
 
+        {/* Review Section for My Reviews - always visible */}
+        {canEditReview && onReviewUpdate && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                ⭐ Your Review
+              </h4>
+              
+              {/* Star Rating */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rating
+                </label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setLocalRating(star)}
+                      className={`text-3xl transition-colors ${
+                        star <= (localRating || 0)
+                          ? "text-amber-500 hover:text-amber-600"
+                          : "text-gray-300 hover:text-gray-400"
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  {localRating && (
+                    <button
+                      type="button"
+                      onClick={() => setLocalRating(null)}
+                      className="ml-2 text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={localNotes}
+                  onChange={(e) => setLocalNotes(e.target.value)}
+                  placeholder="Add your notes about this band..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  rows={3}
+                />
+              </div>
+
+              {/* Save Button */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setSavingReview(true);
+                  try {
+                    await onReviewUpdate(band.id, localRating, localNotes || null);
+                  } finally {
+                    setSavingReview(false);
+                  }
+                }}
+                disabled={savingReview}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                {savingReview ? "Saving..." : "Save Review"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Collapsible Extra Details */}
         {expanded && (
           <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
@@ -417,78 +491,6 @@ export default function BandCard({
                     </p>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Review Section for My Reviews */}
-            {canEditReview && onReviewUpdate && (
-              <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
-                <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  ⭐ Your Review
-                </h4>
-                
-                {/* Star Rating */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rating
-                  </label>
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setLocalRating(star)}
-                        className={`text-3xl transition-colors ${
-                          star <= (localRating || 0)
-                            ? "text-amber-500 hover:text-amber-600"
-                            : "text-gray-300 hover:text-gray-400"
-                        }`}
-                      >
-                        ★
-                      </button>
-                    ))}
-                    {localRating && (
-                      <button
-                        type="button"
-                        onClick={() => setLocalRating(null)}
-                        className="ml-2 text-xs text-gray-500 hover:text-gray-700"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Notes */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Notes
-                  </label>
-                  <textarea
-                    value={localNotes}
-                    onChange={(e) => setLocalNotes(e.target.value)}
-                    placeholder="Add your notes about this band..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                    rows={3}
-                  />
-                </div>
-
-                {/* Save Button */}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setSavingReview(true);
-                    try {
-                      await onReviewUpdate(band.id, localRating, localNotes || null);
-                    } finally {
-                      setSavingReview(false);
-                    }
-                  }}
-                  disabled={savingReview}
-                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50"
-                >
-                  {savingReview ? "Saving..." : "Save Review"}
-                </button>
               </div>
             )}
 
