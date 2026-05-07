@@ -3,15 +3,24 @@ import { Outlet, Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useOrgStore } from "../../stores/orgStore";
 import ChangePasswordModal from "../ChangePasswordModal";
+import InlineSelect from "../ui/InlineSelect";
 
 interface NavItem {
   to: string;
   section: string;
   label: string;
-  icon: string;
+  icon: React.ReactNode;
   superDuperAdminOnly?: boolean;
   ownerOnly?: boolean;
   organizerOnly?: boolean;
+}
+
+function NavIcon({ d }: { d: string }) {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+    </svg>
+  );
 }
 
 const SIDEBAR_KEY = "sidebar_collapsed";
@@ -51,16 +60,16 @@ export default function DashboardLayout() {
   };
 
   const navItems: NavItem[] = [
-    { to: "/admin", section: "overview", label: "Overview", icon: "🏠", organizerOnly: true },
-    { to: "/admin?section=bands", section: "bands", label: "Bands", icon: "🎸", organizerOnly: true },
-    { to: "/admin?section=porches", section: "porches", label: "Porches", icon: "🏡", organizerOnly: true },
-    { to: "/admin?section=assignments", section: "assignments", label: "Assignments", icon: "👥", organizerOnly: true },
-    { to: "/admin?section=my-reviews", section: "my-reviews", label: "My Reviews", icon: "⭐" },
-    { to: "/admin?section=scheduler", section: "scheduler", label: "Scheduler", icon: "📅", organizerOnly: true },
-    { to: "/admin?section=events", section: "events", label: "Events", icon: "🗓️", organizerOnly: true },
-    { to: "/admin?section=tasks", section: "tasks", label: "Tasks", icon: "✅", organizerOnly: true },
-    { to: "/admin?section=organizations", section: "organizations", label: "Organizations", icon: "🏢", superDuperAdminOnly: true },
-    { to: "/admin?section=manage-users", section: "manage-users", label: "Manage Users", icon: "👤", ownerOnly: true },
+    { to: "/admin", section: "overview", label: "Overview", icon: <NavIcon d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />, organizerOnly: true },
+    { to: "/admin?section=bands", section: "bands", label: "Bands", icon: <NavIcon d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />, organizerOnly: true },
+    { to: "/admin?section=porches", section: "porches", label: "Porches", icon: <NavIcon d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205 3 1m1.5.5-1.5-.5M6.75 7.364V3h-3v18m3-13.636 10.5-3.819" />, organizerOnly: true },
+    { to: "/admin?section=assignments", section: "assignments", label: "Assignments", icon: <NavIcon d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />, organizerOnly: true },
+    { to: "/admin?section=my-reviews", section: "my-reviews", label: "My Reviews", icon: <NavIcon d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /> },
+    { to: "/admin?section=scheduler", section: "scheduler", label: "Scheduler", icon: <NavIcon d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />, organizerOnly: true },
+    { to: "/admin?section=events", section: "events", label: "Events", icon: <NavIcon d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />, organizerOnly: true },
+    { to: "/admin?section=tasks", section: "tasks", label: "Tasks", icon: <NavIcon d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />, organizerOnly: true },
+    { to: "/admin?section=organizations", section: "organizations", label: "Organizations", icon: <NavIcon d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />, superDuperAdminOnly: true },
+    { to: "/admin?section=manage-users", section: "manage-users", label: "Manage Users", icon: <NavIcon d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />, ownerOnly: true },
   ];
 
   const visibleNavItems = navItems.filter((item) => {
@@ -86,24 +95,27 @@ export default function DashboardLayout() {
         className={`${sidebarWidth} bg-white border-r border-gray-200 fixed h-full flex flex-col transition-all duration-200`}
       >
         {/* Header */}
-        <div className="p-4 flex items-center justify-between flex-shrink-0">
-          <Link to="/admin" className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 bg-gradient-to-br from-porch-500 to-porch-700 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-base">🎵</span>
-            </div>
-            {!collapsed && (
-              <span className="text-lg font-bold text-porch-800 truncate">
-                Porchfest
-              </span>
+        <div className="p-4 flex flex-col items-stretch flex-shrink-0">
+          <div className="flex items-start justify-between">
+            <Link to="/admin" className="flex-1 min-w-0">
+              <img
+                src="/logo.png"
+                alt="Porchfest Pal"
+                className={`object-contain ${collapsed ? "w-10 h-10" : "w-full"}`}
+              />
+            </Link>
+            <button
+              onClick={toggleCollapse}
+              className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors flex-shrink-0 ml-1"
+              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+            {collapsed ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
             )}
-          </Link>
-          <button
-            onClick={toggleCollapse}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors flex-shrink-0"
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? "»" : "«"}
-          </button>
+            </button>
+          </div>
         </div>
 
         {/* Org switcher */}
@@ -119,22 +131,16 @@ export default function DashboardLayout() {
                 </p>
               </div>
             ) : (
-              <div>
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
-                  Organization
-                </label>
-                <select
-                  value={activeOrgId ?? ""}
-                  onChange={(e) => setActiveOrg(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm font-medium text-porch-800 bg-porch-50 border border-porch-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-porch-500 cursor-pointer"
-                >
-                  {organizations.map((org) => (
-                    <option key={org.id} value={org.id}>
-                      {org.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <InlineSelect
+                label="Organization"
+                value={String(activeOrgId ?? "")}
+                onChange={(v) => setActiveOrg(Number(v))}
+                className="w-full"
+                options={organizations.map((org) => ({
+                  value: String(org.id),
+                  label: org.name,
+                }))}
+              />
             )}
           </div>
         )}
@@ -183,9 +189,9 @@ export default function DashboardLayout() {
                   signOut();
                 }}
                 title="Sign Out"
-                className="p-1.5 text-gray-400 hover:text-gray-600 rounded transition-colors text-xs"
+                className="p-1.5 text-gray-400 hover:text-gray-600 rounded transition-colors"
               >
-                ↩
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>
               </button>
             </div>
           ) : (

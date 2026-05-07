@@ -12,6 +12,7 @@ import LoginPage from "./pages/auth/LoginPage";
 
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
 import TaskDetailPage from "./pages/dashboard/TaskDetailPage";
+import ThemePreviewPage from "./pages/ThemePreviewPage";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -41,6 +42,7 @@ function App() {
       <Route path="/band-login/:slug" element={<BandLoginPage />} />
       <Route path="/band-edit" element={<BandEditPage />} />
       <Route path="/porchapplication/:slug" element={<PorchApplyPage />} />
+      <Route path="/theme-preview" element={<ThemePreviewPage />} />
 
       <Route
         element={

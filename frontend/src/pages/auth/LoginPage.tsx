@@ -29,10 +29,15 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <img
+            src="/logo.png"
+            alt="Porchfest Pal"
+            className="w-32 h-32 mx-auto mb-4 object-contain"
+          />
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Admin Login
           </h1>
-          <p className="text-gray-600">Sign in to manage Porchfest</p>
+          <p className="text-gray-600">Sign in to manage your Porchfest</p>
         </div>
 
         <div className="card p-8">
