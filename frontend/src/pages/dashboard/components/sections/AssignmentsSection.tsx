@@ -36,6 +36,8 @@ export default function AssignmentsSection({
   const [sendEmail, setSendEmail] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const fetchOrgUsers = useCallback(async () => {
     if (!activeOrgId) return;
@@ -77,6 +79,8 @@ export default function AssignmentsSection({
   const assignReviewers = async () => {
     if (selectedUserIds.size === 0) return;
     setAssigning(true);
+    setError(null);
+    setSuccessMessage(null);
     try {
       const result = await api.post(`/api/admin/bands/assign-reviewers${orgQuery}`, {
         userIds: [...selectedUserIds],
@@ -86,8 +90,10 @@ export default function AssignmentsSection({
 
       const reviewerData = await api.get(`/api/admin/reviewers${orgQuery}`);
       onReviewersUpdate(reviewerData || []);
-    } catch (error) {
-      console.error("Error assigning reviewers:", error);
+      setSuccessMessage(result.message || "Reviewers assigned successfully.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to assign reviewers. Please try again.";
+      setError(message);
     } finally {
       setAssigning(false);
     }
@@ -184,6 +190,20 @@ export default function AssignmentsSection({
           </>
         )}
 
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="ml-3 text-red-500 hover:text-red-700 font-medium">✕</button>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm flex items-center justify-between">
+            <span>{successMessage}</span>
+            <button onClick={() => setSuccessMessage(null)} className="ml-3 text-green-500 hover:text-green-700 font-medium">✕</button>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <button
@@ -243,11 +263,15 @@ export default function AssignmentsSection({
                   </p>
                   <p className="text-sm text-gray-500 truncate">{reviewer.email}</p>
                   <div className="mt-2 flex items-center gap-2 text-sm">
-                    <span className="bg-porch-100 text-porch-700 px-2 py-0.5 rounded">
-                      {assignedBands.length} bands
+                    <span className="bg-porch-100 text-porch-700 px-2.5 py-0.5 rounded-md font-medium">
+                      {assignedBands.length} {assignedBands.length === 1 ? "band" : "bands"}
                     </span>
-                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                      {reviewedCount} reviewed
+                    <span className={`px-2.5 py-0.5 rounded-md font-medium ${
+                      reviewedCount === assignedBands.length && assignedBands.length > 0
+                        ? "bg-green-100 text-green-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}>
+                      {reviewedCount}/{assignedBands.length} reviewed
                     </span>
                   </div>
                 </div>

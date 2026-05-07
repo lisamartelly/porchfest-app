@@ -1004,6 +1004,22 @@ describe("adminRouter", () => {
     expect(response.body).toEqual({ error: "Not a member of this organization" });
   });
 
+  it("returns 400 when assigning reviewers with non-org-member userIds", async () => {
+    mocks.findByUserAndOrg
+      .mockResolvedValueOnce({ user_id: 1, organization_id: 9 })
+      .mockResolvedValueOnce(null);
+    mocks.eventsFindActiveByOrganizationId.mockResolvedValue({ id: 55, name: "Fest" });
+    const app = buildApp();
+
+    const response = await request(app)
+      .post("/api/admin/bands/assign-reviewers?org_id=9")
+      .set("x-role", "user")
+      .send({ userIds: [999] });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: "User 999 is not a member of this organization" });
+  });
+
   it("returns 400 when assigning reviewers with no unassigned bands", async () => {
     mocks.eventsFindActive.mockResolvedValue({ id: 55, name: "Fest" });
     mocks.bandsFindByEventId.mockResolvedValue([
@@ -1083,13 +1099,15 @@ describe("adminRouter", () => {
     );
   });
 
-  it("updates band review", async () => {
+  it("updates band review when user is the assigned reviewer", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 8, assigned_reviewer_id: 1 });
     mocks.bandsUpdateReview.mockResolvedValue({ id: 8, reviewer_rating: 5 });
     const app = buildApp();
 
     const response = await request(app)
       .patch("/api/admin/bands/8/review")
       .set("x-role", "user")
+      .set("x-user-id", "1")
       .send({ reviewer_rating: 5, reviewer_notes: "Strong fit" });
 
     expect(response.status).toBe(200);
@@ -1098,6 +1116,34 @@ describe("adminRouter", () => {
       reviewer_rating: 5,
       reviewer_notes: "Strong fit",
     });
+  });
+
+  it("returns 403 when user is not the assigned reviewer", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 8, assigned_reviewer_id: 99 });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/8/review")
+      .set("x-role", "user")
+      .set("x-user-id", "1")
+      .send({ reviewer_rating: 5, reviewer_notes: "Strong fit" });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "You are not the assigned reviewer for this band" });
+  });
+
+  it("allows super-duper-admin to update any band review", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 8, assigned_reviewer_id: 99 });
+    mocks.bandsUpdateReview.mockResolvedValue({ id: 8, reviewer_rating: 5 });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/8/review")
+      .set("x-role", "super-duper-admin")
+      .send({ reviewer_rating: 5, reviewer_notes: "Admin override" });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ id: 8, reviewer_rating: 5 });
   });
 
   it("returns validation errors for invalid band review payload", async () => {
@@ -1113,7 +1159,7 @@ describe("adminRouter", () => {
   });
 
   it("returns 404 when updating missing band review", async () => {
-    mocks.bandsUpdateReview.mockResolvedValue(null);
+    mocks.bandsFindById.mockResolvedValue(null);
     const app = buildApp();
 
     const response = await request(app)
@@ -1126,12 +1172,14 @@ describe("adminRouter", () => {
   });
 
   it("handles band review update failures", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 404, assigned_reviewer_id: 1 });
     mocks.bandsUpdateReview.mockRejectedValue(new Error("db down"));
     const app = buildApp();
 
     const response = await request(app)
       .patch("/api/admin/bands/404/review")
       .set("x-role", "user")
+      .set("x-user-id", "1")
       .send({ reviewer_rating: 4 });
 
     expect(response.status).toBe(500);

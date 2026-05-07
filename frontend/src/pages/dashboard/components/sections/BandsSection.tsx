@@ -224,7 +224,7 @@ export default function BandsSection({
                 onClick={() => setBandSearch("")}
                 className="block mx-auto mt-2 text-porch-600 hover:text-porch-700 font-medium"
               >
-                Clear search fimg
+                Clear search
               </button>
             </>
           ) : (

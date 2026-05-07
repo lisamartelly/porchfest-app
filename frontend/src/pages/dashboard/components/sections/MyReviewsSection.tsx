@@ -3,6 +3,7 @@ import {
   PorchApplication,
   EventSettings,
   Status,
+  ReviewerUser,
 } from "../../types";
 import BandCard from "../BandCard";
 
@@ -12,6 +13,7 @@ interface MyReviewsSectionProps {
   eventSettings: EventSettings | null;
   schedulingError: string | null;
   currentUserId?: number;
+  reviewerUsers: ReviewerUser[];
   onStatusChange: (bandId: number, status: Status) => Promise<void>;
   onSchedule: (
     bandId: number,
@@ -33,6 +35,7 @@ export default function MyReviewsSection({
   eventSettings,
   schedulingError,
   currentUserId,
+  reviewerUsers,
   onStatusChange,
   onSchedule,
   getPorchAddress,
@@ -66,6 +69,7 @@ export default function MyReviewsSection({
           getPorchAddress={getPorchAddress}
           schedulingError={schedulingError}
           showReviewerInfo={true}
+          reviewerUsers={reviewerUsers}
           onReviewUpdate={onReviewUpdate}
           isMyReview={true}
           currentUserId={currentUserId}

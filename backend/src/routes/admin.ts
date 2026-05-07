@@ -901,6 +901,21 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
       return res.status(404).json({ error: "No active event found" });
     }
 
+    const normalizedUserIds = (userIds as unknown[]).map((id) => Number(id));
+    if (normalizedUserIds.some((id) => isNaN(id))) {
+      return res.status(400).json({ error: "All userIds must be valid numbers" });
+    }
+
+    if (org_id) {
+      const orgIdNum = Number(org_id);
+      for (const uid of normalizedUserIds) {
+        const membership = await db.organizationUsers.findByUserAndOrg(uid, orgIdNum);
+        if (!membership) {
+          return res.status(400).json({ error: `User ${uid} is not a member of this organization` });
+        }
+      }
+    }
+
     const allBands = await db.bands.findByEventId(activeEvent.id);
     const unassignedBands = allBands.filter((b) => b.assigned_reviewer_id == null);
     if (unassignedBands.length === 0) {
@@ -911,14 +926,14 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
 
     for (let i = 0; i < shuffledBands.length; i++) {
       const band = shuffledBands[i];
-      const reviewerIndex = i % userIds.length;
-      await db.bands.assignReviewer(band.id, userIds[reviewerIndex]);
+      const reviewerIndex = i % normalizedUserIds.length;
+      await db.bands.assignReviewer(band.id, normalizedUserIds[reviewerIndex]);
     }
 
     const updatedBands = await db.bands.findByEventId(activeEvent.id);
 
     if (sendEmail) {
-      const newlyAssignedUserIds = new Set(userIds as number[]);
+      const newlyAssignedUserIds = new Set(normalizedUserIds);
       const bandCountByUser = new Map<number, number>();
       for (const band of updatedBands) {
         if (band.assigned_reviewer_id != null && newlyAssignedUserIds.has(band.assigned_reviewer_id)) {
@@ -943,7 +958,7 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
     }
 
     res.json({
-      message: `Successfully assigned ${unassignedBands.length} bands to ${userIds.length} reviewers`,
+      message: `Successfully assigned ${unassignedBands.length} bands to ${normalizedUserIds.length} reviewers`,
       bands: updatedBands,
     });
   } catch (error) {
@@ -971,16 +986,21 @@ adminRouter.patch(
       const { id } = req.params;
       const { reviewer_rating, reviewer_notes } = req.body;
 
-      const band = await db.bands.updateReview(id, {
-        reviewer_rating,
-        reviewer_notes,
-      });
-
+      const band = await db.bands.findById(id);
       if (!band) {
         return res.status(404).json({ error: "Band not found" });
       }
 
-      res.json(band);
+      if (band.assigned_reviewer_id !== req.user?.id && req.user?.role !== "super-duper-admin") {
+        return res.status(403).json({ error: "You are not the assigned reviewer for this band" });
+      }
+
+      const updatedBand = await db.bands.updateReview(id, {
+        reviewer_rating,
+        reviewer_notes,
+      });
+
+      res.json(updatedBand);
     } catch (error) {
       logger.error({ err: error }, "Error updating band review");
       res.status(500).json({ error: "Failed to update band review" });

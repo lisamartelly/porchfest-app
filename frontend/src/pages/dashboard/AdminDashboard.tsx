@@ -321,6 +321,7 @@ export default function AdminDashboard() {
             eventSettings={eventSettings}
             schedulingError={schedulingError}
             currentUserId={user?.id}
+            reviewerUsers={reviewers}
             onStatusChange={updateBandStatus}
             onSchedule={scheduleBand}
             getPorchAddress={getPorchAddress}
