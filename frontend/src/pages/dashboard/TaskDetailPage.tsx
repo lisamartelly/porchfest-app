@@ -6,11 +6,12 @@ import { useAuthStore } from "../../stores/authStore";
 import { useOrgStore } from "../../stores/orgStore";
 import {
   EventTaskItem,
-  EventTaskStatus,
   EventTaskCategory,
   TaskContact,
   AdminUser,
 } from "./types";
+import InlineSelect from "../../components/ui/InlineSelect";
+import StatusPill, { TASK_STATUSES } from "../../components/ui/StatusPill";
 
 interface TaskDetailResponse extends EventTaskItem {
   history: Array<EventTaskItem & { event_name?: string; event_date?: string }>;
@@ -30,7 +31,6 @@ const STATUS_COLORS: Record<string, string> = {
   done: "bg-green-100 text-green-700",
 };
 
-const STATUSES: EventTaskStatus[] = ["to_do", "in_progress", "blocked", "done"];
 
 const CATEGORIES: EventTaskCategory[] = [
   "vendors", "bands", "porches", "permits", "volunteers", "website", "merch", "misc",
@@ -290,20 +290,15 @@ export default function TaskDetailPage() {
 
         <div className="grid md:grid-cols-3 gap-4 mb-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
               Status
             </label>
-            <select
+            <StatusPill
               value={taskDetail.status}
-              onChange={(e) => patchField({ status: e.target.value })}
-              className="input-field"
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => patchField({ status: v })}
+              options={TASK_STATUSES}
+              size="md"
+            />
           </div>
           <div className="flex items-end pb-2">
             <label className="flex items-center gap-2 cursor-pointer">
@@ -318,31 +313,25 @@ export default function TaskDetailPage() {
               </span>
             </label>
           </div>
+          <InlineSelect
+            label="Assigned To"
+            value={String(taskDetail.assigned_user_id || "")}
+            onChange={(v) =>
+              patchField({
+                assigned_user_id: v ? Number(v) : null,
+              })
+            }
+            placeholder="Unassigned"
+            options={[
+              { value: "", label: "Unassigned" },
+              ...adminUsers.map((u) => ({
+                value: String(u.id),
+                label: [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email,
+              })),
+            ]}
+          />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Assigned To
-            </label>
-            <select
-              value={taskDetail.assigned_user_id || ""}
-              onChange={(e) =>
-                patchField({
-                  assigned_user_id: e.target.value
-                    ? Number(e.target.value)
-                    : null,
-                })
-              }
-              className="input-field"
-            >
-              <option value="">Unassigned</option>
-              {adminUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {[u.first_name, u.last_name].filter(Boolean).join(" ") || u.email}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
               Due Date
             </label>
             <input
@@ -351,30 +340,26 @@ export default function TaskDetailPage() {
               onChange={(e) =>
                 patchField({ due_date: e.target.value || null })
               }
-              className="input-field"
+              className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:border-porch-300 hover:bg-porch-50 transition-all focus:outline-none focus:ring-1 focus:ring-porch-500"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
-            <select
-              value={taskDetail.category || ""}
-              onChange={(e) =>
-                patchField({
-                  category: e.target.value || null,
-                })
-              }
-              className="input-field"
-            >
-              <option value="">None</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {CATEGORY_LABELS[c]}
-                </option>
-              ))}
-            </select>
-          </div>
+          <InlineSelect
+            label="Category"
+            value={taskDetail.category || ""}
+            onChange={(v) =>
+              patchField({
+                category: v || null,
+              })
+            }
+            placeholder="None"
+            options={[
+              { value: "", label: "None" },
+              ...CATEGORIES.map((c) => ({
+                value: c,
+                label: CATEGORY_LABELS[c],
+              })),
+            ]}
+          />
         </div>
 
         <div className="mb-6">

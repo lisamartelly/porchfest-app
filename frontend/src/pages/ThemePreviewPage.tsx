@@ -501,43 +501,130 @@ function ThemedPorchCard({ theme }: { theme: ThemeConfig }) {
   );
 }
 
+// --- Font Options ---
+
+type FontName = "inter" | "dm-sans" | "plus-jakarta" | "outfit" | "satoshi";
+
+interface FontOption {
+  label: string;
+  family: string;
+  description: string;
+}
+
+const FONTS: Record<FontName, FontOption> = {
+  inter: {
+    label: "Inter",
+    family: "'Inter', sans-serif",
+    description: "The gold standard for modern web apps. Tight letterforms, great at small sizes. Used by Linear, Vercel.",
+  },
+  "dm-sans": {
+    label: "DM Sans",
+    family: "'DM Sans', sans-serif",
+    description: "Slightly geometric with soft, rounded terminals. Friendly and modern without being quirky.",
+  },
+  "plus-jakarta": {
+    label: "Plus Jakarta Sans",
+    family: "'Plus Jakarta Sans', sans-serif",
+    description: "Geometric sans with more character — rounder, warmer, slightly playful. Great for community/music apps.",
+  },
+  outfit: {
+    label: "Outfit",
+    family: "'Outfit', sans-serif",
+    description: "Clean geometric with a modern, slightly stylish feel. Good weight range, reads well at all sizes.",
+  },
+  satoshi: {
+    label: "Satoshi",
+    family: "'Satoshi', sans-serif",
+    description: "Modern geometric with a contemporary feel. Very popular in design-forward apps right now.",
+  },
+};
+
 // --- Page ---
 
 export default function ThemePreviewPage() {
   const [activeTheme, setActiveTheme] = useState<ThemeName>("warm-sunset");
+  const [activeFont, setActiveFont] = useState<FontName>("plus-jakarta");
   const theme = THEMES[activeTheme];
+  const font = FONTS[activeFont];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-8" style={{ fontFamily: font.family }}>
       <div className="max-w-3xl mx-auto">
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Theme Preview</h1>
-          <p className="text-gray-500">Toggle between theme options to compare how the porch card looks.</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Theme & Font Preview</h1>
+          <p className="text-gray-500">Toggle between options to compare how the site looks.</p>
+        </div>
+
+        {/* Font toggles */}
+        <div className="mb-8">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Font</h2>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {(Object.entries(FONTS) as [FontName, FontOption][]).map(([key, f]) => (
+              <button
+                key={key}
+                onClick={() => setActiveFont(key)}
+                style={{ fontFamily: f.family }}
+                className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-all ${
+                  activeFont === key
+                    ? "bg-gray-900 text-white border-gray-900"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-gray-400"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-gray-600 bg-white rounded-lg border border-gray-200 px-4 py-3">
+            <span className="font-medium text-gray-800">{font.label}:</span>{" "}
+            {font.description}
+          </p>
+        </div>
+
+        {/* Font sample */}
+        <div className="mb-8 bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-3">Font Sample</h3>
+          <div className="space-y-2">
+            <p className="text-2xl font-bold text-gray-900">Porchfest Pal — Music on Every Porch</p>
+            <p className="text-base text-gray-700">The quick brown fox jumps over the lazy dog. ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-porch-100 text-porch-700">Tag Example</span>
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">Another Tag</span>
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">Approved</span>
+            </div>
+            <div className="pt-2 flex gap-4 text-sm">
+              <span className="font-light text-gray-500">Light 300</span>
+              <span className="font-normal text-gray-600">Regular 400</span>
+              <span className="font-medium text-gray-700">Medium 500</span>
+              <span className="font-semibold text-gray-800">Semibold 600</span>
+              <span className="font-bold text-gray-900">Bold 700</span>
+            </div>
+          </div>
         </div>
 
         {/* Theme toggles */}
-        <div className="flex flex-wrap gap-3 mb-8">
-          {(Object.entries(THEMES) as [ThemeName, ThemeConfig][]).map(([key, t]) => (
-            <button
-              key={key}
-              onClick={() => setActiveTheme(key)}
-              className={`px-5 py-2.5 text-sm font-medium rounded-full border-2 transition-all ${
-                activeTheme === key
-                  ? "bg-gray-900 text-white border-gray-900"
-                  : "bg-white text-gray-700 border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="mb-8">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Color Theme</h2>
+          <div className="flex flex-wrap gap-3 mb-3">
+            {(Object.entries(THEMES) as [ThemeName, ThemeConfig][]).map(([key, t]) => (
+              <button
+                key={key}
+                onClick={() => setActiveTheme(key)}
+                className={`px-5 py-2.5 text-sm font-medium rounded-full border-2 transition-all ${
+                  activeTheme === key
+                    ? "bg-gray-900 text-white border-gray-900"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-gray-400"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-gray-600 bg-white rounded-lg border border-gray-200 px-4 py-3">
+            <span className="font-medium text-gray-800">{theme.label}:</span>{" "}
+            {theme.description}
+          </p>
         </div>
-
-        {/* Theme description */}
-        <p className="text-sm text-gray-600 mb-6 bg-white rounded-lg border border-gray-200 px-4 py-3">
-          <span className="font-medium text-gray-800">{theme.label}:</span>{" "}
-          {theme.description}
-        </p>
 
         {/* Card preview */}
         <ThemedPorchCard theme={theme} />

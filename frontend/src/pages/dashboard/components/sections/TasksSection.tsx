@@ -4,6 +4,9 @@ import { api } from "../../../../lib/api";
 import { formatDate } from "../../../../lib/dateUtils";
 import { useOrgStore } from "../../../../stores/orgStore";
 import { EventTaskItem, EventTaskCategory, AdminUser } from "../../types";
+import FilterPill from "../../../../components/ui/FilterPill";
+import InlineSelect from "../../../../components/ui/InlineSelect";
+import StatusPill, { TASK_STATUSES } from "../../../../components/ui/StatusPill";
 
 interface ActiveEvent {
   id: number;
@@ -18,12 +21,6 @@ const STATUS_LABELS: Record<string, string> = {
   done: "Done",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  to_do: "bg-gray-100 text-gray-700",
-  in_progress: "bg-porch-100 text-porch-700",
-  blocked: "bg-amber-100 text-amber-700",
-  done: "bg-green-100 text-green-700",
-};
 
 const CATEGORIES: EventTaskCategory[] = [
   "vendors", "bands", "porches", "permits", "volunteers", "website", "merch", "misc",
@@ -157,6 +154,17 @@ export default function TasksSection() {
     navigate(`/admin/tasks/${eventTask.id}`);
   };
 
+  const handleInlineStatusChange = async (eventTaskId: number, status: string) => {
+    try {
+      await api.patch(`/api/admin/tasks/event-tasks/${eventTaskId}`, { status });
+      setEventTasks((prev) =>
+        prev.map((et) => (et.id === eventTaskId ? { ...et, status } : et))
+      );
+    } catch (error) {
+      console.error("Error updating task status:", error);
+    }
+  };
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -286,67 +294,102 @@ export default function TasksSection() {
         </div>
 
         {showAddForm && (
-          <form onSubmit={handleAddTask} className="mb-5 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <form onSubmit={handleAddTask} className="mb-5 bg-white rounded-2xl shadow-sm border border-porch-100 p-6">
+            <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <svg className="w-4 h-4 text-porch-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              New Task
+            </h4>
+
             {formError && (
-              <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                 {formError}
               </div>
             )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-              <input
-                type="text"
-                placeholder="Task name *"
-                value={newTaskName}
-                onChange={(e) => setNewTaskName(e.target.value)}
-                className="sm:col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-transparent"
-                autoFocus
-                required
-              />
-              <input
-                type="date"
-                value={newTaskDueDate}
-                onChange={(e) => setNewTaskDueDate(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-transparent"
-              />
-              <select
-                value={newTaskAssignedUserId}
-                onChange={(e) => setNewTaskAssignedUserId(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-transparent"
-              >
-                <option value="">Assigned to...</option>
-                {adminUsers.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {[u.first_name, u.last_name].filter(Boolean).join(" ") || u.email}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={newTaskCategory}
-                onChange={(e) => setNewTaskCategory(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-transparent"
-              >
-                <option value="">Category...</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {CATEGORY_LABELS[c]}
-                  </option>
-                ))}
-              </select>
-              <textarea
-                placeholder="Notes (optional)"
-                value={newTaskNotes}
-                onChange={(e) => setNewTaskNotes(e.target.value)}
-                rows={2}
-                className="sm:col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-transparent resize-none"
-              />
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1.5">
+                  Task Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="What needs to be done?"
+                  value={newTaskName}
+                  onChange={(e) => setNewTaskName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-porch-500 transition-all"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase mb-1.5">
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newTaskDueDate}
+                    onChange={(e) => setNewTaskDueDate(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-porch-500 transition-all"
+                  />
+                </div>
+                <InlineSelect
+                  label="Assigned To"
+                  value={newTaskAssignedUserId}
+                  onChange={setNewTaskAssignedUserId}
+                  placeholder="Unassigned"
+                  options={[
+                    { value: "", label: "Unassigned" },
+                    ...adminUsers.map((u) => ({
+                      value: String(u.id),
+                      label: [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email,
+                    })),
+                  ]}
+                />
+                <InlineSelect
+                  label="Category"
+                  value={newTaskCategory}
+                  onChange={setNewTaskCategory}
+                  placeholder="None"
+                  options={[
+                    { value: "", label: "None" },
+                    ...CATEGORIES.map((c) => ({
+                      value: c,
+                      label: CATEGORY_LABELS[c],
+                    })),
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1.5">
+                  Notes
+                </label>
+                <textarea
+                  placeholder="Any additional details..."
+                  value={newTaskNotes}
+                  onChange={(e) => setNewTaskNotes(e.target.value)}
+                  rows={2}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-porch-500 transition-all resize-none"
+                />
+              </div>
             </div>
-            <div className="flex justify-end">
+
+            <div className="flex justify-end mt-5 pt-4 border-t border-gray-100">
               <button
                 type="submit"
                 disabled={submitting || !newTaskName.trim()}
-                className="px-4 py-2 bg-porch-600 text-white text-sm font-medium rounded-lg hover:bg-porch-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-porch-600 text-white text-sm font-medium rounded-full hover:bg-porch-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
               >
-                {submitting ? "Adding..." : "Add Task"}
+                {submitting ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                    Adding...
+                  </>
+                ) : "Add Task"}
               </button>
             </div>
           </form>
@@ -354,39 +397,48 @@ export default function TasksSection() {
 
         {/* Filters */}
         {eventTasks.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Filters:</span>
-            <select
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <FilterPill
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-transparent"
-            >
-              <option value="">All Statuses</option>
-              {Object.entries(STATUS_LABELS).map(([val, label]) => (
-                <option key={val} value={val}>{label}</option>
-              ))}
-            </select>
-            <select
+              onChange={setFilterStatus}
+              placeholder="All Statuses"
+              color="porch"
+              options={[
+                { value: "", label: "All Statuses" },
+                ...Object.entries(STATUS_LABELS).map(([val, label]) => ({
+                  value: val,
+                  label,
+                })),
+              ]}
+            />
+            <FilterPill
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-transparent"
-            >
-              <option value="">All Categories</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
-              ))}
-            </select>
-            <select
+              onChange={setFilterCategory}
+              placeholder="All Categories"
+              color="orange"
+              options={[
+                { value: "", label: "All Categories" },
+                ...CATEGORIES.map((c) => ({
+                  value: c,
+                  label: CATEGORY_LABELS[c],
+                })),
+              ]}
+            />
+            <FilterPill
               value={filterAssigned}
-              onChange={(e) => setFilterAssigned(e.target.value)}
-              className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-transparent"
-            >
-              <option value="">All Assignees</option>
-              <option value="unassigned">Unassigned</option>
-              {assignedUserOptions.map((u) => (
-                <option key={u.id} value={u.id}>{u.label}</option>
-              ))}
-            </select>
+              onChange={setFilterAssigned}
+              placeholder="All Assignees"
+              searchable
+              color="rose"
+              options={[
+                { value: "", label: "All Assignees" },
+                { value: "unassigned", label: "Unassigned" },
+                ...assignedUserOptions.map((u) => ({
+                  value: u.id,
+                  label: u.label,
+                })),
+              ]}
+            />
             {hasActiveFilters && (
               <button
                 onClick={() => {
@@ -394,7 +446,7 @@ export default function TasksSection() {
                   setFilterCategory("");
                   setFilterAssigned("");
                 }}
-                className="text-xs text-porch-600 hover:text-porch-800 font-medium"
+                className="text-xs text-porch-600 hover:text-porch-800 font-medium ml-1"
               >
                 Clear filters
               </button>
@@ -457,14 +509,12 @@ export default function TasksSection() {
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
                         {et.name || et.task_name}
                       </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                            STATUS_COLORS[et.status || "to_do"] || "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {STATUS_LABELS[et.status || "to_do"] || et.status || "To Do"}
-                        </span>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <StatusPill
+                          value={et.status || "to_do"}
+                          onChange={(v) => handleInlineStatusChange(et.id, v)}
+                          options={TASK_STATUSES}
+                        />
                       </td>
                       <td className="px-4 py-3">
                         {et.category ? (

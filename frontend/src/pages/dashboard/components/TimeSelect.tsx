@@ -1,4 +1,5 @@
 import { formatTime } from "../utils";
+import InlineSelect from "../../../components/ui/InlineSelect";
 
 interface TimeSelectProps {
   value: string;
@@ -9,7 +10,6 @@ interface TimeSelectProps {
   label: string;
 }
 
-// Generate time options between min and max in specified increments
 function generateTimeOptions(
   minTime: string,
   maxTime: string,
@@ -44,22 +44,18 @@ export default function TimeSelect({
   const options = generateTimeOptions(minTime, maxTime, stepMinutes);
 
   return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        {label}
-      </label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500"
-      >
-        <option value="">Select time...</option>
-        {options.map((time) => (
-          <option key={time} value={time}>
-            {formatTime(time)}
-          </option>
-        ))}
-      </select>
-    </div>
+    <InlineSelect
+      label={label}
+      value={value}
+      onChange={onChange}
+      placeholder="Select time..."
+      options={[
+        { value: "", label: "Select time..." },
+        ...options.map((time) => ({
+          value: time,
+          label: formatTime(time),
+        })),
+      ]}
+    />
   );
 }

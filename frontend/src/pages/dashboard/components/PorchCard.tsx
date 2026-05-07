@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { PorchApplication, BandApplication, Status } from "../types";
-import { getStatusStyles, formatStatus } from "../utils";
 import StatusSelect from "./StatusSelect";
 
 interface PorchCardProps {
@@ -301,11 +300,10 @@ export default function PorchCard({
               <h3 className="font-bold text-lg text-gray-900">
                 {porch.address}
               </h3>
-              <span
-                className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${getStatusStyles(porch.status)}`}
-              >
-                {formatStatus(porch.status)}
-              </span>
+              <StatusSelect
+                value={porch.status}
+                onChange={(status) => onStatusChange(porch.id, status)}
+              />
               {porch.has_band_in_mind === "yes" && (
                 <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
                   band in mind
@@ -317,33 +315,30 @@ export default function PorchCard({
               {porch.city && <span className="text-gray-400"> · {porch.city}</span>}
             </p>
           </div>
-          <StatusSelect
-            value={porch.status}
-            onChange={(status) => onStatusChange(porch.id, status)}
-          />
         </div>
 
-        {/* Tab bar */}
-        <div className="flex flex-wrap gap-2 mt-5 mb-4 border-b border-gray-100 pb-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-full border transition-all ${
-                activeTab === tab.id
-                  ? "bg-porch-600 text-white border-porch-600 shadow-sm"
-                  : "bg-white text-porch-700 border-porch-200 hover:bg-porch-50 hover:border-porch-300"
-              }`}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* Tab bar + content */}
+        <div className="mt-5 mb-5 rounded-xl border border-gray-100 bg-gray-50/50">
+          <div className="flex flex-wrap gap-2 px-4 pt-4 pb-3">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-full border transition-all ${
+                  activeTab === tab.id
+                    ? "bg-porch-600 text-white border-porch-600 shadow-sm"
+                    : "bg-white text-porch-700 border-porch-200 hover:bg-porch-50 hover:border-porch-300"
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-        {/* Tab content */}
-        <div className="min-h-[80px] mb-5">
-          {renderTabContent()}
+          <div className="min-h-[80px] px-4 pb-4 pt-1">
+            {renderTabContent()}
+          </div>
         </div>
 
         {/* Schedule timeline */}

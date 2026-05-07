@@ -8,6 +8,7 @@ import {
   BandSortOption,
 } from "../../types";
 import BandCard from "../BandCard";
+import FilterPill from "../../../../components/ui/FilterPill";
 
 interface BandsSectionProps {
   bands: BandApplication[];
@@ -127,8 +128,8 @@ export default function BandsSection({
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
+      <div className="mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-3">
           <div className="flex-1 relative">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -138,64 +139,63 @@ export default function BandsSection({
               placeholder="Search bands by name, contact, genre, or email..."
               value={bandSearch}
               onChange={(e) => setBandSearch(e.target.value)}
-              className="input-field w-full pl-10"
+              className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-full bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-porch-500 focus:border-porch-500 transition-all"
             />
           </div>
 
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as FilterStatus)}
-            className="input-field w-full lg:w-48"
-          >
-            <option value="all">All Status ({bands.length})</option>
-            <option value="pending">
-              Pending ({bands.filter((b) => b.status === "pending").length})
-            </option>
-            <option value="under_review">
-              Under Review (
-              {bands.filter((b) => b.status === "under_review").length})
-            </option>
-            <option value="approved">
-              Approved ({bands.filter((b) => b.status === "approved").length})
-            </option>
-            <option value="rejected">
-              Rejected ({bands.filter((b) => b.status === "rejected").length})
-            </option>
-          </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterPill
+              value={filter}
+              onChange={(v) => setFilter(v as FilterStatus)}
+              placeholder="All Status"
+              color="porch"
+              options={[
+                { value: "all", label: `All Status (${bands.length})` },
+                { value: "pending", label: `Pending (${bands.filter((b) => b.status === "pending").length})` },
+                { value: "under_review", label: `Under Review (${bands.filter((b) => b.status === "under_review").length})` },
+                { value: "approved", label: `Approved (${bands.filter((b) => b.status === "approved").length})` },
+                { value: "rejected", label: `Rejected (${bands.filter((b) => b.status === "rejected").length})` },
+              ]}
+            />
 
-          {reviewers.length > 0 && (
-            <select
-              value={reviewerFilter}
-              onChange={(e) => setReviewerFilter(e.target.value)}
-              className="input-field w-full lg:w-48"
-            >
-              <option value="all">All Reviewers</option>
-              {reviewers.map((email) => (
-                <option key={email} value={email}>
-                  {email.split("@")[0]}
-                </option>
-              ))}
-            </select>
-          )}
+            {reviewers.length > 0 && (
+              <FilterPill
+                value={reviewerFilter}
+                onChange={setReviewerFilter}
+                placeholder="All Reviewers"
+                searchable
+                color="rose"
+                options={[
+                  { value: "all", label: "All Reviewers" },
+                  ...reviewers.map((email) => ({
+                    value: email,
+                    label: email.split("@")[0],
+                  })),
+                ]}
+              />
+            )}
 
-          <select
-            value={bandSort}
-            onChange={(e) => setBandSort(e.target.value as BandSortOption)}
-            className="input-field w-full lg:w-52"
-          >
-            <option value="created_at">Sort: Newest First</option>
-            <option value="band_name">Sort: Band Name (A-Z)</option>
-            <option value="status">Sort: Status</option>
-            <option value="porch_assignment">Sort: Porch Assignment</option>
-            <option value="reviewer">Sort: Reviewer</option>
-            <option value="rating">Sort: Rating (High to Low)</option>
-          </select>
+            <FilterPill
+              value={bandSort}
+              onChange={(v) => setBandSort(v as BandSortOption)}
+              placeholder="Sort"
+              color="amber"
+              options={[
+                { value: "created_at", label: "Newest First" },
+                { value: "band_name", label: "Band Name (A-Z)" },
+                { value: "status", label: "Status" },
+                { value: "porch_assignment", label: "Porch Assignment" },
+                { value: "reviewer", label: "Reviewer" },
+                { value: "rating", label: "Rating (High to Low)" },
+              ]}
+            />
+          </div>
         </div>
 
-        <div className="mt-3 text-sm text-gray-500">
+        <p className="text-sm text-gray-400">
           Showing {filteredAndSortedBands.length} of {bands.length} bands
           {bandSearch && ` matching "${bandSearch}"`}
-        </div>
+        </p>
       </div>
 
       {filteredAndSortedBands.length === 0 ? (
