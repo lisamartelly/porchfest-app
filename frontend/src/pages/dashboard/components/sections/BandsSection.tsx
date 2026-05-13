@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   BandApplication,
   PorchApplication,
@@ -6,6 +6,7 @@ import {
   Status,
   FilterStatus,
   BandSortOption,
+  ReviewerUser,
 } from "../../types";
 import BandCard from "../BandCard";
 import FilterPill from "../../../../components/ui/FilterPill";
@@ -15,7 +16,7 @@ interface BandsSectionProps {
   approvedPorches: PorchApplication[];
   eventSettings: EventSettings | null;
   schedulingError: string | null;
-  reviewers: string[];
+  reviewers: ReviewerUser[];
   onStatusChange: (bandId: number, status: Status) => Promise<void>;
   onSchedule: (
     bandId: number,
@@ -66,6 +67,23 @@ export default function BandsSection({
   const [bandSort, setBandSort] = useState<BandSortOption>("created_at");
   const [reviewerFilter, setReviewerFilter] = useState<string>("all");
 
+  const reviewerMap = useMemo(
+    () => new Map(reviewers.map((r) => [r.id, r])),
+    [reviewers],
+  );
+
+  const getReviewerName = useCallback(
+    (id: number | null) => {
+      if (id == null) return null;
+      const r = reviewerMap.get(id);
+      if (!r) return null;
+      return r.first_name || r.last_name
+        ? `${r.first_name || ""} ${r.last_name || ""}`.trim()
+        : r.email.split("@")[0];
+    },
+    [reviewerMap],
+  );
+
   const filteredAndSortedBands = useMemo(() => {
     let result = [...bands];
 
@@ -75,7 +93,7 @@ export default function BandsSection({
 
     if (reviewerFilter !== "all") {
       result = result.filter(
-        (b) => b.assigned_reviewer_email === reviewerFilter,
+        (b) => String(b.assigned_reviewer_id) === reviewerFilter,
       );
     }
 
@@ -109,8 +127,8 @@ export default function BandsSection({
           return parsedB.houseNumber - parsedA.houseNumber;
         }
         case "reviewer": {
-          const reviewerA = a.assigned_reviewer_email || "zzz";
-          const reviewerB = b.assigned_reviewer_email || "zzz";
+          const reviewerA = getReviewerName(a.assigned_reviewer_id) || "zzz";
+          const reviewerB = getReviewerName(b.assigned_reviewer_id) || "zzz";
           return reviewerA.localeCompare(reviewerB);
         }
         case "rating":
@@ -124,15 +142,33 @@ export default function BandsSection({
     });
 
     return result;
-  }, [bands, filter, bandSearch, bandSort, reviewerFilter, getPorchAddress]);
+  }, [
+    bands,
+    filter,
+    bandSearch,
+    bandSort,
+    reviewerFilter,
+    getPorchAddress,
+    getReviewerName,
+  ]);
 
   return (
     <>
       <div className="mb-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-3">
           <div className="flex-1 relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+              />
             </svg>
             <input
               type="text"
@@ -151,10 +187,22 @@ export default function BandsSection({
               color="porch"
               options={[
                 { value: "all", label: `All Status (${bands.length})` },
-                { value: "pending", label: `Pending (${bands.filter((b) => b.status === "pending").length})` },
-                { value: "under_review", label: `Under Review (${bands.filter((b) => b.status === "under_review").length})` },
-                { value: "approved", label: `Approved (${bands.filter((b) => b.status === "approved").length})` },
-                { value: "rejected", label: `Rejected (${bands.filter((b) => b.status === "rejected").length})` },
+                {
+                  value: "pending",
+                  label: `Pending (${bands.filter((b) => b.status === "pending").length})`,
+                },
+                {
+                  value: "under_review",
+                  label: `Under Review (${bands.filter((b) => b.status === "under_review").length})`,
+                },
+                {
+                  value: "approved",
+                  label: `Approved (${bands.filter((b) => b.status === "approved").length})`,
+                },
+                {
+                  value: "rejected",
+                  label: `Rejected (${bands.filter((b) => b.status === "rejected").length})`,
+                },
               ]}
             />
 
@@ -167,9 +215,11 @@ export default function BandsSection({
                 color="rose"
                 options={[
                   { value: "all", label: "All Reviewers" },
-                  ...reviewers.map((email) => ({
-                    value: email,
-                    label: email.split("@")[0],
+                  ...reviewers.map((r) => ({
+                    value: String(r.id),
+                    label: r.first_name || r.last_name
+                      ? `${r.first_name || ""} ${r.last_name || ""}`.trim()
+                      : r.email.split("@")[0],
                   })),
                 ]}
               />
@@ -207,7 +257,7 @@ export default function BandsSection({
                 onClick={() => setBandSearch("")}
                 className="block mx-auto mt-2 text-porch-600 hover:text-porch-700 font-medium"
               >
-                Clear search fimg
+                Clear search
               </button>
             </>
           ) : (
@@ -227,7 +277,8 @@ export default function BandsSection({
               onSchedule={onSchedule}
               getPorchAddress={getPorchAddress}
               schedulingError={schedulingError}
-              showReviewerInfo={eventSettings?.reviewers_assigned || false}
+              showReviewerInfo={reviewers.length > 0}
+              reviewerUsers={reviewers}
               onReviewUpdate={onReviewUpdate}
             />
           ))}

@@ -6,7 +6,8 @@ import { useOrgStore } from "../../../../stores/orgStore";
 import { EventTaskItem, EventTaskCategory, EventTaskStatus, AdminUser } from "../../types";
 import FilterPill from "../../../../components/ui/FilterPill";
 import InlineSelect from "../../../../components/ui/InlineSelect";
-import StatusPill, { TASK_STATUSES } from "../../../../components/ui/StatusPill";
+import StatusPill from "../../../../components/ui/StatusPill";
+import { TASK_STATUSES } from "../../../../components/ui/statusOptions";
 
 interface ActiveEvent {
   id: number;

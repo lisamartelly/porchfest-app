@@ -25,7 +25,8 @@ const mocks = vi.hoisted(() => ({
   bandsUpdateStatus: vi.fn(),
   bandsUpdateReview: vi.fn(),
   bandsAssignReviewer: vi.fn(),
-  bandsGetReviewerEmails: vi.fn(),
+  bandsGetReviewerUserIds: vi.fn(),
+  bandsFindByReviewerId: vi.fn(),
   bandsFindById: vi.fn(),
   bandsFindOverlappingAtPorch: vi.fn(),
   bandsUpdateSchedule: vi.fn(),
@@ -38,7 +39,7 @@ const mocks = vi.hoisted(() => ({
   timeSlotsFindAll: vi.fn(),
   timeSlotsCreate: vi.fn(),
   getPresignedUploadUrl: vi.fn(),
-  bandsFindByReviewerEmail: vi.fn(),
+  sendReviewerAssignmentEmail: vi.fn(),
   organizationUsersFindByUserId: vi.fn(),
   getOrganizationsForUser: vi.fn(),
   usersFindAll: vi.fn(),
@@ -96,11 +97,11 @@ vi.mock("../data/db.js", () => ({
     bands: {
       findByEventId: mocks.bandsFindByEventId,
       findApproved: mocks.bandsFindApproved,
-      findByReviewerEmail: mocks.bandsFindByReviewerEmail,
+      findByReviewerId: mocks.bandsFindByReviewerId,
       findAll: mocks.bandsFindAll,
       updateStatus: mocks.bandsUpdateStatus,
       assignReviewer: mocks.bandsAssignReviewer,
-      getReviewerEmails: mocks.bandsGetReviewerEmails,
+      getReviewerUserIds: mocks.bandsGetReviewerUserIds,
       updateReview: mocks.bandsUpdateReview,
       findById: mocks.bandsFindById,
       findOverlappingAtPorch: mocks.bandsFindOverlappingAtPorch,
@@ -137,6 +138,10 @@ vi.mock("../data/db.js", () => ({
 
 vi.mock("../services/s3.js", () => ({
   getPresignedUploadUrl: mocks.getPresignedUploadUrl,
+}));
+
+vi.mock("../services/email.js", () => ({
+  sendReviewerAssignmentEmail: mocks.sendReviewerAssignmentEmail,
 }));
 
 vi.mock("../lib/logger.js", () => ({
@@ -643,13 +648,12 @@ describe("adminRouter", () => {
     const response = await request(app)
       .patch("/api/admin/event")
       .set("x-role", "super-duper-admin")
-      .send({ name: "Updated", reviewer_emails: ["r1@example.com"] });
+      .send({ name: "Updated" });
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ id: 55, name: "Updated" });
     expect(mocks.eventsUpdate).toHaveBeenCalledWith(55, expect.objectContaining({
       name: "Updated",
-      reviewer_emails: ["r1@example.com"],
     }));
   });
 
@@ -823,7 +827,7 @@ describe("adminRouter", () => {
   });
 
   it("returns my-review assignments", async () => {
-    mocks.bandsFindByReviewerEmail.mockResolvedValue([
+    mocks.bandsFindByReviewerId.mockResolvedValue([
       { id: 1, event_id: 44 },
       { id: 2, event_id: 45 },
     ]);
@@ -840,7 +844,7 @@ describe("adminRouter", () => {
   });
 
   it("returns global my-review assignments", async () => {
-    mocks.bandsFindByReviewerEmail.mockResolvedValue([{ id: 1, event_id: 44 }]);
+    mocks.bandsFindByReviewerId.mockResolvedValue([{ id: 1, event_id: 44 }]);
     const app = buildApp();
 
     const response = await request(app)
@@ -852,7 +856,7 @@ describe("adminRouter", () => {
   });
 
   it("returns forbidden for scoped my-reviews when user lacks org membership", async () => {
-    mocks.bandsFindByReviewerEmail.mockResolvedValue([{ id: 1, event_id: 44 }]);
+    mocks.bandsFindByReviewerId.mockResolvedValue([{ id: 1, event_id: 44 }]);
     mocks.findByUserAndOrg.mockResolvedValue(null);
     const app = buildApp();
 
@@ -865,7 +869,7 @@ describe("adminRouter", () => {
   });
 
   it("returns empty scoped my-reviews when scoped org has no active event", async () => {
-    mocks.bandsFindByReviewerEmail.mockResolvedValue([{ id: 1, event_id: 44 }]);
+    mocks.bandsFindByReviewerId.mockResolvedValue([{ id: 1, event_id: 44 }]);
     mocks.findByUserAndOrg.mockResolvedValue({ user_id: 1, organization_id: 9 });
     mocks.eventsFindActiveByOrganizationId.mockResolvedValue(null);
     const app = buildApp();
@@ -878,20 +882,20 @@ describe("adminRouter", () => {
     expect(response.body).toEqual([]);
   });
 
-  it("returns 401 for my-reviews when user email is missing", async () => {
+  it("returns 401 for my-reviews when user id is missing", async () => {
     const app = buildApp();
 
     const response = await request(app)
       .get("/api/admin/bands/my-reviews")
       .set("x-role", "user")
-      .set("x-user-email", "none");
+      .set("x-user-id", "0");
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: "Not authenticated" });
   });
 
   it("handles my-reviews fetch failures", async () => {
-    mocks.bandsFindByReviewerEmail.mockRejectedValue(new Error("db down"));
+    mocks.bandsFindByReviewerId.mockRejectedValue(new Error("db down"));
     const app = buildApp();
 
     const response = await request(app)
@@ -950,40 +954,41 @@ describe("adminRouter", () => {
     expect(response.body).toEqual([]);
   });
 
+  it("returns 400 when assigning reviewers with empty userIds", async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .post("/api/admin/bands/assign-reviewers")
+      .set("x-role", "super-duper-admin")
+      .send({ userIds: [] });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: "userIds must be a non-empty array" });
+  });
+
+  it("returns 400 when assigning reviewers without userIds", async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .post("/api/admin/bands/assign-reviewers")
+      .set("x-role", "super-duper-admin")
+      .send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: "userIds must be a non-empty array" });
+  });
+
   it("returns 404 when assigning reviewers without active event", async () => {
     mocks.eventsFindActive.mockResolvedValue(null);
     const app = buildApp();
 
     const response = await request(app)
       .post("/api/admin/bands/assign-reviewers")
-      .set("x-role", "super-duper-admin");
+      .set("x-role", "super-duper-admin")
+      .send({ userIds: [10] });
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: "No active event found" });
-  });
-
-  it("returns 400 when assigning reviewers with no reviewer config", async () => {
-    mocks.eventsFindActive.mockResolvedValue({ id: 55, reviewer_emails: [] });
-    const app = buildApp();
-
-    const response = await request(app)
-      .post("/api/admin/bands/assign-reviewers")
-      .set("x-role", "super-duper-admin");
-
-    expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: "No reviewers configured" });
-  });
-
-  it("returns 400 when assigning reviewers and reviewer_emails is undefined", async () => {
-    mocks.eventsFindActive.mockResolvedValue({ id: 55 });
-    const app = buildApp();
-
-    const response = await request(app)
-      .post("/api/admin/bands/assign-reviewers")
-      .set("x-role", "super-duper-admin");
-
-    expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: "No reviewers configured" });
   });
 
   it("returns forbidden for scoped assign-reviewers when user lacks membership", async () => {
@@ -992,40 +997,57 @@ describe("adminRouter", () => {
 
     const response = await request(app)
       .post("/api/admin/bands/assign-reviewers?org_id=9")
-      .set("x-role", "user");
+      .set("x-role", "user")
+      .send({ userIds: [10] });
 
     expect(response.status).toBe(403);
     expect(response.body).toEqual({ error: "Not a member of this organization" });
   });
 
-  it("returns 400 when assigning reviewers with no bands", async () => {
-    mocks.eventsFindActive.mockResolvedValue({
-      id: 55,
-      reviewer_emails: ["reviewer1@example.com"],
-    });
-    mocks.bandsFindByEventId.mockResolvedValue([]);
+  it("returns 400 when assigning reviewers with non-org-member userIds", async () => {
+    mocks.findByUserAndOrg
+      .mockResolvedValueOnce({ user_id: 1, organization_id: 9 })
+      .mockResolvedValueOnce(null);
+    mocks.eventsFindActiveByOrganizationId.mockResolvedValue({ id: 55, name: "Fest" });
+    const app = buildApp();
+
+    const response = await request(app)
+      .post("/api/admin/bands/assign-reviewers?org_id=9")
+      .set("x-role", "user")
+      .send({ userIds: [999] });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: "User 999 is not a member of this organization" });
+  });
+
+  it("returns 400 when assigning reviewers with no unassigned bands", async () => {
+    mocks.eventsFindActive.mockResolvedValue({ id: 55, name: "Fest" });
+    mocks.bandsFindByEventId.mockResolvedValue([
+      { id: 1, assigned_reviewer_id: 10 },
+    ]);
     const app = buildApp();
 
     const response = await request(app)
       .post("/api/admin/bands/assign-reviewers")
-      .set("x-role", "super-duper-admin");
+      .set("x-role", "super-duper-admin")
+      .send({ userIds: [10] });
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: "No bands to assign" });
+    expect(response.body).toEqual({ error: "No unassigned bands to assign" });
   });
 
   it("handles assign-reviewers failures", async () => {
-    mocks.eventsFindActive.mockResolvedValue({
-      id: 55,
-      reviewer_emails: ["reviewer1@example.com"],
-    });
-    mocks.bandsFindByEventId.mockResolvedValue([{ id: 1 }]);
+    mocks.eventsFindActive.mockResolvedValue({ id: 55, name: "Fest" });
+    mocks.bandsFindByEventId.mockResolvedValue([
+      { id: 1, assigned_reviewer_id: null },
+    ]);
     mocks.bandsAssignReviewer.mockRejectedValue(new Error("db down"));
     const app = buildApp();
 
     const response = await request(app)
       .post("/api/admin/bands/assign-reviewers")
-      .set("x-role", "super-duper-admin");
+      .set("x-role", "super-duper-admin")
+      .send({ userIds: [10] });
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: "Failed to assign reviewers" });
@@ -1033,35 +1055,59 @@ describe("adminRouter", () => {
 
   it("assigns reviewers for scoped organization", async () => {
     mocks.findByUserAndOrg.mockResolvedValue({ user_id: 1, organization_id: 9 });
-    mocks.eventsFindActiveByOrganizationId.mockResolvedValue({
-      id: 55,
-      reviewer_emails: ["reviewer1@example.com", "reviewer2@example.com"],
-    });
+    mocks.eventsFindActiveByOrganizationId.mockResolvedValue({ id: 55, name: "Fest" });
     mocks.bandsFindByEventId
-      .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
       .mockResolvedValueOnce([
-        { id: 1, assigned_reviewer_email: "reviewer1@example.com" },
-        { id: 2, assigned_reviewer_email: "reviewer2@example.com" },
+        { id: 1, assigned_reviewer_id: null },
+        { id: 2, assigned_reviewer_id: null },
+      ])
+      .mockResolvedValueOnce([
+        { id: 1, assigned_reviewer_id: 10 },
+        { id: 2, assigned_reviewer_id: 11 },
       ]);
     mocks.bandsAssignReviewer.mockResolvedValue(undefined);
-    mocks.eventsUpdate.mockResolvedValue(undefined);
 
     const app = buildApp();
     const response = await request(app)
       .post("/api/admin/bands/assign-reviewers?org_id=9")
-      .set("x-role", "user");
+      .set("x-role", "user")
+      .send({ userIds: [10, 11] });
 
     expect(response.status).toBe(200);
     expect(response.body.message).toContain("Successfully assigned 2 bands");
   });
 
-  it("updates band review", async () => {
+  it("succeeds even when sending reviewer email fails", async () => {
+    mocks.eventsFindActive.mockResolvedValue({ id: 55, name: "Fest 2026" });
+    mocks.bandsFindByEventId
+      .mockResolvedValueOnce([{ id: 1, assigned_reviewer_id: null }])
+      .mockResolvedValueOnce([{ id: 1, assigned_reviewer_id: 10 }]);
+    mocks.bandsAssignReviewer.mockResolvedValue(undefined);
+    mocks.usersFindById.mockResolvedValue({ id: 10, email: "rev@example.com", first_name: "Rev" });
+    mocks.sendReviewerAssignmentEmail.mockRejectedValue(new Error("smtp down"));
+    const app = buildApp();
+
+    const response = await request(app)
+      .post("/api/admin/bands/assign-reviewers")
+      .set("x-role", "super-duper-admin")
+      .send({ userIds: [10], sendEmail: true });
+
+    expect(response.status).toBe(200);
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ err: expect.any(Error), userId: 10 }),
+      "Failed to send reviewer assignment email"
+    );
+  });
+
+  it("updates band review when user is the assigned reviewer", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 8, assigned_reviewer_id: 1 });
     mocks.bandsUpdateReview.mockResolvedValue({ id: 8, reviewer_rating: 5 });
     const app = buildApp();
 
     const response = await request(app)
       .patch("/api/admin/bands/8/review")
       .set("x-role", "user")
+      .set("x-user-id", "1")
       .send({ reviewer_rating: 5, reviewer_notes: "Strong fit" });
 
     expect(response.status).toBe(200);
@@ -1070,6 +1116,34 @@ describe("adminRouter", () => {
       reviewer_rating: 5,
       reviewer_notes: "Strong fit",
     });
+  });
+
+  it("returns 403 when user is not the assigned reviewer", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 8, assigned_reviewer_id: 99 });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/8/review")
+      .set("x-role", "user")
+      .set("x-user-id", "1")
+      .send({ reviewer_rating: 5, reviewer_notes: "Strong fit" });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "You are not the assigned reviewer for this band" });
+  });
+
+  it("allows super-duper-admin to update any band review", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 8, assigned_reviewer_id: 99 });
+    mocks.bandsUpdateReview.mockResolvedValue({ id: 8, reviewer_rating: 5 });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/8/review")
+      .set("x-role", "super-duper-admin")
+      .send({ reviewer_rating: 5, reviewer_notes: "Admin override" });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ id: 8, reviewer_rating: 5 });
   });
 
   it("returns validation errors for invalid band review payload", async () => {
@@ -1085,7 +1159,7 @@ describe("adminRouter", () => {
   });
 
   it("returns 404 when updating missing band review", async () => {
-    mocks.bandsUpdateReview.mockResolvedValue(null);
+    mocks.bandsFindById.mockResolvedValue(null);
     const app = buildApp();
 
     const response = await request(app)
@@ -1098,12 +1172,14 @@ describe("adminRouter", () => {
   });
 
   it("handles band review update failures", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 404, assigned_reviewer_id: 1 });
     mocks.bandsUpdateReview.mockRejectedValue(new Error("db down"));
     const app = buildApp();
 
     const response = await request(app)
       .patch("/api/admin/bands/404/review")
       .set("x-role", "user")
+      .set("x-user-id", "1")
       .send({ reviewer_rating: 4 });
 
     expect(response.status).toBe(500);
@@ -1147,11 +1223,11 @@ describe("adminRouter", () => {
     expect(response.body).toEqual([{ id: 8, status: "approved" }]);
   });
 
-  it("returns global reviewer emails", async () => {
-    mocks.bandsGetReviewerEmails.mockResolvedValue([
-      "reviewer-a@example.com",
-      "reviewer-b@example.com",
-    ]);
+  it("returns global reviewer users", async () => {
+    mocks.bandsGetReviewerUserIds.mockResolvedValue([10, 11]);
+    mocks.usersFindById
+      .mockResolvedValueOnce({ id: 10, email: "reviewer-a@example.com", first_name: "A", last_name: "Rev" })
+      .mockResolvedValueOnce({ id: 11, email: "reviewer-b@example.com", first_name: "B", last_name: "Rev" });
     const app = buildApp();
 
     const response = await request(app)
@@ -1160,19 +1236,22 @@ describe("adminRouter", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual([
-      "reviewer-a@example.com",
-      "reviewer-b@example.com",
+      { id: 10, email: "reviewer-a@example.com", first_name: "A", last_name: "Rev" },
+      { id: 11, email: "reviewer-b@example.com", first_name: "B", last_name: "Rev" },
     ]);
   });
 
-  it("returns scoped unique reviewer emails", async () => {
+  it("returns scoped unique reviewer users", async () => {
     mocks.findByUserAndOrg.mockResolvedValue({ user_id: 1, organization_id: 55 });
     mocks.eventsFindActiveByOrganizationId.mockResolvedValue({ id: 501 });
     mocks.bandsFindByEventId.mockResolvedValue([
-      { assigned_reviewer_email: "r1@example.com" },
-      { assigned_reviewer_email: "r1@example.com" },
-      { assigned_reviewer_email: "r2@example.com" },
+      { assigned_reviewer_id: 10 },
+      { assigned_reviewer_id: 10 },
+      { assigned_reviewer_id: 11 },
     ]);
+    mocks.usersFindById
+      .mockResolvedValueOnce({ id: 10, email: "r1@example.com", first_name: "R", last_name: "One" })
+      .mockResolvedValueOnce({ id: 11, email: "r2@example.com", first_name: "R", last_name: "Two" });
     const app = buildApp();
 
     const response = await request(app)
@@ -1180,7 +1259,10 @@ describe("adminRouter", () => {
       .set("x-role", "user");
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual(["r1@example.com", "r2@example.com"]);
+    expect(response.body).toEqual([
+      { id: 10, email: "r1@example.com", first_name: "R", last_name: "One" },
+      { id: 11, email: "r2@example.com", first_name: "R", last_name: "Two" },
+    ]);
   });
 
   it("returns 403 for scoped reviewers when user lacks org membership", async () => {
@@ -1209,7 +1291,7 @@ describe("adminRouter", () => {
   });
 
   it("handles reviewers fetch failures", async () => {
-    mocks.bandsGetReviewerEmails.mockRejectedValue(new Error("db down"));
+    mocks.bandsGetReviewerUserIds.mockRejectedValue(new Error("db down"));
     const app = buildApp();
 
     const response = await request(app)
@@ -1220,31 +1302,32 @@ describe("adminRouter", () => {
     expect(response.body).toEqual({ error: "Failed to fetch reviewers" });
   });
 
-  it("assigns reviewers and marks event as assigned", async () => {
-    mocks.eventsFindActive.mockResolvedValue({
-      id: 55,
-      reviewer_emails: ["reviewer1@example.com", "reviewer2@example.com"],
-    });
+  it("assigns reviewers and sends emails when requested", async () => {
+    mocks.eventsFindActive.mockResolvedValue({ id: 55, name: "Fest 2026" });
     mocks.bandsFindByEventId
       .mockResolvedValueOnce([
-        { id: 1 },
-        { id: 2 },
+        { id: 1, assigned_reviewer_id: null },
+        { id: 2, assigned_reviewer_id: null },
       ])
       .mockResolvedValueOnce([
-        { id: 1, assigned_reviewer_email: "reviewer1@example.com" },
-        { id: 2, assigned_reviewer_email: "reviewer2@example.com" },
+        { id: 1, assigned_reviewer_id: 10 },
+        { id: 2, assigned_reviewer_id: 11 },
       ]);
     mocks.bandsAssignReviewer.mockResolvedValue(undefined);
-    mocks.eventsUpdate.mockResolvedValue(undefined);
+    mocks.usersFindById
+      .mockResolvedValueOnce({ id: 10, email: "rev1@example.com", first_name: "Rev" })
+      .mockResolvedValueOnce({ id: 11, email: "rev2@example.com", first_name: "Rev2" });
+    mocks.sendReviewerAssignmentEmail.mockResolvedValue(undefined);
     const app = buildApp();
 
     const response = await request(app)
       .post("/api/admin/bands/assign-reviewers")
-      .set("x-role", "super-duper-admin");
+      .set("x-role", "super-duper-admin")
+      .send({ userIds: [10, 11], sendEmail: true });
 
     expect(response.status).toBe(200);
     expect(mocks.bandsAssignReviewer).toHaveBeenCalledTimes(2);
-    expect(mocks.eventsUpdate).toHaveBeenCalledWith(55, { reviewers_assigned: true });
+    expect(mocks.sendReviewerAssignmentEmail).toHaveBeenCalledTimes(2);
     expect(response.body.message).toContain("Successfully assigned 2 bands to 2 reviewers");
   });
 

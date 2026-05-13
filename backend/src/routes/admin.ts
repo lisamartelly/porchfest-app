@@ -7,6 +7,8 @@ import { db } from "../data/db.js";
 import logger from "../lib/logger.js";
 import type { Event } from "../data/db.js";
 import { getPresignedUploadUrl } from "../services/s3.js";
+import { sendReviewerAssignmentEmail } from "../services/email.js";
+import { geocodeAddress } from "../services/geocode.js";
 
 export const adminRouter: Router = Router();
 
@@ -456,7 +458,7 @@ adminRouter.get("/porches", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Update porch status
+// Update porch status (geocodes address when approving)
 adminRouter.patch(
   "/porches/:id/status",
   [body("status").isIn(["pending", "under_review", "approved", "rejected"])],
@@ -470,9 +472,28 @@ adminRouter.patch(
       const { id } = req.params;
       const { status, admin_notes } = req.body;
 
-      const porch = await db.porches.updateStatus(id, status, admin_notes);
+      let porch = await db.porches.updateStatus(id, status, admin_notes);
       if (!porch) {
         return res.status(404).json({ error: "Porch not found" });
+      }
+
+      if (status === "approved" && porch.lat == null) {
+        try {
+          const event = await db.events.findById(porch.event_id);
+          const result = await geocodeAddress(
+            porch.address,
+            event?.default_city,
+            event?.default_state
+          );
+          if (result) {
+            porch = (await db.porches.updateCoordinates(id, result.lat, result.lng))!;
+            logger.info({ porchId: id, lat: result.lat, lng: result.lng }, "Geocoded porch on approval");
+          } else {
+            logger.warn({ porchId: id, address: porch.address }, "Could not geocode porch address");
+          }
+        } catch (geoErr) {
+          logger.error({ err: geoErr, porchId: id }, "Geocoding failed during porch approval");
+        }
       }
 
       res.json(porch);
@@ -522,7 +543,9 @@ adminRouter.patch(
     body("porch_applications_close").optional({ nullable: true }).isString(),
     body("porch_app_description").optional({ nullable: true }).isString(),
     body("porch_app_photo_key").optional({ nullable: true }).isString(),
-    body("reviewer_emails").optional().isArray(),
+    body("default_city").optional({ nullable: true }).isString(),
+    body("default_state").optional({ nullable: true }).isString(),
+    body("map_published").optional().isBoolean(),
   ],
   async (req: AuthRequest, res: Response) => {
     try {
@@ -553,7 +576,9 @@ adminRouter.patch(
         porch_applications_close: req.body.porch_applications_close,
         porch_app_description: req.body.porch_app_description,
         porch_app_photo_key: req.body.porch_app_photo_key,
-        reviewer_emails: req.body.reviewer_emails,
+        default_city: req.body.default_city,
+        default_state: req.body.default_state,
+        map_published: req.body.map_published,
       });
 
       res.json(updatedEvent);
@@ -648,8 +673,10 @@ adminRouter.patch(
     body("porch_applications_close").optional({ nullable: true }).isString(),
     body("porch_app_description").optional({ nullable: true }).isString(),
     body("porch_app_photo_key").optional({ nullable: true }).isString(),
-    body("reviewer_emails").optional().isArray(),
     body("is_active").optional().isBoolean(),
+    body("default_city").optional({ nullable: true }).isString(),
+    body("default_state").optional({ nullable: true }).isString(),
+    body("map_published").optional().isBoolean(),
   ],
   async (req: AuthRequest, res: Response) => {
     try {
@@ -683,8 +710,10 @@ adminRouter.patch(
         porch_applications_close: req.body.porch_applications_close,
         porch_app_description: req.body.porch_app_description,
         porch_app_photo_key: req.body.porch_app_photo_key,
-        reviewer_emails: req.body.reviewer_emails,
         is_active: req.body.is_active,
+        default_city: req.body.default_city,
+        default_state: req.body.default_state,
+        map_published: req.body.map_published,
       });
 
       res.json(updatedEvent);
@@ -884,6 +913,12 @@ adminRouter.get("/porches/approved", async (req: AuthRequest, res: Response) => 
 adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
   try {
     const { org_id } = req.query;
+    const { userIds, sendEmail } = req.body;
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ error: "userIds must be a non-empty array" });
+    }
+
     let activeEvent;
     if (org_id) {
       const result = await resolveOrgActiveEvent(req, Number(org_id));
@@ -898,35 +933,64 @@ adminRouter.post("/bands/assign-reviewers", async (req: AuthRequest, res) => {
       return res.status(404).json({ error: "No active event found" });
     }
 
-    const reviewerEmails = activeEvent.reviewer_emails || [];
-    if (reviewerEmails.length === 0) {
-      return res.status(400).json({ error: "No reviewers configured" });
+    const normalizedUserIds = (userIds as unknown[]).map((id) => Number(id));
+    if (normalizedUserIds.some((id) => isNaN(id))) {
+      return res.status(400).json({ error: "All userIds must be valid numbers" });
+    }
+
+    if (org_id) {
+      const orgIdNum = Number(org_id);
+      for (const uid of normalizedUserIds) {
+        const membership = await db.organizationUsers.findByUserAndOrg(uid, orgIdNum);
+        if (!membership) {
+          return res.status(400).json({ error: `User ${uid} is not a member of this organization` });
+        }
+      }
     }
 
     const allBands = await db.bands.findByEventId(activeEvent.id);
-    if (allBands.length === 0) {
-      return res.status(400).json({ error: "No bands to assign" });
+    const unassignedBands = allBands.filter((b) => b.assigned_reviewer_id == null);
+    if (unassignedBands.length === 0) {
+      return res.status(400).json({ error: "No unassigned bands to assign" });
     }
 
-    const shuffledBands = [...allBands].sort(() => Math.random() - 0.5);
+    const shuffledBands = [...unassignedBands].sort(() => Math.random() - 0.5);
 
     for (let i = 0; i < shuffledBands.length; i++) {
       const band = shuffledBands[i];
-      const reviewerIndex = i % reviewerEmails.length;
-      const reviewerEmail = reviewerEmails[reviewerIndex];
-      await db.bands.assignReviewer(
-        band.id,
-        `reviewer-${reviewerIndex}`,
-        reviewerEmail
-      );
+      const reviewerIndex = i % normalizedUserIds.length;
+      await db.bands.assignReviewer(band.id, normalizedUserIds[reviewerIndex]);
     }
-
-    await db.events.update(activeEvent.id, { reviewers_assigned: true });
 
     const updatedBands = await db.bands.findByEventId(activeEvent.id);
 
+    if (sendEmail) {
+      const newlyAssignedUserIds = new Set(normalizedUserIds);
+      const bandCountByUser = new Map<number, number>();
+      for (const band of updatedBands) {
+        if (band.assigned_reviewer_id != null && newlyAssignedUserIds.has(band.assigned_reviewer_id)) {
+          bandCountByUser.set(
+            band.assigned_reviewer_id,
+            (bandCountByUser.get(band.assigned_reviewer_id) || 0) + 1
+          );
+        }
+      }
+
+      for (const [userId, count] of bandCountByUser) {
+        try {
+          const user = await db.users.findById(userId);
+          if (user) {
+            const name = user.first_name || user.email.split("@")[0];
+            await sendReviewerAssignmentEmail(user.email, name, count, activeEvent.name);
+          }
+        } catch (emailErr) {
+          logger.error({ err: emailErr, userId }, "Failed to send reviewer assignment email");
+        }
+      }
+    }
+
     res.json({
-      message: `Successfully assigned ${allBands.length} bands to ${reviewerEmails.length} reviewers`,
+      message: `Successfully assigned ${unassignedBands.length} bands to ${normalizedUserIds.length} reviewers`,
       bands: updatedBands,
     });
   } catch (error) {
@@ -954,16 +1018,21 @@ adminRouter.patch(
       const { id } = req.params;
       const { reviewer_rating, reviewer_notes } = req.body;
 
-      const band = await db.bands.updateReview(id, {
-        reviewer_rating,
-        reviewer_notes,
-      });
-
+      const band = await db.bands.findById(id);
       if (!band) {
         return res.status(404).json({ error: "Band not found" });
       }
 
-      res.json(band);
+      if (band.assigned_reviewer_id !== req.user?.id && req.user?.role !== "super-duper-admin") {
+        return res.status(403).json({ error: "You are not the assigned reviewer for this band" });
+      }
+
+      const updatedBand = await db.bands.updateReview(id, {
+        reviewer_rating,
+        reviewer_notes,
+      });
+
+      res.json(updatedBand);
     } catch (error) {
       logger.error({ err: error }, "Error updating band review");
       res.status(500).json({ error: "Failed to update band review" });
@@ -974,12 +1043,12 @@ adminRouter.patch(
 // Get bands assigned to current user for review
 adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res: Response) => {
   try {
-    const userEmail = req.user?.email;
-    if (!userEmail) {
+    const userId = req.user?.id;
+    if (!userId) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const myBands = await db.bands.findByReviewerEmail(userEmail);
+    const myBands = await db.bands.findByReviewerId(userId);
     const { org_id } = req.query;
     if (org_id) {
       const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
@@ -996,10 +1065,12 @@ adminRouter.get("/bands/my-reviews", async (req: AuthRequest, res: Response) => 
   }
 });
 
-// Get unique reviewer emails from assigned bands
+// Get reviewer users who have bands assigned to them
 adminRouter.get("/reviewers", async (req: AuthRequest, res: Response) => {
   try {
     const { org_id } = req.query;
+
+    let reviewerIds: number[];
     if (org_id) {
       const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
       if (!authorized) {
@@ -1007,16 +1078,151 @@ adminRouter.get("/reviewers", async (req: AuthRequest, res: Response) => {
       }
       if (!event) return res.json([]);
       const bands = await db.bands.findByEventId(event.id);
-      const emails = [...new Set(bands
-        .map((b) => b.assigned_reviewer_email)
-        .filter(Boolean)
+      reviewerIds = [...new Set(
+        bands.map((b) => b.assigned_reviewer_id).filter((id): id is number => id != null)
       )];
-      return res.json(emails);
+    } else {
+      reviewerIds = await db.bands.getReviewerUserIds();
     }
-    const reviewerEmails = await db.bands.getReviewerEmails();
-    res.json(reviewerEmails);
+
+    const reviewerUsers = await Promise.all(
+      reviewerIds.map(async (id) => {
+        const user = await db.users.findById(id);
+        if (!user) return null;
+        return {
+          id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+        };
+      })
+    );
+
+    res.json(reviewerUsers.filter(Boolean));
   } catch (error) {
     logger.error({ err: error }, "Error fetching reviewers");
     res.status(500).json({ error: "Failed to fetch reviewers" });
   }
 });
+
+// =========================================================================
+// MAP FEATURES
+// =========================================================================
+
+// Bulk geocode all approved porches missing coordinates
+adminRouter.post("/porches/geocode", async (req: AuthRequest, res: Response) => {
+  try {
+    const { org_id } = req.query;
+    let porches;
+    let event;
+
+    if (org_id) {
+      const result = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!result.authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!result.event) return res.json({ geocoded: 0, failed: 0 });
+      event = result.event;
+      const all = await db.porches.findByEventId(event.id);
+      porches = all.filter((p) => p.status === "approved" && p.lat == null);
+    } else {
+      const approved = await db.porches.findApproved();
+      porches = approved.filter((p) => p.lat == null);
+      event = await db.events.findActive();
+    }
+
+    let geocoded = 0;
+    let failed = 0;
+    const results: Array<{ id: number; address: string; lat?: number; lng?: number; error?: string }> = [];
+
+    for (const porch of porches) {
+      try {
+        const result = await geocodeAddress(
+          porch.address,
+          event?.default_city,
+          event?.default_state
+        );
+        if (result) {
+          await db.porches.updateCoordinates(porch.id, result.lat, result.lng);
+          geocoded++;
+          results.push({ id: porch.id, address: porch.address, lat: result.lat, lng: result.lng });
+        } else {
+          failed++;
+          results.push({ id: porch.id, address: porch.address, error: "No results found" });
+        }
+      } catch (err) {
+        failed++;
+        results.push({ id: porch.id, address: porch.address, error: "Geocoding error" });
+        logger.error({ err, porchId: porch.id }, "Bulk geocode error");
+      }
+    }
+
+    res.json({ geocoded, failed, total: porches.length, results });
+  } catch (error) {
+    logger.error({ err: error }, "Error in bulk geocoding");
+    res.status(500).json({ error: "Failed to bulk geocode" });
+  }
+});
+
+// Update porch coordinates (manual placement)
+adminRouter.patch(
+  "/porches/:id/coordinates",
+  [
+    body("lat").isFloat({ min: -90, max: 90 }),
+    body("lng").isFloat({ min: -180, max: 180 }),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const { lat, lng } = req.body;
+
+      const porch = await db.porches.updateCoordinates(id, lat, lng);
+      if (!porch) {
+        return res.status(404).json({ error: "Porch not found" });
+      }
+
+      res.json(porch);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating porch coordinates");
+      res.status(500).json({ error: "Failed to update coordinates" });
+    }
+  }
+);
+
+// Update porch sound settings
+adminRouter.patch(
+  "/porches/:id/sound",
+  [
+    body("sound_radius_meters").optional().isInt({ min: 0, max: 500 }),
+    body("sound_direction_degrees").optional({ nullable: true }).isInt({ min: 0, max: 359 }),
+    body("sound_cone_width_degrees").optional().isInt({ min: 10, max: 360 }),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const porch = await db.porches.updateSoundSettings(id, {
+        sound_radius_meters: req.body.sound_radius_meters,
+        sound_direction_degrees: req.body.sound_direction_degrees,
+        sound_cone_width_degrees: req.body.sound_cone_width_degrees,
+      });
+      if (!porch) {
+        return res.status(404).json({ error: "Porch not found" });
+      }
+
+      res.json(porch);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating porch sound settings");
+      res.status(500).json({ error: "Failed to update sound settings" });
+    }
+  }
+);

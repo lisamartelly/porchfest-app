@@ -28,7 +28,6 @@ export interface BandApplication {
   set_end_time: string | null;
   // Reviewer fields
   assigned_reviewer_id: number | null;
-  assigned_reviewer_email: string | null;
   reviewer_rating: number | null;
   reviewer_notes: string | null;
 }
@@ -41,6 +40,8 @@ export interface PorchApplication {
   phone: string | null;
   address: string;
   city: string;
+  lat: number | null;
+  lng: number | null;
   capacity: number | null;
   has_power: boolean;
   parking_notes: string | null;
@@ -51,6 +52,9 @@ export interface PorchApplication {
   band_count_preference: string | null;
   rain_date_available: string | null;
   comments: string | null;
+  sound_radius_meters: number;
+  sound_direction_degrees: number | null;
+  sound_cone_width_degrees: number;
   status: string;
   admin_notes: string | null;
   created_at: string;
@@ -67,17 +71,15 @@ export interface EventSettings {
   end_time: string;
   description: string | null;
   is_active: boolean;
-  // Application date fields
   band_applications_open: string | null;
   band_applications_close: string | null;
   porch_applications_open: string | null;
   porch_applications_close: string | null;
-  // Porch application form configuration
   porch_app_description: string | null;
   porch_app_photo_key: string | null;
-  // Reviewer assignment fields
-  reviewer_emails: string[];
-  reviewers_assigned: boolean;
+  default_city: string | null;
+  default_state: string | null;
+  map_published: boolean;
 }
 
 export type FilterStatus =
@@ -94,6 +96,7 @@ export type Section =
   | "assignments"
   | "my-reviews"
   | "scheduler"
+  | "map"
   | "events"
   | "tasks"
   | "organizations"
@@ -138,8 +141,13 @@ export interface EventWithOrg {
   porch_applications_close: string | null;
   porch_app_description: string | null;
   porch_app_photo_key: string | null;
-  reviewer_emails: string[];
-  reviewers_assigned: boolean;
+}
+
+export interface ReviewerUser {
+  id: number;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
 }
 
 export type BandSortOption =

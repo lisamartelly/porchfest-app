@@ -97,7 +97,6 @@ export interface Band {
   set_start_time: string | null;
   set_end_time: string | null;
   assigned_reviewer_id: number | null;
-  assigned_reviewer_email: string | null;
   reviewer_rating: number | null;
   reviewer_notes: string | null;
   created_at: Date;
@@ -124,6 +123,9 @@ export interface Porch {
   band_count_preference: string | null;
   rain_date_available: string | null;
   comments: string | null;
+  sound_radius_meters: number;
+  sound_direction_degrees: number | null;
+  sound_cone_width_degrees: number;
   status: string;
   admin_notes: string | null;
   created_at: Date;
@@ -145,8 +147,9 @@ export interface Event {
   porch_applications_close: string | null;
   porch_app_description: string | null;
   porch_app_photo_key: string | null;
-  reviewer_emails: string[];
-  reviewers_assigned: boolean;
+  default_city: string | null;
+  default_state: string | null;
+  map_published: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -528,10 +531,10 @@ export const db = {
       return result.rows[0] || null;
     },
 
-    async findByReviewerEmail(email: string): Promise<Band[]> {
+    async findByReviewerId(userId: number): Promise<Band[]> {
       const result = await pool.query<Band>(
-        "SELECT * FROM bands WHERE assigned_reviewer_email = $1 ORDER BY created_at DESC",
-        [email]
+        "SELECT * FROM bands WHERE assigned_reviewer_id = $1 ORDER BY created_at DESC",
+        [userId]
       );
       return result.rows;
     },
@@ -684,23 +687,22 @@ export const db = {
 
     async assignReviewer(
       id: number | string,
-      reviewerId: number | string,
-      reviewerEmail: string
+      reviewerId: number
     ): Promise<Band | null> {
       const result = await pool.query<Band>(
         `UPDATE bands 
-         SET assigned_reviewer_id = $1, assigned_reviewer_email = $2
-         WHERE id = $3 RETURNING *`,
-        [reviewerId, reviewerEmail, id]
+         SET assigned_reviewer_id = $1
+         WHERE id = $2 RETURNING *`,
+        [reviewerId, id]
       );
       return result.rows[0] || null;
     },
 
-    async getReviewerEmails(): Promise<string[]> {
-      const result = await pool.query<{ assigned_reviewer_email: string }>(
-        "SELECT DISTINCT assigned_reviewer_email FROM bands WHERE assigned_reviewer_email IS NOT NULL"
+    async getReviewerUserIds(): Promise<number[]> {
+      const result = await pool.query<{ assigned_reviewer_id: number }>(
+        "SELECT DISTINCT assigned_reviewer_id FROM bands WHERE assigned_reviewer_id IS NOT NULL"
       );
-      return result.rows.map((r) => r.assigned_reviewer_email);
+      return result.rows.map((r) => r.assigned_reviewer_id);
     },
 
     async findOverlappingAtPorch(
@@ -818,6 +820,53 @@ export const db = {
       );
       return result.rows[0] || null;
     },
+
+    async updateCoordinates(
+      id: number | string,
+      lat: number,
+      lng: number
+    ): Promise<Porch | null> {
+      const result = await pool.query<Porch>(
+        `UPDATE porches SET lat = $1, lng = $2 WHERE id = $3 RETURNING *`,
+        [lat, lng, id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async updateSoundSettings(
+      id: number | string,
+      data: {
+        sound_radius_meters?: number;
+        sound_direction_degrees?: number | null;
+        sound_cone_width_degrees?: number;
+      }
+    ): Promise<Porch | null> {
+      const setClauses: string[] = [];
+      const values: (number | null)[] = [];
+      let idx = 1;
+
+      if (data.sound_radius_meters !== undefined) {
+        setClauses.push(`sound_radius_meters = $${idx++}`);
+        values.push(data.sound_radius_meters);
+      }
+      if (data.sound_direction_degrees !== undefined) {
+        setClauses.push(`sound_direction_degrees = $${idx++}`);
+        values.push(data.sound_direction_degrees);
+      }
+      if (data.sound_cone_width_degrees !== undefined) {
+        setClauses.push(`sound_cone_width_degrees = $${idx++}`);
+        values.push(data.sound_cone_width_degrees);
+      }
+
+      if (setClauses.length === 0) return this.findById(id);
+
+      values.push(id as number);
+      const result = await pool.query<Porch>(
+        `UPDATE porches SET ${setClauses.join(", ")} WHERE id = $${idx} RETURNING *`,
+        values
+      );
+      return result.rows[0] || null;
+    },
   },
 
   // ---------------------------------------------------------------------------
@@ -899,7 +948,7 @@ export const db = {
 
     async update(id: number | string, data: Partial<Event>): Promise<Event | null> {
       const setClauses: string[] = [];
-      const values: (string | number | boolean | string[] | null)[] = [];
+      const values: (string | number | boolean | null)[] = [];
       let paramIndex = 1;
 
       if (data.organization_id !== undefined) {
@@ -950,17 +999,21 @@ export const db = {
         setClauses.push(`porch_app_photo_key = $${paramIndex++}`);
         values.push(data.porch_app_photo_key);
       }
-      if (data.reviewer_emails !== undefined) {
-        setClauses.push(`reviewer_emails = $${paramIndex++}`);
-        values.push(data.reviewer_emails);
-      }
-      if (data.reviewers_assigned !== undefined) {
-        setClauses.push(`reviewers_assigned = $${paramIndex++}`);
-        values.push(data.reviewers_assigned);
-      }
       if (data.is_active !== undefined) {
         setClauses.push(`is_active = $${paramIndex++}`);
         values.push(data.is_active);
+      }
+      if (data.default_city !== undefined) {
+        setClauses.push(`default_city = $${paramIndex++}`);
+        values.push(data.default_city);
+      }
+      if (data.default_state !== undefined) {
+        setClauses.push(`default_state = $${paramIndex++}`);
+        values.push(data.default_state);
+      }
+      if (data.map_published !== undefined) {
+        setClauses.push(`map_published = $${paramIndex++}`);
+        values.push(data.map_published);
       }
 
       if (setClauses.length === 0) return this.findById(id);

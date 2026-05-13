@@ -29,6 +29,9 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
   const [porchAppsClose, setPorchAppsClose] = useState(toDateInput(event.porch_applications_close));
   const [porchAppDescription, setPorchAppDescription] = useState(event.porch_app_description || "");
   const [porchAppPhotoKey, setPorchAppPhotoKey] = useState(event.porch_app_photo_key || "");
+  const [defaultCity, setDefaultCity] = useState(event.default_city || "");
+  const [defaultState, setDefaultState] = useState(event.default_state || "");
+  const [mapPublished, setMapPublished] = useState(event.map_published ?? false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,7 +46,10 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
     porchAppsOpen !== toDateInput(event.porch_applications_open) ||
     porchAppsClose !== toDateInput(event.porch_applications_close) ||
     porchAppDescription !== (event.porch_app_description || "") ||
-    porchAppPhotoKey !== (event.porch_app_photo_key || "");
+    porchAppPhotoKey !== (event.porch_app_photo_key || "") ||
+    defaultCity !== (event.default_city || "") ||
+    defaultState !== (event.default_state || "") ||
+    mapPublished !== (event.map_published ?? false);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,6 +87,9 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
         porch_applications_close: porchAppsClose || null,
         porch_app_description: porchAppDescription || null,
         porch_app_photo_key: porchAppPhotoKey || null,
+        default_city: defaultCity || null,
+        default_state: defaultState || null,
+        map_published: mapPublished,
       });
     } finally {
       setSaving(false);
@@ -277,6 +286,61 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
                 Shown at the top of the porch application form
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Map & Geocoding */}
+      <div className="mt-6 pt-6 border-t border-gray-100">
+        <h3 className="font-medium text-gray-900 mb-4">
+          Map & Geocoding
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Set the default city and state to improve address geocoding accuracy. These are appended to porch addresses when resolving coordinates.
+        </p>
+
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Default City
+            </label>
+            <input
+              type="text"
+              value={defaultCity}
+              onChange={(e) => setDefaultCity(e.target.value)}
+              placeholder="e.g. Somerville"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Default State
+            </label>
+            <input
+              type="text"
+              value={defaultState}
+              onChange={(e) => setDefaultState(e.target.value)}
+              placeholder="e.g. MA"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={mapPublished}
+              onChange={(e) => setMapPublished(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-porch-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-porch-600"></div>
+          </label>
+          <div>
+            <span className="text-sm font-medium text-gray-700">Publish public map</span>
+            <p className="text-xs text-gray-500">
+              When enabled, anyone can view the event map at /events/{"{slug}"}/map
+            </p>
           </div>
         </div>
       </div>

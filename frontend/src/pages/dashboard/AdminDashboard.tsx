@@ -9,6 +9,7 @@ import {
   Status,
   EventSettings,
   Section,
+  ReviewerUser,
 } from "./types";
 import StatsGrid from "./components/StatsGrid";
 import BandsSection from "./components/sections/BandsSection";
@@ -20,6 +21,7 @@ import EventsSection from "./components/sections/EventsSection";
 import OrganizationsSection from "./components/sections/OrganizationsSection";
 import ManageUsersSection from "./components/sections/ManageUsersSection";
 import TasksSection from "./components/sections/TasksSection";
+import MapSection from "./components/sections/MapSection";
 
 const SECTION_META: Record<Section, { title: string; description: string }> = {
   overview: {
@@ -46,6 +48,10 @@ const SECTION_META: Record<Section, { title: string; description: string }> = {
     title: "Visual Scheduler",
     description:
       "Drag to select time slots on a porch row, then choose a band",
+  },
+  map: {
+    title: "Map",
+    description: "Visualize porches, plan assignments, and manage sound zones",
   },
   events: {
     title: "Events",
@@ -82,7 +88,7 @@ export default function AdminDashboard() {
   );
   const [loading, setLoading] = useState(true);
   const [schedulingError, setSchedulingError] = useState<string | null>(null);
-  const [reviewers, setReviewers] = useState<string[]>([]);
+  const [reviewers, setReviewers] = useState<ReviewerUser[]>([]);
   const [myReviewBands, setMyReviewBands] = useState<BandApplication[]>([]);
 
   const isSuperDuperAdmin = user?.role === "super-duper-admin";
@@ -136,19 +142,6 @@ export default function AdminDashboard() {
     }
   }, [section, fetchMyReviews, orgLoading]);
 
-  const updateEventSettings = useCallback(
-    async (updates: Partial<EventSettings>) => {
-      try {
-        const qs = activeOrgId ? `?org_id=${activeOrgId}` : "";
-        const updated = await api.patch(`/api/admin/event${qs}`, updates);
-        setEventSettings(updated);
-      } catch (error) {
-        console.error("Error updating event settings:", error);
-      }
-    },
-    [activeOrgId],
-  );
-
   const updateBandStatus = useCallback(
     async (bandId: number, status: Status) => {
       try {
@@ -157,6 +150,7 @@ export default function AdminDashboard() {
           { status },
         );
         setBands((prev) => prev.map((b) => (b.id === bandId ? updatedBand : b)));
+        setMyReviewBands((prev) => prev.map((b) => (b.id === bandId ? updatedBand : b)));
       } catch (error) {
         console.error("Error updating band status:", error);
       }
@@ -209,6 +203,9 @@ export default function AdminDashboard() {
           { assigned_porch_id, set_start_time, set_end_time },
         );
         setBands((prev) =>
+          prev.map((b) => (b.id === bandId ? updatedBand : b)),
+        );
+        setMyReviewBands((prev) =>
           prev.map((b) => (b.id === bandId ? updatedBand : b)),
         );
       } catch (error: unknown) {
@@ -314,13 +311,10 @@ export default function AdminDashboard() {
           return <div className="text-gray-500">Access denied. Reviewers do not have access to assignments.</div>;
         return (
           <AssignmentsSection
-            eventSettings={eventSettings}
-            reviewers={reviewers}
             bands={bands}
+            reviewers={reviewers}
             onBandsUpdate={setBands}
             onReviewersUpdate={setReviewers}
-            onEventSettingsUpdate={setEventSettings}
-            updateEventSettings={updateEventSettings}
           />
         );
 
@@ -331,7 +325,8 @@ export default function AdminDashboard() {
             approvedPorches={approvedPorches}
             eventSettings={eventSettings}
             schedulingError={schedulingError}
-            currentUserEmail={user?.email}
+            currentUserId={user?.id}
+            reviewerUsers={reviewers}
             onStatusChange={updateBandStatus}
             onSchedule={scheduleBand}
             getPorchAddress={getPorchAddress}
@@ -348,6 +343,21 @@ export default function AdminDashboard() {
             approvedPorches={approvedPorches}
             eventSettings={eventSettings}
             onScheduleBand={scheduleBand}
+          />
+        );
+
+      case "map":
+        if (!isOrganizer)
+          return <div className="text-gray-500">Access denied. Reviewers do not have access to the map.</div>;
+        return (
+          <MapSection
+            bands={bands}
+            approvedPorches={approvedPorches}
+            eventSettings={eventSettings}
+            onScheduleBand={scheduleBand}
+            onPorchesUpdate={setPorches}
+            onApprovedPorchesUpdate={setApprovedPorches}
+            onEventSettingsUpdate={setEventSettings}
           />
         );
 

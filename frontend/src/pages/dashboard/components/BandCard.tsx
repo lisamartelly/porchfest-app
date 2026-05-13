@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { BandApplication, PorchApplication, Status } from "../types";
+import { useState, useMemo } from "react";
+import { BandApplication, PorchApplication, Status, ReviewerUser } from "../types";
 import { formatTime } from "../utils";
 import StatusSelect from "./StatusSelect";
 import SchedulingForm from "./SchedulingForm";
@@ -19,9 +19,10 @@ interface BandCardProps {
   getPorchAddress: (porchId: number | null) => string | null;
   schedulingError: string | null;
   showReviewerInfo?: boolean;
+  reviewerUsers?: ReviewerUser[];
   onReviewUpdate?: (bandId: number, rating: number | null, notes: string | null) => void;
   isMyReview?: boolean;
-  currentUserEmail?: string;
+  currentUserId?: number;
 }
 
 const S3_BUCKET = import.meta.env.VITE_S3_BUCKET || "porchfest-band-photos-dev";
@@ -91,9 +92,10 @@ export default function BandCard({
   getPorchAddress,
   schedulingError,
   showReviewerInfo = false,
+  reviewerUsers = [],
   onReviewUpdate,
   isMyReview = false,
-  currentUserEmail,
+  currentUserId,
 }: BandCardProps) {
   const [showPhoto, setShowPhoto] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -103,7 +105,16 @@ export default function BandCard({
   const [savingReview, setSavingReview] = useState(false);
 
   const hasNotes = band.scheduling_notes || band.questions_comments;
-  const canEditReview = isMyReview && band.assigned_reviewer_email === currentUserEmail;
+  const canEditReview = isMyReview && band.assigned_reviewer_id === currentUserId;
+
+  const reviewerName = useMemo(() => {
+    if (band.assigned_reviewer_id == null) return null;
+    const r = reviewerUsers.find((u) => u.id === band.assigned_reviewer_id);
+    if (!r) return null;
+    return r.first_name || r.last_name
+      ? `${r.first_name || ""} ${r.last_name || ""}`.trim()
+      : r.email.split("@")[0];
+  }, [band.assigned_reviewer_id, reviewerUsers]);
 
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -308,12 +319,12 @@ export default function BandCard({
 
           <div className="flex flex-col items-end gap-3">
             {/* Reviewer Info - Top Right */}
-            {showReviewerInfo && band.assigned_reviewer_email && (
+            {showReviewerInfo && band.assigned_reviewer_id != null && reviewerName && (
               <div className="flex flex-col items-end gap-2">
                 <div className="flex items-center gap-1.5 text-sm bg-porch-50 text-porch-700 px-3 py-1.5 rounded-lg">
                   <PersonIcon />
                   <span className="font-medium">
-                    {band.assigned_reviewer_email.split("@")[0]}
+                    {reviewerName}
                   </span>
                 </div>
                 {band.reviewer_rating !== null && (
@@ -361,12 +372,87 @@ export default function BandCard({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                 Reviewer Notes
                 <span className="text-porch-600 font-normal normal-case">
-                  ({band.assigned_reviewer_email?.split("@")[0]})
+                  ({reviewerName})
                 </span>
               </h4>
               <p className="text-sm text-gray-700 whitespace-pre-wrap">
                 {band.reviewer_notes}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Review Section for My Reviews - always visible */}
+        {canEditReview && onReviewUpdate && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>
+                Your Review
+              </h4>
+              
+              {/* Star Rating */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rating
+                </label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setLocalRating(star)}
+                      className={`text-3xl transition-colors ${
+                        star <= (localRating || 0)
+                          ? "text-amber-500 hover:text-amber-600"
+                          : "text-gray-300 hover:text-gray-400"
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  {localRating && (
+                    <button
+                      type="button"
+                      onClick={() => setLocalRating(null)}
+                      className="ml-2 text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={localNotes}
+                  onChange={(e) => setLocalNotes(e.target.value)}
+                  placeholder="Add your notes about this band..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  rows={3}
+                />
+              </div>
+
+              {/* Save Button */}
+              <button
+                type="button"
+                onClick={async () => {
+                  setSavingReview(true);
+                  try {
+                    await onReviewUpdate(band.id, localRating, localNotes || null);
+                  } finally {
+                    setSavingReview(false);
+                  }
+                }}
+                disabled={savingReview}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                {savingReview ? "Saving..." : "Save Review"}
+              </button>
             </div>
           </div>
         )}
@@ -409,79 +495,6 @@ export default function BandCard({
                     </p>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Review Section for My Reviews */}
-            {canEditReview && onReviewUpdate && (
-              <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
-                <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>
-                  Your Review
-                </h4>
-                
-                {/* Star Rating */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rating
-                  </label>
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setLocalRating(star)}
-                        className={`text-3xl transition-colors ${
-                          star <= (localRating || 0)
-                            ? "text-amber-500 hover:text-amber-600"
-                            : "text-gray-300 hover:text-gray-400"
-                        }`}
-                      >
-                        ★
-                      </button>
-                    ))}
-                    {localRating && (
-                      <button
-                        type="button"
-                        onClick={() => setLocalRating(null)}
-                        className="ml-2 text-xs text-gray-500 hover:text-gray-700"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Notes */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Notes
-                  </label>
-                  <textarea
-                    value={localNotes}
-                    onChange={(e) => setLocalNotes(e.target.value)}
-                    placeholder="Add your notes about this band..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                    rows={3}
-                  />
-                </div>
-
-                {/* Save Button */}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setSavingReview(true);
-                    try {
-                      await onReviewUpdate(band.id, localRating, localNotes || null);
-                    } finally {
-                      setSavingReview(false);
-                    }
-                  }}
-                  disabled={savingReview}
-                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-medium disabled:opacity-50"
-                >
-                  {savingReview ? "Saving..." : "Save Review"}
-                </button>
               </div>
             )}
 
