@@ -102,6 +102,7 @@ export default function PublicMapPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPorch, setSelectedPorch] = useState<PublicPorch | null>(null);
   const [timeFilter, setTimeFilter] = useState<string | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
     async function fetchMap() {
@@ -194,40 +195,143 @@ export default function PublicMapPage() {
       ? [data.porches[0].lat, data.porches[0].lng]
       : [42.3876, -71.0995];
 
+  const handleSelectPorch = (porch: PublicPorch) => {
+    setSelectedPorch(porch);
+    setPanelOpen(true);
+  };
+
+  const panelContent = selectedPorch ? (
+    <div className="p-4">
+      <div className="flex items-start justify-between mb-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-base text-gray-900 truncate">
+            {selectedPorch.address}
+          </h3>
+          {selectedPorch.accessibility_notes && (
+            <p className="text-xs text-gray-500 mt-0.5 truncate">
+              {selectedPorch.accessibility_notes}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => { setSelectedPorch(null); setPanelOpen(false); }}
+          className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0 ml-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {selectedPorch.bands.length === 0 ? (
+        <p className="text-sm text-gray-400 italic">
+          No bands scheduled{timeFilter ? " at this time" : ""}.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {selectedPorch.bands
+            .sort((a, b) =>
+              (a.set_start_time || "").localeCompare(b.set_start_time || "")
+            )
+            .map((band) => (
+              <div key={band.id} className="bg-gray-50 rounded-lg p-3">
+                <h4 className="font-semibold text-gray-900 text-sm">
+                  {band.band_name}
+                </h4>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {band.set_start_time && (
+                    <span className="text-xs text-blue-600 font-medium">
+                      {formatTime(band.set_start_time)} – {formatTime(band.set_end_time)}
+                    </span>
+                  )}
+                  {band.genre && (
+                    <span className="text-xs text-gray-500">{band.genre}</span>
+                  )}
+                </div>
+                {band.bio && (
+                  <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                    {band.bio}
+                  </p>
+                )}
+                <div className="flex gap-2 mt-1.5 flex-wrap">
+                  {band.music_sample_link && (
+                    <a href={band.music_sample_link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-700 underline">Listen</a>
+                  )}
+                  {band.instagram && (
+                    <a href={`https://instagram.com/${band.instagram.replace("@", "")}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-700 underline">Instagram</a>
+                  )}
+                  {band.spotify && (
+                    <a href={band.spotify} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-700 underline">Spotify</a>
+                  )}
+                  {band.website && (
+                    <a href={band.website} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-700 underline">Website</a>
+                  )}
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  ) : (
+    <div className="p-4">
+      <h3 className="font-semibold text-base text-gray-900 mb-1">
+        All Porches
+      </h3>
+      <p className="text-sm text-gray-500 mb-3">
+        {filteredPorches.length} location{filteredPorches.length !== 1 ? "s" : ""}
+        {timeFilter ? ` at ${formatTime(timeFilter)}` : ""}
+      </p>
+      <div className="space-y-0.5">
+        {filteredPorches.map((porch) => (
+          <button
+            key={porch.id}
+            onClick={() => handleSelectPorch(porch)}
+            className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+          >
+            <p className="font-medium text-gray-900 truncate">
+              {porch.address}
+            </p>
+            <p className="text-xs text-gray-500 truncate">
+              {porch.bands.length} band{porch.bands.length !== 1 ? "s" : ""}
+              {porch.bands.length > 0 &&
+                ` · ${porch.bands.map((b) => b.band_name).join(", ")}`}
+            </p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 px-4 py-3 flex-shrink-0">
-        <div className="max-w-screen-2xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">
+      <header className="bg-white shadow-sm border-b border-gray-200 px-3 py-2 md:px-4 md:py-3 flex-shrink-0 z-10">
+        <div className="max-w-screen-2xl mx-auto flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base md:text-xl font-bold text-gray-900 truncate">
               {data.event.name}
             </h1>
-            <p className="text-sm text-gray-500">
-              {formatDate(data.event.date)} · {formatTime(data.event.start_time)}{" "}
-              – {formatTime(data.event.end_time)} · {data.organization.name}
+            <p className="text-xs md:text-sm text-gray-500 truncate">
+              {formatDate(data.event.date)} · {formatTime(data.event.start_time)} – {formatTime(data.event.end_time)}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={timeFilter || ""}
-              onChange={(e) => setTimeFilter(e.target.value || null)}
-              className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">All Times</option>
-              {timeSlots.map((t) => (
-                <option key={t} value={t}>
-                  {formatTime(t)}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={timeFilter || ""}
+            onChange={(e) => setTimeFilter(e.target.value || null)}
+            className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 flex-shrink-0"
+          >
+            <option value="">All Times</option>
+            {timeSlots.map((t) => (
+              <option key={t} value={t}>{formatTime(t)}</option>
+            ))}
+          </select>
         </div>
       </header>
 
-      {/* Map + sidebar */}
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 relative">
+      {/* Desktop: side-by-side | Mobile: map full + bottom sheet */}
+      <div className="flex-1 relative overflow-hidden">
+        {/* Map — always full area */}
+        <div className="absolute inset-0">
           <MapContainer
             center={defaultCenter}
             zoom={15}
@@ -244,7 +348,7 @@ export default function PublicMapPage() {
                 key={porch.id}
                 position={[porch.lat, porch.lng]}
                 eventHandlers={{
-                  click: () => setSelectedPorch(porch),
+                  click: () => handleSelectPorch(porch),
                 }}
               >
                 <Popup>
@@ -260,140 +364,58 @@ export default function PublicMapPage() {
           </MapContainer>
         </div>
 
-        {/* Sidebar */}
-        <div className="w-80 lg:w-96 bg-white border-l border-gray-200 overflow-y-auto">
-          {selectedPorch ? (
-            <div className="p-4">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold text-lg text-gray-900">
-                    {selectedPorch.address}
-                  </h3>
-                  {selectedPorch.accessibility_notes && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {selectedPorch.accessibility_notes}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => setSelectedPorch(null)}
-                  className="text-gray-400 hover:text-gray-600 p-1"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+        {/* Desktop sidebar (hidden on mobile) */}
+        <div className="hidden md:block absolute top-0 right-0 bottom-0 w-80 lg:w-96 bg-white border-l border-gray-200 overflow-y-auto z-[500]">
+          {panelContent}
+        </div>
 
-              {selectedPorch.bands.length === 0 ? (
-                <p className="text-sm text-gray-400 italic">
-                  No bands scheduled{timeFilter ? " at this time" : ""}.
-                </p>
+        {/* Mobile bottom sheet (hidden on desktop) */}
+        <div className="md:hidden absolute left-0 right-0 bottom-0 z-[500]">
+          {/* Collapsed peek bar — always visible */}
+          <button
+            onClick={() => setPanelOpen(!panelOpen)}
+            className="w-full bg-white border-t border-gray-200 px-4 py-2.5 flex items-center justify-between shadow-[0_-2px_8px_rgba(0,0,0,0.08)]"
+          >
+            <div className="min-w-0 flex-1 text-left">
+              {selectedPorch ? (
+                <>
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {selectedPorch.address}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {selectedPorch.bands.length} band{selectedPorch.bands.length !== 1 ? "s" : ""}
+                    {selectedPorch.bands.length > 0 &&
+                      ` · ${selectedPorch.bands.map((b) => b.band_name).join(", ")}`}
+                  </p>
+                </>
               ) : (
-                <div className="space-y-3">
-                  {selectedPorch.bands
-                    .sort((a, b) =>
-                      (a.set_start_time || "").localeCompare(b.set_start_time || "")
-                    )
-                    .map((band) => (
-                      <div
-                        key={band.id}
-                        className="bg-gray-50 rounded-lg p-3"
-                      >
-                        <h4 className="font-semibold text-gray-900">
-                          {band.band_name}
-                        </h4>
-                        {band.set_start_time && (
-                          <p className="text-sm text-blue-600 font-medium">
-                            {formatTime(band.set_start_time)} –{" "}
-                            {formatTime(band.set_end_time)}
-                          </p>
-                        )}
-                        {band.genre && (
-                          <p className="text-sm text-gray-500">{band.genre}</p>
-                        )}
-                        {band.bio && (
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-3">
-                            {band.bio}
-                          </p>
-                        )}
-                        {/* Links */}
-                        <div className="flex gap-2 mt-2 flex-wrap">
-                          {band.music_sample_link && (
-                            <a
-                              href={band.music_sample_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-600 hover:text-blue-700 underline"
-                            >
-                              Listen
-                            </a>
-                          )}
-                          {band.instagram && (
-                            <a
-                              href={`https://instagram.com/${band.instagram.replace("@", "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-600 hover:text-blue-700 underline"
-                            >
-                              Instagram
-                            </a>
-                          )}
-                          {band.spotify && (
-                            <a
-                              href={band.spotify}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-600 hover:text-blue-700 underline"
-                            >
-                              Spotify
-                            </a>
-                          )}
-                          {band.website && (
-                            <a
-                              href={band.website}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-600 hover:text-blue-700 underline"
-                            >
-                              Website
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                </div>
+                <>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {filteredPorches.length} Porch{filteredPorches.length !== 1 ? "es" : ""}
+                  </p>
+                  <p className="text-xs text-gray-500">Tap to browse</p>
+                </>
               )}
             </div>
-          ) : (
-            <div className="p-4">
-              <h3 className="font-semibold text-lg text-gray-900 mb-1">
-                All Porches
-              </h3>
-              <p className="text-sm text-gray-500 mb-4">
-                {filteredPorches.length} location{filteredPorches.length !== 1 ? "s" : ""}
-                {timeFilter ? ` at ${formatTime(timeFilter)}` : ""}
-              </p>
-              <div className="space-y-1">
-                {filteredPorches.map((porch) => (
-                  <button
-                    key={porch.id}
-                    onClick={() => setSelectedPorch(porch)}
-                    className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-                  >
-                    <p className="font-medium text-gray-900 truncate">
-                      {porch.address}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {porch.bands.length} band{porch.bands.length !== 1 ? "s" : ""}
-                      {porch.bands.length > 0 &&
-                        ` · ${porch.bands.map((b) => b.band_name).join(", ")}`}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+            <svg
+              className={`w-5 h-5 text-gray-400 flex-shrink-0 ml-2 transition-transform ${panelOpen ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+            </svg>
+          </button>
+
+          {/* Expandable content */}
+          <div
+            className={`bg-white overflow-y-auto transition-all duration-300 ease-in-out ${
+              panelOpen ? "max-h-[60vh]" : "max-h-0"
+            }`}
+          >
+            {panelContent}
+          </div>
         </div>
       </div>
     </div>
