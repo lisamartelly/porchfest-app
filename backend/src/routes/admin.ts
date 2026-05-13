@@ -8,6 +8,7 @@ import logger from "../lib/logger.js";
 import type { Event } from "../data/db.js";
 import { getPresignedUploadUrl } from "../services/s3.js";
 import { sendReviewerAssignmentEmail } from "../services/email.js";
+import { geocodeAddress } from "../services/geocode.js";
 
 export const adminRouter: Router = Router();
 
@@ -457,7 +458,7 @@ adminRouter.get("/porches", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Update porch status
+// Update porch status (geocodes address when approving)
 adminRouter.patch(
   "/porches/:id/status",
   [body("status").isIn(["pending", "under_review", "approved", "rejected"])],
@@ -471,9 +472,28 @@ adminRouter.patch(
       const { id } = req.params;
       const { status, admin_notes } = req.body;
 
-      const porch = await db.porches.updateStatus(id, status, admin_notes);
+      let porch = await db.porches.updateStatus(id, status, admin_notes);
       if (!porch) {
         return res.status(404).json({ error: "Porch not found" });
+      }
+
+      if (status === "approved" && porch.lat == null) {
+        try {
+          const event = await db.events.findById(porch.event_id);
+          const result = await geocodeAddress(
+            porch.address,
+            event?.default_city,
+            event?.default_state
+          );
+          if (result) {
+            porch = (await db.porches.updateCoordinates(id, result.lat, result.lng))!;
+            logger.info({ porchId: id, lat: result.lat, lng: result.lng }, "Geocoded porch on approval");
+          } else {
+            logger.warn({ porchId: id, address: porch.address }, "Could not geocode porch address");
+          }
+        } catch (geoErr) {
+          logger.error({ err: geoErr, porchId: id }, "Geocoding failed during porch approval");
+        }
       }
 
       res.json(porch);
@@ -523,6 +543,9 @@ adminRouter.patch(
     body("porch_applications_close").optional({ nullable: true }).isString(),
     body("porch_app_description").optional({ nullable: true }).isString(),
     body("porch_app_photo_key").optional({ nullable: true }).isString(),
+    body("default_city").optional({ nullable: true }).isString(),
+    body("default_state").optional({ nullable: true }).isString(),
+    body("map_published").optional().isBoolean(),
   ],
   async (req: AuthRequest, res: Response) => {
     try {
@@ -553,6 +576,9 @@ adminRouter.patch(
         porch_applications_close: req.body.porch_applications_close,
         porch_app_description: req.body.porch_app_description,
         porch_app_photo_key: req.body.porch_app_photo_key,
+        default_city: req.body.default_city,
+        default_state: req.body.default_state,
+        map_published: req.body.map_published,
       });
 
       res.json(updatedEvent);
@@ -648,6 +674,9 @@ adminRouter.patch(
     body("porch_app_description").optional({ nullable: true }).isString(),
     body("porch_app_photo_key").optional({ nullable: true }).isString(),
     body("is_active").optional().isBoolean(),
+    body("default_city").optional({ nullable: true }).isString(),
+    body("default_state").optional({ nullable: true }).isString(),
+    body("map_published").optional().isBoolean(),
   ],
   async (req: AuthRequest, res: Response) => {
     try {
@@ -682,6 +711,9 @@ adminRouter.patch(
         porch_app_description: req.body.porch_app_description,
         porch_app_photo_key: req.body.porch_app_photo_key,
         is_active: req.body.is_active,
+        default_city: req.body.default_city,
+        default_state: req.body.default_state,
+        map_published: req.body.map_published,
       });
 
       res.json(updatedEvent);
@@ -1072,3 +1104,125 @@ adminRouter.get("/reviewers", async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: "Failed to fetch reviewers" });
   }
 });
+
+// =========================================================================
+// MAP FEATURES
+// =========================================================================
+
+// Bulk geocode all approved porches missing coordinates
+adminRouter.post("/porches/geocode", async (req: AuthRequest, res: Response) => {
+  try {
+    const { org_id } = req.query;
+    let porches;
+    let event;
+
+    if (org_id) {
+      const result = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!result.authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!result.event) return res.json({ geocoded: 0, failed: 0 });
+      event = result.event;
+      const all = await db.porches.findByEventId(event.id);
+      porches = all.filter((p) => p.status === "approved" && p.lat == null);
+    } else {
+      const approved = await db.porches.findApproved();
+      porches = approved.filter((p) => p.lat == null);
+      event = await db.events.findActive();
+    }
+
+    let geocoded = 0;
+    let failed = 0;
+    const results: Array<{ id: number; address: string; lat?: number; lng?: number; error?: string }> = [];
+
+    for (const porch of porches) {
+      try {
+        const result = await geocodeAddress(
+          porch.address,
+          event?.default_city,
+          event?.default_state
+        );
+        if (result) {
+          await db.porches.updateCoordinates(porch.id, result.lat, result.lng);
+          geocoded++;
+          results.push({ id: porch.id, address: porch.address, lat: result.lat, lng: result.lng });
+        } else {
+          failed++;
+          results.push({ id: porch.id, address: porch.address, error: "No results found" });
+        }
+      } catch (err) {
+        failed++;
+        results.push({ id: porch.id, address: porch.address, error: "Geocoding error" });
+        logger.error({ err, porchId: porch.id }, "Bulk geocode error");
+      }
+    }
+
+    res.json({ geocoded, failed, total: porches.length, results });
+  } catch (error) {
+    logger.error({ err: error }, "Error in bulk geocoding");
+    res.status(500).json({ error: "Failed to bulk geocode" });
+  }
+});
+
+// Update porch coordinates (manual placement)
+adminRouter.patch(
+  "/porches/:id/coordinates",
+  [
+    body("lat").isFloat({ min: -90, max: 90 }),
+    body("lng").isFloat({ min: -180, max: 180 }),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const { lat, lng } = req.body;
+
+      const porch = await db.porches.updateCoordinates(id, lat, lng);
+      if (!porch) {
+        return res.status(404).json({ error: "Porch not found" });
+      }
+
+      res.json(porch);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating porch coordinates");
+      res.status(500).json({ error: "Failed to update coordinates" });
+    }
+  }
+);
+
+// Update porch sound settings
+adminRouter.patch(
+  "/porches/:id/sound",
+  [
+    body("sound_radius_meters").optional().isInt({ min: 0, max: 500 }),
+    body("sound_direction_degrees").optional({ nullable: true }).isInt({ min: 0, max: 359 }),
+    body("sound_cone_width_degrees").optional().isInt({ min: 10, max: 360 }),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const porch = await db.porches.updateSoundSettings(id, {
+        sound_radius_meters: req.body.sound_radius_meters,
+        sound_direction_degrees: req.body.sound_direction_degrees,
+        sound_cone_width_degrees: req.body.sound_cone_width_degrees,
+      });
+      if (!porch) {
+        return res.status(404).json({ error: "Porch not found" });
+      }
+
+      res.json(porch);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating porch sound settings");
+      res.status(500).json({ error: "Failed to update sound settings" });
+    }
+  }
+);

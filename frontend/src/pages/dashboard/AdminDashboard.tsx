@@ -21,6 +21,7 @@ import EventsSection from "./components/sections/EventsSection";
 import OrganizationsSection from "./components/sections/OrganizationsSection";
 import ManageUsersSection from "./components/sections/ManageUsersSection";
 import TasksSection from "./components/sections/TasksSection";
+import MapSection from "./components/sections/MapSection";
 
 const SECTION_META: Record<Section, { title: string; description: string }> = {
   overview: {
@@ -47,6 +48,10 @@ const SECTION_META: Record<Section, { title: string; description: string }> = {
     title: "Visual Scheduler",
     description:
       "Drag to select time slots on a porch row, then choose a band",
+  },
+  map: {
+    title: "Map",
+    description: "Visualize porches, plan assignments, and manage sound zones",
   },
   events: {
     title: "Events",
@@ -338,6 +343,21 @@ export default function AdminDashboard() {
             approvedPorches={approvedPorches}
             eventSettings={eventSettings}
             onScheduleBand={scheduleBand}
+          />
+        );
+
+      case "map":
+        if (!isOrganizer)
+          return <div className="text-gray-500">Access denied. Reviewers do not have access to the map.</div>;
+        return (
+          <MapSection
+            bands={bands}
+            approvedPorches={approvedPorches}
+            eventSettings={eventSettings}
+            onScheduleBand={scheduleBand}
+            onPorchesUpdate={setPorches}
+            onApprovedPorchesUpdate={setApprovedPorches}
+            onEventSettingsUpdate={setEventSettings}
           />
         );
 

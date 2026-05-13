@@ -134,6 +134,79 @@ app.get("/api/venues", async (req, res) => {
   }
 });
 
+// Public: Map data for a published event (no auth)
+app.get("/api/events/org/:slug/map", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const org = await db.organizations.findBySlug(slug);
+    if (!org) {
+      return res.status(404).json({ error: "Organization not found" });
+    }
+
+    const orgEvents = await db.events.findByOrganizationId(org.id);
+    const activeEvent = orgEvents.find((e) => e.is_active);
+
+    if (!activeEvent) {
+      return res.status(404).json({ error: "No active event found" });
+    }
+
+    if (!activeEvent.map_published) {
+      return res.status(403).json({ error: "Map is not published for this event" });
+    }
+
+    const [allPorches, allBands] = await Promise.all([
+      db.porches.findByEventId(activeEvent.id),
+      db.bands.findByEventId(activeEvent.id),
+    ]);
+
+    const approvedPorches = allPorches.filter((p) => p.status === "approved" && p.lat != null);
+    const approvedBands = allBands.filter((b) => b.status === "approved");
+
+    const porchesWithBands = approvedPorches.map((p) => ({
+      id: p.id,
+      address: p.address,
+      city: p.city,
+      lat: p.lat,
+      lng: p.lng,
+      capacity: p.capacity,
+      has_power: p.has_power,
+      accessibility_notes: p.accessibility_notes,
+      bands: approvedBands
+        .filter((b) => b.assigned_porch_id === p.id)
+        .map((b) => ({
+          id: b.id,
+          band_name: b.band_name,
+          genre: b.genre,
+          bio: b.bio,
+          set_start_time: b.set_start_time,
+          set_end_time: b.set_end_time,
+          music_sample_link: b.music_sample_link,
+          instagram: b.instagram,
+          spotify: b.spotify,
+          website: b.website,
+          photo_key: b.photo_key,
+        })),
+    }));
+
+    res.json({
+      event: {
+        id: activeEvent.id,
+        name: activeEvent.name,
+        date: activeEvent.date,
+        start_time: activeEvent.start_time,
+        end_time: activeEvent.end_time,
+        description: activeEvent.description,
+      },
+      organization: { id: org.id, name: org.name, slug: org.slug },
+      porches: porchesWithBands,
+    });
+  } catch (error) {
+    logger.error({ err: error }, "Error fetching public map data");
+    res.status(500).json({ error: "Failed to fetch map data" });
+  }
+});
+
 // Public: Look up an organization's active event and application status
 app.get("/api/events/org/:slug", async (req, res) => {
   try {

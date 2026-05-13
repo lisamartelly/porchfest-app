@@ -1,5 +1,6 @@
 import { Status } from "../types";
-import StatusPill, { APPLICATION_STATUSES } from "../../../components/ui/StatusPill";
+import StatusPill from "../../../components/ui/StatusPill";
+import { APPLICATION_STATUSES } from "../../../components/ui/statusOptions";
 
 interface StatusSelectProps {
   value: string;

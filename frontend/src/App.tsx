@@ -8,6 +8,7 @@ import BandApplyPage from "./pages/BandApplyPage";
 import BandLoginPage from "./pages/BandLoginPage";
 import BandEditPage from "./pages/BandEditPage";
 import PorchApplyPage from "./pages/PorchApplyPage";
+import PublicMapPage from "./pages/PublicMapPage";
 import LoginPage from "./pages/auth/LoginPage";
 
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
@@ -42,6 +43,7 @@ function App() {
       <Route path="/band-login/:slug" element={<BandLoginPage />} />
       <Route path="/band-edit" element={<BandEditPage />} />
       <Route path="/porchapplication/:slug" element={<PorchApplyPage />} />
+      <Route path="/events/:slug/map" element={<PublicMapPage />} />
       <Route path="/theme-preview" element={<ThemePreviewPage />} />
 
       <Route

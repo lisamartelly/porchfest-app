@@ -11,7 +11,8 @@ import {
   AdminUser,
 } from "./types";
 import InlineSelect from "../../components/ui/InlineSelect";
-import StatusPill, { TASK_STATUSES } from "../../components/ui/StatusPill";
+import StatusPill from "../../components/ui/StatusPill";
+import { TASK_STATUSES } from "../../components/ui/statusOptions";
 
 interface TaskDetailResponse extends EventTaskItem {
   history: Array<EventTaskItem & { event_name?: string; event_date?: string }>;

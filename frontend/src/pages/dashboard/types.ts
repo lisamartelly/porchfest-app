@@ -40,6 +40,8 @@ export interface PorchApplication {
   phone: string | null;
   address: string;
   city: string;
+  lat: number | null;
+  lng: number | null;
   capacity: number | null;
   has_power: boolean;
   parking_notes: string | null;
@@ -50,6 +52,9 @@ export interface PorchApplication {
   band_count_preference: string | null;
   rain_date_available: string | null;
   comments: string | null;
+  sound_radius_meters: number;
+  sound_direction_degrees: number | null;
+  sound_cone_width_degrees: number;
   status: string;
   admin_notes: string | null;
   created_at: string;
@@ -66,14 +71,15 @@ export interface EventSettings {
   end_time: string;
   description: string | null;
   is_active: boolean;
-  // Application date fields
   band_applications_open: string | null;
   band_applications_close: string | null;
   porch_applications_open: string | null;
   porch_applications_close: string | null;
-  // Porch application form configuration
   porch_app_description: string | null;
   porch_app_photo_key: string | null;
+  default_city: string | null;
+  default_state: string | null;
+  map_published: boolean;
 }
 
 export type FilterStatus =
@@ -90,6 +96,7 @@ export type Section =
   | "assignments"
   | "my-reviews"
   | "scheduler"
+  | "map"
   | "events"
   | "tasks"
   | "organizations"

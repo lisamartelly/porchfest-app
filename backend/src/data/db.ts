@@ -123,6 +123,9 @@ export interface Porch {
   band_count_preference: string | null;
   rain_date_available: string | null;
   comments: string | null;
+  sound_radius_meters: number;
+  sound_direction_degrees: number | null;
+  sound_cone_width_degrees: number;
   status: string;
   admin_notes: string | null;
   created_at: Date;
@@ -144,6 +147,9 @@ export interface Event {
   porch_applications_close: string | null;
   porch_app_description: string | null;
   porch_app_photo_key: string | null;
+  default_city: string | null;
+  default_state: string | null;
+  map_published: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -814,6 +820,53 @@ export const db = {
       );
       return result.rows[0] || null;
     },
+
+    async updateCoordinates(
+      id: number | string,
+      lat: number,
+      lng: number
+    ): Promise<Porch | null> {
+      const result = await pool.query<Porch>(
+        `UPDATE porches SET lat = $1, lng = $2 WHERE id = $3 RETURNING *`,
+        [lat, lng, id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async updateSoundSettings(
+      id: number | string,
+      data: {
+        sound_radius_meters?: number;
+        sound_direction_degrees?: number | null;
+        sound_cone_width_degrees?: number;
+      }
+    ): Promise<Porch | null> {
+      const setClauses: string[] = [];
+      const values: (number | null)[] = [];
+      let idx = 1;
+
+      if (data.sound_radius_meters !== undefined) {
+        setClauses.push(`sound_radius_meters = $${idx++}`);
+        values.push(data.sound_radius_meters);
+      }
+      if (data.sound_direction_degrees !== undefined) {
+        setClauses.push(`sound_direction_degrees = $${idx++}`);
+        values.push(data.sound_direction_degrees);
+      }
+      if (data.sound_cone_width_degrees !== undefined) {
+        setClauses.push(`sound_cone_width_degrees = $${idx++}`);
+        values.push(data.sound_cone_width_degrees);
+      }
+
+      if (setClauses.length === 0) return this.findById(id);
+
+      values.push(id as number);
+      const result = await pool.query<Porch>(
+        `UPDATE porches SET ${setClauses.join(", ")} WHERE id = $${idx} RETURNING *`,
+        values
+      );
+      return result.rows[0] || null;
+    },
   },
 
   // ---------------------------------------------------------------------------
@@ -949,6 +1002,18 @@ export const db = {
       if (data.is_active !== undefined) {
         setClauses.push(`is_active = $${paramIndex++}`);
         values.push(data.is_active);
+      }
+      if (data.default_city !== undefined) {
+        setClauses.push(`default_city = $${paramIndex++}`);
+        values.push(data.default_city);
+      }
+      if (data.default_state !== undefined) {
+        setClauses.push(`default_state = $${paramIndex++}`);
+        values.push(data.default_state);
+      }
+      if (data.map_published !== undefined) {
+        setClauses.push(`map_published = $${paramIndex++}`);
+        values.push(data.map_published);
       }
 
       if (setClauses.length === 0) return this.findById(id);
