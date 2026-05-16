@@ -303,7 +303,7 @@ export default function PublicMapPage() {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50" style={{ height: "100dvh" }}>
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200 px-3 py-2 md:px-4 md:py-3 flex-shrink-0 z-10">
         <div className="max-w-screen-2xl mx-auto flex items-center justify-between gap-2">

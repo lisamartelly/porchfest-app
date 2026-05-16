@@ -9,6 +9,8 @@ import {
 } from "../../types";
 import PorchCard from "../PorchCard";
 import FilterPill from "../../../../components/ui/FilterPill";
+import { exportPorches } from "../../../../lib/exportUtils";
+import ExportMenu from "../../../../components/ui/ExportMenu";
 
 interface PorchesSectionProps {
   porches: PorchApplication[];
@@ -118,6 +120,10 @@ export default function PorchesSection({
               { value: "status", label: "Status" },
               { value: "created_at", label: "Newest First" },
             ]}
+          />
+
+          <ExportMenu
+            onExport={(format) => exportPorches(porches, bands, format)}
           />
         </div>
 

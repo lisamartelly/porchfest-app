@@ -10,6 +10,8 @@ import {
 } from "../../types";
 import BandCard from "../BandCard";
 import FilterPill from "../../../../components/ui/FilterPill";
+import { exportBands } from "../../../../lib/exportUtils";
+import ExportMenu from "../../../../components/ui/ExportMenu";
 
 interface BandsSectionProps {
   bands: BandApplication[];
@@ -238,6 +240,12 @@ export default function BandsSection({
                 { value: "reviewer", label: "Reviewer" },
                 { value: "rating", label: "Rating (High to Low)" },
               ]}
+            />
+
+            <ExportMenu
+              onExport={(format) =>
+                exportBands(bands, approvedPorches, reviewers, format)
+              }
             />
           </div>
         </div>
