@@ -24,7 +24,8 @@ import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
 import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 
-delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)
+  ._getIconUrl;
 L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl });
 
 const STATUS_MARKER_COLORS: Record<Status, string> = {
@@ -70,7 +71,7 @@ interface MapSectionProps {
     bandId: number,
     porchId: number | null,
     startTime: string | null,
-    endTime: string | null
+    endTime: string | null,
   ) => Promise<void>;
   onPorchesUpdate: React.Dispatch<React.SetStateAction<PorchApplication[]>>;
   onEventSettingsUpdate: React.Dispatch<
@@ -90,7 +91,7 @@ function computeConePolygon(
   lng: number,
   radiusMeters: number,
   directionDeg: number,
-  widthDeg: number
+  widthDeg: number,
 ): [number, number][] {
   const R = 6371000;
   const points: [number, number][] = [[lat, lng]];
@@ -106,13 +107,14 @@ function computeConePolygon(
     const d = radiusMeters / R;
 
     const lat2 = Math.asin(
-      Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(bearing)
+      Math.sin(lat1) * Math.cos(d) +
+        Math.cos(lat1) * Math.sin(d) * Math.cos(bearing),
     );
     const lng2 =
       lng1 +
       Math.atan2(
         Math.sin(bearing) * Math.sin(d) * Math.cos(lat1),
-        Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
+        Math.cos(d) - Math.sin(lat1) * Math.sin(lat2),
       );
 
     points.push([(lat2 * 180) / Math.PI, (lng2 * 180) / Math.PI]);
@@ -132,7 +134,7 @@ function FitBounds({ porches }: { porches: PorchApplication[] }) {
     if (geocoded.length === 0) return;
 
     const bounds = L.latLngBounds(
-      geocoded.map((p) => [p.lat!, p.lng!] as [number, number])
+      geocoded.map((p) => [p.lat!, p.lng!] as [number, number]),
     );
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
     fitted.current = true;
@@ -174,15 +176,20 @@ export default function MapSection({
   onEventSettingsUpdate,
 }: MapSectionProps) {
   const { activeOrgId } = useOrgStore();
-  const [selectedPorch, setSelectedPorch] = useState<PorchApplication | null>(null);
+  const [selectedPorch, setSelectedPorch] = useState<PorchApplication | null>(
+    null,
+  );
   const [showSound, setShowSound] = useState(true);
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeResult, setGeocodeResult] = useState<string | null>(null);
 
   // Status visibility toggles
   const [visibleStatuses, setVisibleStatuses] = useState<Set<Status>>(
-    new Set(["pending", "under_review", "approved"])
+    new Set(["pending", "under_review", "approved"]),
   );
+
+  // "Has band in mind" filter — when on, only show porches with has_band_in_mind === "yes"
+  const [filterBandInMind, setFilterBandInMind] = useState(false);
 
   // Band assignment state
   const [assigningBand, setAssigningBand] = useState(false);
@@ -219,8 +226,13 @@ export default function MapSection({
   };
 
   const visiblePorches = useMemo(
-    () => porches.filter((p) => visibleStatuses.has(p.status as Status)),
-    [porches, visibleStatuses]
+    () =>
+      porches.filter((p) => {
+        if (!visibleStatuses.has(p.status as Status)) return false;
+        if (filterBandInMind && p.has_band_in_mind !== "yes") return false;
+        return true;
+      }),
+    [porches, visibleStatuses, filterBandInMind],
   );
 
   const geocodedPorches = useMemo(
@@ -228,27 +240,28 @@ export default function MapSection({
       visiblePorches
         .filter((p) => p.lat != null && p.lng != null)
         .map((p) => ({ ...p, lat: Number(p.lat), lng: Number(p.lng) })),
-    [visiblePorches]
+    [visiblePorches],
   );
 
   const ungeocodedCount = useMemo(
     () => visiblePorches.filter((p) => p.lat == null || p.lng == null).length,
-    [visiblePorches]
+    [visiblePorches],
   );
 
   const approvedBands = useMemo(
     () => bands.filter((b) => b.status === "approved"),
-    [bands]
+    [bands],
   );
 
   const unassignedBands = useMemo(
     () => approvedBands.filter((b) => !b.assigned_porch_id),
-    [approvedBands]
+    [approvedBands],
   );
 
   const bandsAtPorch = useCallback(
-    (porchId: number) => approvedBands.filter((b) => b.assigned_porch_id === porchId),
-    [approvedBands]
+    (porchId: number) =>
+      approvedBands.filter((b) => b.assigned_porch_id === porchId),
+    [approvedBands],
   );
 
   const timeSlots = useMemo(() => {
@@ -275,7 +288,7 @@ export default function MapSection({
       const result = await api.post(`/api/admin/porches/geocode${qs}`, {});
       setGeocodeResult(
         `Geocoded ${result.geocoded} of ${result.total} porches` +
-          (result.failed > 0 ? ` (${result.failed} failed)` : "")
+          (result.failed > 0 ? ` (${result.failed} failed)` : ""),
       );
       const porchQs = activeOrgId ? `?org_id=${activeOrgId}` : "";
       const porchData = await api.get(`/api/admin/porches${porchQs}`);
@@ -292,7 +305,7 @@ export default function MapSection({
   useEffect(() => {
     if (hasAutoGeocoded.current) return;
     const needsGeocoding = porches.filter(
-      (p) => visibleStatuses.has(p.status as Status) && p.lat == null
+      (p) => visibleStatuses.has(p.status as Status) && p.lat == null,
     );
     if (needsGeocoding.length > 0) {
       hasAutoGeocoded.current = true;
@@ -304,7 +317,12 @@ export default function MapSection({
     if (!selectedBandId || !selectedPorch || !startTime || !endTime) return;
     setAssignError(null);
     try {
-      await onScheduleBand(selectedBandId, selectedPorch.id, startTime, endTime);
+      await onScheduleBand(
+        selectedBandId,
+        selectedPorch.id,
+        startTime,
+        endTime,
+      );
       setAssigningBand(false);
       setSelectedBandId(null);
       setStartTime("");
@@ -329,11 +347,15 @@ export default function MapSection({
       try {
         const updated = await api.patch(
           `/api/admin/porches/${selectedPorch.id}/coordinates`,
-          { lat, lng }
+          { lat, lng },
         );
-        const normalized = { ...updated, lat: Number(updated.lat), lng: Number(updated.lng) };
+        const normalized = {
+          ...updated,
+          lat: Number(updated.lat),
+          lng: Number(updated.lng),
+        };
         onPorchesUpdate((prev) =>
-          prev.map((p) => (p.id === normalized.id ? normalized : p))
+          prev.map((p) => (p.id === normalized.id ? normalized : p)),
         );
         setSelectedPorch(normalized);
         setRelocating(false);
@@ -341,7 +363,7 @@ export default function MapSection({
         console.error("Failed to relocate porch:", err);
       }
     },
-    [selectedPorch, onPorchesUpdate]
+    [selectedPorch, onPorchesUpdate],
   );
 
   const handleMarkerDragEnd = useCallback(
@@ -350,11 +372,15 @@ export default function MapSection({
       try {
         const updated = await api.patch(
           `/api/admin/porches/${porchId}/coordinates`,
-          { lat, lng }
+          { lat, lng },
         );
-        const normalized = { ...updated, lat: Number(updated.lat), lng: Number(updated.lng) };
+        const normalized = {
+          ...updated,
+          lat: Number(updated.lat),
+          lng: Number(updated.lng),
+        };
         onPorchesUpdate((prev) =>
-          prev.map((p) => (p.id === normalized.id ? normalized : p))
+          prev.map((p) => (p.id === normalized.id ? normalized : p)),
         );
         if (selectedPorch?.id === porchId) {
           setSelectedPorch(normalized);
@@ -363,7 +389,7 @@ export default function MapSection({
         console.error("Failed to save dragged position:", err);
       }
     },
-    [selectedPorch, onPorchesUpdate]
+    [selectedPorch, onPorchesUpdate],
   );
 
   const handleSoundSave = async () => {
@@ -375,10 +401,10 @@ export default function MapSection({
           sound_radius_meters: soundRadius,
           sound_direction_degrees: soundDirection,
           sound_cone_width_degrees: soundConeWidth,
-        }
+        },
       );
       onPorchesUpdate((prev) =>
-        prev.map((p) => (p.id === updated.id ? updated : p))
+        prev.map((p) => (p.id === updated.id ? updated : p)),
       );
       setSelectedPorch(updated);
       setEditingSound(false);
@@ -436,6 +462,7 @@ export default function MapSection({
     return counts;
   }, [porches]);
 
+
   return (
     <div className="flex gap-4 h-[calc(100vh-12rem)]">
       {/* Map */}
@@ -487,15 +514,13 @@ export default function MapSection({
           </div>
 
           {/* Status filter pills */}
-          <div className="flex items-center gap-1.5 pointer-events-auto">
+          <div className="flex items-center gap-1.5 pointer-events-auto flex-wrap">
             {(Object.keys(STATUS_LABELS) as Status[]).map((status) => (
               <button
                 key={status}
                 onClick={() => toggleStatus(status)}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium shadow-sm transition-all flex items-center gap-1.5 ${
-                  visibleStatuses.has(status)
-                    ? ""
-                    : "bg-white/80 text-gray-400"
+                  visibleStatuses.has(status) ? "" : "bg-white/80 text-gray-400"
                 }`}
                 style={
                   visibleStatuses.has(status)
@@ -518,6 +543,37 @@ export default function MapSection({
                 {STATUS_LABELS[status]} ({porchCountByStatus[status]})
               </button>
             ))}
+
+            <span className="w-px h-4 bg-gray-300 mx-1" />
+
+            <button
+              onClick={() => setFilterBandInMind(!filterBandInMind)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium shadow-sm transition-all flex items-center gap-1.5 ${
+                filterBandInMind
+                  ? "bg-pink-100 text-pink-700"
+                  : "bg-white/80 text-gray-400"
+              }`}
+              style={
+                filterBandInMind
+                  ? { boxShadow: "inset 0 0 0 1px #be185d" }
+                  : undefined
+              }
+            >
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z"
+                />
+              </svg>
+              Band In Mind
+            </button>
           </div>
         </div>
 
@@ -537,10 +593,12 @@ export default function MapSection({
                   d="M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z"
                 />
               </svg>
-              <p className="text-gray-500 text-lg font-medium">No geocoded porches yet</p>
+              <p className="text-gray-500 text-lg font-medium">
+                No geocoded porches yet
+              </p>
               <p className="text-gray-400 text-sm mt-1">
                 {porches.length > 0
-                  ? "Click \"Geocode\" above to resolve addresses to coordinates."
+                  ? 'Click "Geocode" above to resolve addresses to coordinates.'
                   : "Add some porch applications first."}
               </p>
               {ungeocodedCount > 0 && (
@@ -549,7 +607,9 @@ export default function MapSection({
                   disabled={geocoding}
                   className="mt-4 px-4 py-2 bg-porch-600 text-white rounded-lg hover:bg-porch-700 disabled:opacity-50"
                 >
-                  {geocoding ? "Geocoding..." : `Geocode ${ungeocodedCount} Porches`}
+                  {geocoding
+                    ? "Geocoding..."
+                    : `Geocode ${ungeocodedCount} Porches`}
                 </button>
               )}
             </div>
@@ -558,7 +618,9 @@ export default function MapSection({
           <div className="flex items-center justify-center h-full bg-gray-50">
             <div className="text-center p-8">
               <div className="w-12 h-12 border-4 border-porch-200 border-t-porch-600 rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-gray-600 text-lg font-medium">Geocoding porches...</p>
+              <p className="text-gray-600 text-lg font-medium">
+                Geocoding porches...
+              </p>
               <p className="text-gray-400 text-sm mt-1">
                 This may take a moment (~1 second per address)
               </p>
@@ -586,7 +648,9 @@ export default function MapSection({
               <Marker
                 key={porch.id}
                 position={[porch.lat!, porch.lng!]}
-                icon={STATUS_ICONS[porch.status as Status] || STATUS_ICONS.pending}
+                icon={
+                  STATUS_ICONS[porch.status as Status] || STATUS_ICONS.pending
+                }
                 draggable
                 eventHandlers={{
                   click: () => selectPorch(porch),
@@ -599,10 +663,14 @@ export default function MapSection({
                     <p className="text-gray-500">{porch.owner_name}</p>
                     <p className="text-gray-500 capitalize">
                       {(porch.status as string).replace("_", " ")}
+                      {porch.has_band_in_mind === "yes" &&
+                        " · has band in mind"}
                     </p>
                     {porch.status === "approved" && (
                       <p className="text-gray-500">
-                        {bandsAtPorch(porch.id).length} band{bandsAtPorch(porch.id).length !== 1 ? "s" : ""} assigned
+                        {bandsAtPorch(porch.id).length} band
+                        {bandsAtPorch(porch.id).length !== 1 ? "s" : ""}{" "}
+                        assigned
                       </p>
                     )}
                   </div>
@@ -623,7 +691,7 @@ export default function MapSection({
                       porch.lng!,
                       porch.sound_radius_meters,
                       porch.sound_direction_degrees,
-                      porch.sound_cone_width_degrees
+                      porch.sound_cone_width_degrees,
                     );
                     return (
                       <Polygon
@@ -651,9 +719,13 @@ export default function MapSection({
                       radius={porch.sound_radius_meters}
                       pathOptions={{
                         color:
-                          selectedPorch?.id === porch.id ? "#7c3aed" : "#3b82f6",
+                          selectedPorch?.id === porch.id
+                            ? "#7c3aed"
+                            : "#3b82f6",
                         fillColor:
-                          selectedPorch?.id === porch.id ? "#7c3aed" : "#3b82f6",
+                          selectedPorch?.id === porch.id
+                            ? "#7c3aed"
+                            : "#3b82f6",
                         fillOpacity: 0.1,
                         weight: 1.5,
                       }}
@@ -674,24 +746,45 @@ export default function MapSection({
                 <h3 className="font-semibold text-lg text-gray-900">
                   {selectedPorch.address}
                 </h3>
-                <p className="text-sm text-gray-500">{selectedPorch.owner_name}</p>
-                <span
-                  className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium capitalize"
-                  style={{
-                    backgroundColor:
-                      STATUS_MARKER_COLORS[selectedPorch.status as Status] + "20",
-                    color: STATUS_MARKER_COLORS[selectedPorch.status as Status],
-                  }}
-                >
-                  {(selectedPorch.status as string).replace("_", " ")}
-                </span>
+                <p className="text-sm text-gray-500">
+                  {selectedPorch.owner_name}
+                </p>
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                  <span
+                    className="inline-block px-2 py-0.5 rounded-full text-xs font-medium capitalize"
+                    style={{
+                      backgroundColor:
+                        STATUS_MARKER_COLORS[selectedPorch.status as Status] +
+                        "20",
+                      color:
+                        STATUS_MARKER_COLORS[selectedPorch.status as Status],
+                    }}
+                  >
+                    {(selectedPorch.status as string).replace("_", " ")}
+                  </span>
+                  {selectedPorch.has_band_in_mind === "yes" && (
+                    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-700">
+                      Band In Mind
+                    </span>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => setSelectedPorch(null)}
                 className="text-gray-400 hover:text-gray-600 p-1"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18 18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -706,7 +799,9 @@ export default function MapSection({
               )}
               <div className="bg-gray-50 rounded-lg p-2">
                 <span className="text-gray-500">Power</span>
-                <p className="font-medium">{selectedPorch.has_power ? "Yes" : "No"}</p>
+                <p className="font-medium">
+                  {selectedPorch.has_power ? "Yes" : "No"}
+                </p>
               </div>
               {selectedPorch.lat && (
                 <div className="bg-gray-50 rounded-lg p-2 col-span-2">
@@ -724,7 +819,8 @@ export default function MapSection({
                     </button>
                   </div>
                   <p className="font-medium text-xs">
-                    {Number(selectedPorch.lat).toFixed(5)}, {Number(selectedPorch.lng).toFixed(5)}
+                    {Number(selectedPorch.lat).toFixed(5)},{" "}
+                    {Number(selectedPorch.lng).toFixed(5)}
                   </p>
                   {relocating && (
                     <p className="text-xs text-amber-600 mt-1">
@@ -735,11 +831,39 @@ export default function MapSection({
               )}
             </div>
 
+            {/* Music preferences & comments */}
+            {(selectedPorch.music_preferences || selectedPorch.comments) && (
+              <div className="border-t pt-4 mb-4 space-y-3">
+                {selectedPorch.music_preferences && (
+                  <div>
+                    <h4 className="font-medium text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      Music Preferences
+                    </h4>
+                    <p className="text-sm text-gray-700">
+                      {selectedPorch.music_preferences}
+                    </p>
+                  </div>
+                )}
+                {selectedPorch.comments && (
+                  <div>
+                    <h4 className="font-medium text-xs text-gray-500 uppercase tracking-wider mb-1">
+                      Comments
+                    </h4>
+                    <p className="text-sm text-gray-700">
+                      {selectedPorch.comments}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Sound Settings (only for approved porches) */}
             {selectedPorch.status === "approved" && (
               <div className="border-t pt-4 mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-sm text-gray-700">Sound Zone</h4>
+                  <h4 className="font-medium text-sm text-gray-700">
+                    Sound Zone
+                  </h4>
                   <button
                     onClick={() => setEditingSound(!editingSound)}
                     className="text-xs text-porch-600 hover:text-porch-700 font-medium"
@@ -851,11 +975,18 @@ export default function MapSection({
                   </button>
                 </div>
 
-                {bandsAtPorch(selectedPorch.id).length === 0 && !assigningBand && (
-                  <p className="text-sm text-gray-400 italic">No bands assigned yet</p>
-                )}
+                {bandsAtPorch(selectedPorch.id).length === 0 &&
+                  !assigningBand && (
+                    <p className="text-sm text-gray-400 italic">
+                      No bands assigned yet
+                    </p>
+                  )}
                 {bandsAtPorch(selectedPorch.id)
-                  .sort((a, b) => (a.set_start_time || "").localeCompare(b.set_start_time || ""))
+                  .sort((a, b) =>
+                    (a.set_start_time || "").localeCompare(
+                      b.set_start_time || "",
+                    ),
+                  )
                   .map((band) => (
                     <div
                       key={band.id}
@@ -876,8 +1007,18 @@ export default function MapSection({
                         className="text-gray-400 hover:text-red-500 p-1"
                         title="Remove assignment"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M6 18 18 6M6 6l12 12"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -891,12 +1032,14 @@ export default function MapSection({
                       </p>
                     )}
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Band</label>
+                      <label className="text-xs text-gray-500 block mb-1">
+                        Band
+                      </label>
                       <select
                         value={selectedBandId ?? ""}
                         onChange={(e) =>
                           setSelectedBandId(
-                            e.target.value ? Number(e.target.value) : null
+                            e.target.value ? Number(e.target.value) : null,
                           )
                         }
                         className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-porch-500 focus:border-porch-500"
@@ -928,7 +1071,9 @@ export default function MapSection({
                         </select>
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500 block mb-1">End</label>
+                        <label className="text-xs text-gray-500 block mb-1">
+                          End
+                        </label>
                         <select
                           value={endTime}
                           onChange={(e) => setEndTime(e.target.value)}
@@ -957,7 +1102,9 @@ export default function MapSection({
           </div>
         ) : (
           <div className="p-4">
-            <h3 className="font-semibold text-lg text-gray-900 mb-2">Porches</h3>
+            <h3 className="font-semibold text-lg text-gray-900 mb-2">
+              Porches
+            </h3>
             <p className="text-sm text-gray-500 mb-4">
               Click a marker on the map to select a porch, or choose one below.
             </p>
@@ -979,19 +1126,27 @@ export default function MapSection({
             {/* Stats */}
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div className="bg-green-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-green-700">{geocodedPorches.length}</p>
+                <p className="text-2xl font-bold text-green-700">
+                  {geocodedPorches.length}
+                </p>
                 <p className="text-xs text-green-600">On Map</p>
               </div>
               <div className="bg-amber-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-amber-700">{ungeocodedCount}</p>
+                <p className="text-2xl font-bold text-amber-700">
+                  {ungeocodedCount}
+                </p>
                 <p className="text-xs text-amber-600">Need Geocoding</p>
               </div>
               <div className="bg-blue-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-blue-700">{approvedBands.length}</p>
+                <p className="text-2xl font-bold text-blue-700">
+                  {approvedBands.length}
+                </p>
                 <p className="text-xs text-blue-600">Approved Bands</p>
               </div>
               <div className="bg-purple-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-purple-700">{unassignedBands.length}</p>
+                <p className="text-2xl font-bold text-purple-700">
+                  {unassignedBands.length}
+                </p>
                 <p className="text-xs text-purple-600">Unassigned</p>
               </div>
             </div>
@@ -1001,7 +1156,9 @@ export default function MapSection({
               {visiblePorches.map((porch) => (
                 <button
                   key={porch.id}
-                  onClick={() => porch.lat != null ? selectPorch(porch) : undefined}
+                  onClick={() =>
+                    porch.lat != null ? selectPorch(porch) : undefined
+                  }
                   disabled={porch.lat == null}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                     porch.lat != null
@@ -1014,13 +1171,31 @@ export default function MapSection({
                       className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{
                         backgroundColor:
-                          STATUS_MARKER_COLORS[porch.status as Status] || "#9ca3af",
+                          STATUS_MARKER_COLORS[porch.status as Status] ||
+                          "#9ca3af",
                       }}
                     />
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-900 truncate">
-                        {porch.address}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium text-gray-900 truncate">
+                          {porch.address}
+                        </p>
+                        {porch.has_band_in_mind === "yes" && (
+                          <svg
+                            className="w-3.5 h-3.5 text-pink-500 flex-shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z"
+                            />
+                          </svg>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-500">
                         {porch.owner_name}
                         {porch.status === "approved" &&
