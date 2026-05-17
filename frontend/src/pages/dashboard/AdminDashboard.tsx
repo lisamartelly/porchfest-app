@@ -137,6 +137,10 @@ export default function AdminDashboard() {
   }, [orgLoading, fetchData]);
 
   useEffect(() => {
+    setApprovedPorches(porches.filter((p) => p.status === "approved"));
+  }, [porches]);
+
+  useEffect(() => {
     if (section === "my-reviews" && !orgLoading) {
       fetchMyReviews();
     }
@@ -168,20 +172,6 @@ export default function AdminDashboard() {
         setPorches((prev) =>
           prev.map((p) => (p.id === porchId ? updatedPorch : p)),
         );
-        if (status === "approved") {
-          setPorches((prev) => {
-            const porch = prev.find((p) => p.id === porchId);
-            if (porch) {
-              setApprovedPorches((ap) => [
-                ...ap,
-                { ...porch, status: "approved" },
-              ]);
-            }
-            return prev;
-          });
-        } else {
-          setApprovedPorches((prev) => prev.filter((p) => p.id !== porchId));
-        }
       } catch (error) {
         console.error("Error updating porch status:", error);
       }
@@ -352,11 +342,10 @@ export default function AdminDashboard() {
         return (
           <MapSection
             bands={bands}
-            approvedPorches={approvedPorches}
+            porches={porches}
             eventSettings={eventSettings}
             onScheduleBand={scheduleBand}
             onPorchesUpdate={setPorches}
-            onApprovedPorchesUpdate={setApprovedPorches}
             onEventSettingsUpdate={setEventSettings}
           />
         );

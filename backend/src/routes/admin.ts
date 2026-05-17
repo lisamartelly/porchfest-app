@@ -458,7 +458,7 @@ adminRouter.get("/porches", async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Update porch status (geocodes address when approving)
+// Update porch status
 adminRouter.patch(
   "/porches/:id/status",
   [body("status").isIn(["pending", "under_review", "approved", "rejected"])],
@@ -472,28 +472,9 @@ adminRouter.patch(
       const { id } = req.params;
       const { status, admin_notes } = req.body;
 
-      let porch = await db.porches.updateStatus(id, status, admin_notes);
+      const porch = await db.porches.updateStatus(id, status, admin_notes);
       if (!porch) {
         return res.status(404).json({ error: "Porch not found" });
-      }
-
-      if (status === "approved" && porch.lat == null) {
-        try {
-          const event = await db.events.findById(porch.event_id);
-          const result = await geocodeAddress(
-            porch.address,
-            event?.default_city,
-            event?.default_state
-          );
-          if (result) {
-            porch = (await db.porches.updateCoordinates(id, result.lat, result.lng))!;
-            logger.info({ porchId: id, lat: result.lat, lng: result.lng }, "Geocoded porch on approval");
-          } else {
-            logger.warn({ porchId: id, address: porch.address }, "Could not geocode porch address");
-          }
-        } catch (geoErr) {
-          logger.error({ err: geoErr, porchId: id }, "Geocoding failed during porch approval");
-        }
       }
 
       res.json(porch);
@@ -1109,10 +1090,13 @@ adminRouter.get("/reviewers", async (req: AuthRequest, res: Response) => {
 // MAP FEATURES
 // =========================================================================
 
-// Bulk geocode all approved porches missing coordinates
+// Bulk geocode porches missing coordinates (optionally filtered by statuses)
 adminRouter.post("/porches/geocode", async (req: AuthRequest, res: Response) => {
   try {
-    const { org_id } = req.query;
+    const { org_id, statuses } = req.query;
+    const allowedStatuses = statuses
+      ? (statuses as string).split(",")
+      : ["pending", "under_review", "approved"];
     let porches;
     let event;
 
@@ -1121,13 +1105,13 @@ adminRouter.post("/porches/geocode", async (req: AuthRequest, res: Response) => 
       if (!result.authorized) {
         return res.status(403).json({ error: "Not a member of this organization" });
       }
-      if (!result.event) return res.json({ geocoded: 0, failed: 0 });
+      if (!result.event) return res.json({ geocoded: 0, failed: 0, total: 0, results: [] });
       event = result.event;
       const all = await db.porches.findByEventId(event.id);
-      porches = all.filter((p) => p.status === "approved" && p.lat == null);
+      porches = all.filter((p) => allowedStatuses.includes(p.status) && p.lat == null);
     } else {
-      const approved = await db.porches.findApproved();
-      porches = approved.filter((p) => p.lat == null);
+      const all = await db.porches.findAll();
+      porches = all.filter((p) => allowedStatuses.includes(p.status) && p.lat == null);
       event = await db.events.findActive();
     }
 

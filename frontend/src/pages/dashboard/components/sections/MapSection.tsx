@@ -17,9 +17,9 @@ import {
   BandApplication,
   PorchApplication,
   EventSettings,
+  Status,
 } from "../../types";
 
-// Fix default marker icon path issue with bundlers
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
 import shadowUrl from "leaflet/dist/images/marker-shadow.png";
@@ -27,19 +27,44 @@ import shadowUrl from "leaflet/dist/images/marker-shadow.png";
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
 L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl });
 
-const GEOCODED_ICON = new L.Icon({
-  iconUrl,
-  iconRetinaUrl,
-  shadowUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+const STATUS_MARKER_COLORS: Record<Status, string> = {
+  pending: "#eab308",
+  under_review: "#6366f1",
+  approved: "#16a34a",
+  rejected: "#dc2626",
+};
+
+const STATUS_LABELS: Record<Status, string> = {
+  pending: "Pending",
+  under_review: "Under Review",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
+function createColoredIcon(color: string) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="24" height="36">
+    <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="${color}" stroke="#fff" stroke-width="1.5"/>
+    <circle cx="12" cy="12" r="5" fill="#fff"/>
+  </svg>`;
+  return new L.DivIcon({
+    html: svg,
+    className: "",
+    iconSize: [24, 36],
+    iconAnchor: [12, 36],
+    popupAnchor: [0, -36],
+  });
+}
+
+const STATUS_ICONS: Record<Status, L.DivIcon> = {
+  pending: createColoredIcon(STATUS_MARKER_COLORS.pending),
+  under_review: createColoredIcon(STATUS_MARKER_COLORS.under_review),
+  approved: createColoredIcon(STATUS_MARKER_COLORS.approved),
+  rejected: createColoredIcon(STATUS_MARKER_COLORS.rejected),
+};
 
 interface MapSectionProps {
   bands: BandApplication[];
-  approvedPorches: PorchApplication[];
+  porches: PorchApplication[];
   eventSettings: EventSettings | null;
   onScheduleBand: (
     bandId: number,
@@ -48,9 +73,6 @@ interface MapSectionProps {
     endTime: string | null
   ) => Promise<void>;
   onPorchesUpdate: React.Dispatch<React.SetStateAction<PorchApplication[]>>;
-  onApprovedPorchesUpdate: React.Dispatch<
-    React.SetStateAction<PorchApplication[]>
-  >;
   onEventSettingsUpdate: React.Dispatch<
     React.SetStateAction<EventSettings | null>
   >;
@@ -145,11 +167,10 @@ function ClickToRelocate({
 
 export default function MapSection({
   bands,
-  approvedPorches,
+  porches,
   eventSettings,
   onScheduleBand,
   onPorchesUpdate,
-  onApprovedPorchesUpdate,
   onEventSettingsUpdate,
 }: MapSectionProps) {
   const { activeOrgId } = useOrgStore();
@@ -157,6 +178,11 @@ export default function MapSection({
   const [showSound, setShowSound] = useState(true);
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeResult, setGeocodeResult] = useState<string | null>(null);
+
+  // Status visibility toggles
+  const [visibleStatuses, setVisibleStatuses] = useState<Set<Status>>(
+    new Set(["pending", "under_review", "approved"])
+  );
 
   // Band assignment state
   const [assigningBand, setAssigningBand] = useState(false);
@@ -177,17 +203,37 @@ export default function MapSection({
   // Map publish state
   const [publishing, setPublishing] = useState(false);
 
-  const geocodedPorches = useMemo(
-    () =>
-      approvedPorches
-        .filter((p) => p.lat != null && p.lng != null)
-        .map((p) => ({ ...p, lat: Number(p.lat), lng: Number(p.lng) })),
-    [approvedPorches]
+  // Auto-geocode flag
+  const hasAutoGeocoded = useRef(false);
+
+  const toggleStatus = (status: Status) => {
+    setVisibleStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) {
+        next.delete(status);
+      } else {
+        next.add(status);
+      }
+      return next;
+    });
+  };
+
+  const visiblePorches = useMemo(
+    () => porches.filter((p) => visibleStatuses.has(p.status as Status)),
+    [porches, visibleStatuses]
   );
 
-  const ungeocodedPorches = useMemo(
-    () => approvedPorches.filter((p) => p.lat == null || p.lng == null),
-    [approvedPorches]
+  const geocodedPorches = useMemo(
+    () =>
+      visiblePorches
+        .filter((p) => p.lat != null && p.lng != null)
+        .map((p) => ({ ...p, lat: Number(p.lat), lng: Number(p.lng) })),
+    [visiblePorches]
+  );
+
+  const ungeocodedCount = useMemo(
+    () => visiblePorches.filter((p) => p.lat == null || p.lng == null).length,
+    [visiblePorches]
   );
 
   const approvedBands = useMemo(
@@ -218,29 +264,41 @@ export default function MapSection({
     return slots;
   }, [eventSettings]);
 
-  const handleBulkGeocode = async () => {
+  const handleBulkGeocode = useCallback(async () => {
     setGeocoding(true);
     setGeocodeResult(null);
     try {
-      const qs = activeOrgId ? `?org_id=${activeOrgId}` : "";
+      const statusParam = [...visibleStatuses].join(",");
+      const qs = activeOrgId
+        ? `?org_id=${activeOrgId}&statuses=${statusParam}`
+        : `?statuses=${statusParam}`;
       const result = await api.post(`/api/admin/porches/geocode${qs}`, {});
       setGeocodeResult(
         `Geocoded ${result.geocoded} of ${result.total} porches` +
           (result.failed > 0 ? ` (${result.failed} failed)` : "")
       );
-      // Refresh data
-      const porchData = await api.get(`/api/admin/porches${qs}`);
+      const porchQs = activeOrgId ? `?org_id=${activeOrgId}` : "";
+      const porchData = await api.get(`/api/admin/porches${porchQs}`);
       onPorchesUpdate(porchData || []);
-      onApprovedPorchesUpdate(
-        (porchData || []).filter((p: PorchApplication) => p.status === "approved")
-      );
     } catch (err) {
       setGeocodeResult("Geocoding failed. Check console for details.");
       console.error(err);
     } finally {
       setGeocoding(false);
     }
-  };
+  }, [activeOrgId, visibleStatuses, onPorchesUpdate]);
+
+  // Auto-geocode on first map display
+  useEffect(() => {
+    if (hasAutoGeocoded.current) return;
+    const needsGeocoding = porches.filter(
+      (p) => visibleStatuses.has(p.status as Status) && p.lat == null
+    );
+    if (needsGeocoding.length > 0) {
+      hasAutoGeocoded.current = true;
+      handleBulkGeocode();
+    }
+  }, [porches, visibleStatuses, handleBulkGeocode]);
 
   const handleAssignBand = async () => {
     if (!selectedBandId || !selectedPorch || !startTime || !endTime) return;
@@ -274,9 +332,6 @@ export default function MapSection({
           { lat, lng }
         );
         const normalized = { ...updated, lat: Number(updated.lat), lng: Number(updated.lng) };
-        onApprovedPorchesUpdate((prev) =>
-          prev.map((p) => (p.id === normalized.id ? normalized : p))
-        );
         onPorchesUpdate((prev) =>
           prev.map((p) => (p.id === normalized.id ? normalized : p))
         );
@@ -286,7 +341,7 @@ export default function MapSection({
         console.error("Failed to relocate porch:", err);
       }
     },
-    [selectedPorch, onApprovedPorchesUpdate, onPorchesUpdate]
+    [selectedPorch, onPorchesUpdate]
   );
 
   const handleMarkerDragEnd = useCallback(
@@ -298,9 +353,6 @@ export default function MapSection({
           { lat, lng }
         );
         const normalized = { ...updated, lat: Number(updated.lat), lng: Number(updated.lng) };
-        onApprovedPorchesUpdate((prev) =>
-          prev.map((p) => (p.id === normalized.id ? normalized : p))
-        );
         onPorchesUpdate((prev) =>
           prev.map((p) => (p.id === normalized.id ? normalized : p))
         );
@@ -311,7 +363,7 @@ export default function MapSection({
         console.error("Failed to save dragged position:", err);
       }
     },
-    [selectedPorch, onApprovedPorchesUpdate, onPorchesUpdate]
+    [selectedPorch, onPorchesUpdate]
   );
 
   const handleSoundSave = async () => {
@@ -324,9 +376,6 @@ export default function MapSection({
           sound_direction_degrees: soundDirection,
           sound_cone_width_degrees: soundConeWidth,
         }
-      );
-      onApprovedPorchesUpdate((prev) =>
-        prev.map((p) => (p.id === updated.id ? updated : p))
       );
       onPorchesUpdate((prev) =>
         prev.map((p) => (p.id === updated.id ? updated : p))
@@ -372,58 +421,107 @@ export default function MapSection({
   const defaultCenter: [number, number] =
     geocodedPorches.length > 0
       ? [geocodedPorches[0].lat!, geocodedPorches[0].lng!]
-      : [42.3876, -71.0995]; // Somerville, MA fallback
+      : [42.3876, -71.0995];
+
+  const porchCountByStatus = useMemo(() => {
+    const counts: Record<Status, number> = {
+      pending: 0,
+      under_review: 0,
+      approved: 0,
+      rejected: 0,
+    };
+    for (const p of porches) {
+      if (p.status in counts) counts[p.status as Status]++;
+    }
+    return counts;
+  }, [porches]);
 
   return (
     <div className="flex gap-4 h-[calc(100vh-12rem)]">
       {/* Map */}
       <div className="flex-1 relative rounded-xl overflow-hidden shadow-md border border-gray-200">
         {/* Top bar */}
-        <div className="absolute top-3 left-3 right-3 z-[1000] flex items-center justify-between gap-2 pointer-events-none">
-          <div className="flex items-center gap-2 pointer-events-auto">
-            <button
-              onClick={() => setShowSound(!showSound)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium shadow-md transition-colors ${
-                showSound
-                  ? "bg-porch-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {showSound ? "Hide Sound" : "Show Sound"}
-            </button>
-            {ungeocodedPorches.length > 0 && (
+        <div className="absolute top-3 left-3 right-3 z-[1000] flex flex-col gap-2 pointer-events-none">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 pointer-events-auto">
               <button
-                onClick={handleBulkGeocode}
-                disabled={geocoding}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium shadow-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                onClick={() => setShowSound(!showSound)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium shadow-md transition-colors ${
+                  showSound
+                    ? "bg-porch-600 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
               >
-                {geocoding
-                  ? "Geocoding..."
-                  : `Geocode ${ungeocodedPorches.length} Porch${ungeocodedPorches.length > 1 ? "es" : ""}`}
+                {showSound ? "Hide Sound" : "Show Sound"}
               </button>
-            )}
-            {geocodeResult && (
-              <span className="px-3 py-1.5 rounded-lg text-sm bg-white shadow-md text-gray-700">
-                {geocodeResult}
-              </span>
-            )}
+              {ungeocodedCount > 0 && (
+                <button
+                  onClick={handleBulkGeocode}
+                  disabled={geocoding}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium shadow-md bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                >
+                  {geocoding
+                    ? "Geocoding..."
+                    : `Geocode ${ungeocodedCount} Porch${ungeocodedCount > 1 ? "es" : ""}`}
+                </button>
+              )}
+              {geocodeResult && (
+                <span className="px-3 py-1.5 rounded-lg text-sm bg-white shadow-md text-gray-700">
+                  {geocodeResult}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 pointer-events-auto">
+              <button
+                onClick={handleToggleMapPublished}
+                disabled={publishing}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium shadow-md transition-colors ${
+                  eventSettings?.map_published
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                {eventSettings?.map_published ? "Map Published" : "Publish Map"}
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 pointer-events-auto">
-            <button
-              onClick={handleToggleMapPublished}
-              disabled={publishing}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium shadow-md transition-colors ${
-                eventSettings?.map_published
-                  ? "bg-green-600 text-white hover:bg-green-700"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {eventSettings?.map_published ? "Map Published" : "Publish Map"}
-            </button>
+
+          {/* Status filter pills */}
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            {(Object.keys(STATUS_LABELS) as Status[]).map((status) => (
+              <button
+                key={status}
+                onClick={() => toggleStatus(status)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium shadow-sm transition-all flex items-center gap-1.5 ${
+                  visibleStatuses.has(status)
+                    ? ""
+                    : "bg-white/80 text-gray-400"
+                }`}
+                style={
+                  visibleStatuses.has(status)
+                    ? {
+                        backgroundColor: STATUS_MARKER_COLORS[status] + "20",
+                        color: STATUS_MARKER_COLORS[status],
+                        boxShadow: `inset 0 0 0 1px ${STATUS_MARKER_COLORS[status]}`,
+                      }
+                    : undefined
+                }
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{
+                    backgroundColor: visibleStatuses.has(status)
+                      ? STATUS_MARKER_COLORS[status]
+                      : "#d1d5db",
+                  }}
+                />
+                {STATUS_LABELS[status]} ({porchCountByStatus[status]})
+              </button>
+            ))}
           </div>
         </div>
 
-        {geocodedPorches.length === 0 ? (
+        {geocodedPorches.length === 0 && !geocoding ? (
           <div className="flex items-center justify-center h-full bg-gray-50">
             <div className="text-center p-8">
               <svg
@@ -441,19 +539,29 @@ export default function MapSection({
               </svg>
               <p className="text-gray-500 text-lg font-medium">No geocoded porches yet</p>
               <p className="text-gray-400 text-sm mt-1">
-                {approvedPorches.length > 0
+                {porches.length > 0
                   ? "Click \"Geocode\" above to resolve addresses to coordinates."
-                  : "Approve some porch applications first."}
+                  : "Add some porch applications first."}
               </p>
-              {approvedPorches.length > 0 && ungeocodedPorches.length > 0 && (
+              {ungeocodedCount > 0 && (
                 <button
                   onClick={handleBulkGeocode}
                   disabled={geocoding}
                   className="mt-4 px-4 py-2 bg-porch-600 text-white rounded-lg hover:bg-porch-700 disabled:opacity-50"
                 >
-                  {geocoding ? "Geocoding..." : `Geocode ${ungeocodedPorches.length} Porches`}
+                  {geocoding ? "Geocoding..." : `Geocode ${ungeocodedCount} Porches`}
                 </button>
               )}
+            </div>
+          </div>
+        ) : geocoding && geocodedPorches.length === 0 ? (
+          <div className="flex items-center justify-center h-full bg-gray-50">
+            <div className="text-center p-8">
+              <div className="w-12 h-12 border-4 border-porch-200 border-t-porch-600 rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-gray-600 text-lg font-medium">Geocoding porches...</p>
+              <p className="text-gray-400 text-sm mt-1">
+                This may take a moment (~1 second per address)
+              </p>
             </div>
           </div>
         ) : (
@@ -478,7 +586,7 @@ export default function MapSection({
               <Marker
                 key={porch.id}
                 position={[porch.lat!, porch.lng!]}
-                icon={GEOCODED_ICON}
+                icon={STATUS_ICONS[porch.status as Status] || STATUS_ICONS.pending}
                 draggable
                 eventHandlers={{
                   click: () => selectPorch(porch),
@@ -489,62 +597,69 @@ export default function MapSection({
                   <div className="text-sm">
                     <p className="font-semibold">{porch.address}</p>
                     <p className="text-gray-500">{porch.owner_name}</p>
-                    <p className="text-gray-500">
-                      {bandsAtPorch(porch.id).length} band{bandsAtPorch(porch.id).length !== 1 ? "s" : ""} assigned
+                    <p className="text-gray-500 capitalize">
+                      {(porch.status as string).replace("_", " ")}
                     </p>
+                    {porch.status === "approved" && (
+                      <p className="text-gray-500">
+                        {bandsAtPorch(porch.id).length} band{bandsAtPorch(porch.id).length !== 1 ? "s" : ""} assigned
+                      </p>
+                    )}
                   </div>
                 </Popup>
               </Marker>
             ))}
 
             {showSound &&
-              geocodedPorches.map((porch) => {
-                if (
-                  porch.sound_direction_degrees != null &&
-                  porch.sound_cone_width_degrees < 360
-                ) {
-                  const polygon = computeConePolygon(
-                    porch.lat!,
-                    porch.lng!,
-                    porch.sound_radius_meters,
-                    porch.sound_direction_degrees,
-                    porch.sound_cone_width_degrees
-                  );
+              geocodedPorches
+                .filter((p) => p.status === "approved")
+                .map((porch) => {
+                  if (
+                    porch.sound_direction_degrees != null &&
+                    porch.sound_cone_width_degrees < 360
+                  ) {
+                    const polygon = computeConePolygon(
+                      porch.lat!,
+                      porch.lng!,
+                      porch.sound_radius_meters,
+                      porch.sound_direction_degrees,
+                      porch.sound_cone_width_degrees
+                    );
+                    return (
+                      <Polygon
+                        key={`sound-${porch.id}`}
+                        positions={polygon}
+                        pathOptions={{
+                          color:
+                            selectedPorch?.id === porch.id
+                              ? "#7c3aed"
+                              : "#3b82f6",
+                          fillColor:
+                            selectedPorch?.id === porch.id
+                              ? "#7c3aed"
+                              : "#3b82f6",
+                          fillOpacity: 0.15,
+                          weight: 1.5,
+                        }}
+                      />
+                    );
+                  }
                   return (
-                    <Polygon
+                    <Circle
                       key={`sound-${porch.id}`}
-                      positions={polygon}
+                      center={[porch.lat!, porch.lng!]}
+                      radius={porch.sound_radius_meters}
                       pathOptions={{
                         color:
-                          selectedPorch?.id === porch.id
-                            ? "#7c3aed"
-                            : "#3b82f6",
+                          selectedPorch?.id === porch.id ? "#7c3aed" : "#3b82f6",
                         fillColor:
-                          selectedPorch?.id === porch.id
-                            ? "#7c3aed"
-                            : "#3b82f6",
-                        fillOpacity: 0.15,
+                          selectedPorch?.id === porch.id ? "#7c3aed" : "#3b82f6",
+                        fillOpacity: 0.1,
                         weight: 1.5,
                       }}
                     />
                   );
-                }
-                return (
-                  <Circle
-                    key={`sound-${porch.id}`}
-                    center={[porch.lat!, porch.lng!]}
-                    radius={porch.sound_radius_meters}
-                    pathOptions={{
-                      color:
-                        selectedPorch?.id === porch.id ? "#7c3aed" : "#3b82f6",
-                      fillColor:
-                        selectedPorch?.id === porch.id ? "#7c3aed" : "#3b82f6",
-                      fillOpacity: 0.1,
-                      weight: 1.5,
-                    }}
-                  />
-                );
-              })}
+                })}
           </MapContainer>
         )}
       </div>
@@ -560,6 +675,16 @@ export default function MapSection({
                   {selectedPorch.address}
                 </h3>
                 <p className="text-sm text-gray-500">{selectedPorch.owner_name}</p>
+                <span
+                  className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium capitalize"
+                  style={{
+                    backgroundColor:
+                      STATUS_MARKER_COLORS[selectedPorch.status as Status] + "20",
+                    color: STATUS_MARKER_COLORS[selectedPorch.status as Status],
+                  }}
+                >
+                  {(selectedPorch.status as string).replace("_", " ")}
+                </span>
               </div>
               <button
                 onClick={() => setSelectedPorch(null)}
@@ -610,223 +735,225 @@ export default function MapSection({
               )}
             </div>
 
-            {/* Sound Settings */}
-            <div className="border-t pt-4 mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-sm text-gray-700">Sound Zone</h4>
-                <button
-                  onClick={() => setEditingSound(!editingSound)}
-                  className="text-xs text-porch-600 hover:text-porch-700 font-medium"
-                >
-                  {editingSound ? "Cancel" : "Edit"}
-                </button>
-              </div>
-              {editingSound ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">
-                      Radius: {soundRadius}m
-                    </label>
-                    <input
-                      type="range"
-                      min={10}
-                      max={200}
-                      value={soundRadius}
-                      onChange={(e) => setSoundRadius(Number(e.target.value))}
-                      className="w-full accent-porch-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="flex items-center gap-2 text-xs text-gray-500 mb-1">
-                      <input
-                        type="checkbox"
-                        checked={soundDirection !== null}
-                        onChange={(e) =>
-                          setSoundDirection(e.target.checked ? 0 : null)
-                        }
-                        className="accent-porch-600"
-                      />
-                      Directional
-                    </label>
-                    {soundDirection !== null && (
-                      <>
-                        <div className="mt-1">
-                          <label className="text-xs text-gray-500 block mb-1">
-                            Direction: {soundDirection}°
-                          </label>
-                          <input
-                            type="range"
-                            min={0}
-                            max={359}
-                            value={soundDirection}
-                            onChange={(e) =>
-                              setSoundDirection(Number(e.target.value))
-                            }
-                            className="w-full accent-porch-600"
-                          />
-                        </div>
-                        <div className="mt-1">
-                          <label className="text-xs text-gray-500 block mb-1">
-                            Cone width: {soundConeWidth}°
-                          </label>
-                          <input
-                            type="range"
-                            min={10}
-                            max={360}
-                            step={10}
-                            value={soundConeWidth}
-                            onChange={(e) =>
-                              setSoundConeWidth(Number(e.target.value))
-                            }
-                            className="w-full accent-porch-600"
-                          />
-                        </div>
-                      </>
-                    )}
-                  </div>
+            {/* Sound Settings (only for approved porches) */}
+            {selectedPorch.status === "approved" && (
+              <div className="border-t pt-4 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-sm text-gray-700">Sound Zone</h4>
                   <button
-                    onClick={handleSoundSave}
-                    className="w-full py-1.5 bg-porch-600 text-white text-sm rounded-lg hover:bg-porch-700"
+                    onClick={() => setEditingSound(!editingSound)}
+                    className="text-xs text-porch-600 hover:text-porch-700 font-medium"
                   >
-                    Save Sound Settings
+                    {editingSound ? "Cancel" : "Edit"}
                   </button>
                 </div>
-              ) : (
-                <div className="text-sm text-gray-600">
-                  <p>Radius: {selectedPorch.sound_radius_meters}m</p>
-                  {selectedPorch.sound_direction_degrees != null ? (
-                    <p>
-                      Direction: {selectedPorch.sound_direction_degrees}° (
-                      {selectedPorch.sound_cone_width_degrees}° cone)
-                    </p>
-                  ) : (
-                    <p>Omnidirectional (360°)</p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Bands at this porch */}
-            <div className="border-t pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-sm text-gray-700">
-                  Bands ({bandsAtPorch(selectedPorch.id).length})
-                </h4>
-                <button
-                  onClick={() => {
-                    setAssigningBand(!assigningBand);
-                    setAssignError(null);
-                  }}
-                  className="text-xs text-porch-600 hover:text-porch-700 font-medium"
-                >
-                  {assigningBand ? "Cancel" : "+ Add Band"}
-                </button>
-              </div>
-
-              {/* Existing band assignments */}
-              {bandsAtPorch(selectedPorch.id).length === 0 && !assigningBand && (
-                <p className="text-sm text-gray-400 italic">No bands assigned yet</p>
-              )}
-              {bandsAtPorch(selectedPorch.id)
-                .sort((a, b) => (a.set_start_time || "").localeCompare(b.set_start_time || ""))
-                .map((band) => (
-                  <div
-                    key={band.id}
-                    className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {band.band_name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {band.genre}
-                        {band.set_start_time &&
-                          ` · ${formatTime(band.set_start_time)} – ${formatTime(band.set_end_time)}`}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleUnassignBand(band.id)}
-                      className="text-gray-400 hover:text-red-500 p-1"
-                      title="Remove assignment"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-
-              {/* Assign band form */}
-              {assigningBand && (
-                <div className="mt-3 space-y-2 bg-gray-50 rounded-lg p-3">
-                  {assignError && (
-                    <p className="text-xs text-red-600 bg-red-50 p-2 rounded">
-                      {assignError}
-                    </p>
-                  )}
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Band</label>
-                    <select
-                      value={selectedBandId ?? ""}
-                      onChange={(e) =>
-                        setSelectedBandId(
-                          e.target.value ? Number(e.target.value) : null
-                        )
-                      }
-                      className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-porch-500 focus:border-porch-500"
-                    >
-                      <option value="">Select a band...</option>
-                      {unassignedBands.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.band_name} {b.genre ? `(${b.genre})` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
+                {editingSound ? (
+                  <div className="space-y-3">
                     <div>
                       <label className="text-xs text-gray-500 block mb-1">
-                        Start
+                        Radius: {soundRadius}m
                       </label>
-                      <select
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-porch-500 focus:border-porch-500"
-                      >
-                        <option value="">--:--</option>
-                        {timeSlots.map((t) => (
-                          <option key={t} value={t}>
-                            {formatTime(t)}
-                          </option>
-                        ))}
-                      </select>
+                      <input
+                        type="range"
+                        min={10}
+                        max={200}
+                        value={soundRadius}
+                        onChange={(e) => setSoundRadius(Number(e.target.value))}
+                        className="w-full accent-porch-600"
+                      />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">End</label>
+                      <label className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                        <input
+                          type="checkbox"
+                          checked={soundDirection !== null}
+                          onChange={(e) =>
+                            setSoundDirection(e.target.checked ? 0 : null)
+                          }
+                          className="accent-porch-600"
+                        />
+                        Directional
+                      </label>
+                      {soundDirection !== null && (
+                        <>
+                          <div className="mt-1">
+                            <label className="text-xs text-gray-500 block mb-1">
+                              Direction: {soundDirection}°
+                            </label>
+                            <input
+                              type="range"
+                              min={0}
+                              max={359}
+                              value={soundDirection}
+                              onChange={(e) =>
+                                setSoundDirection(Number(e.target.value))
+                              }
+                              className="w-full accent-porch-600"
+                            />
+                          </div>
+                          <div className="mt-1">
+                            <label className="text-xs text-gray-500 block mb-1">
+                              Cone width: {soundConeWidth}°
+                            </label>
+                            <input
+                              type="range"
+                              min={10}
+                              max={360}
+                              step={10}
+                              value={soundConeWidth}
+                              onChange={(e) =>
+                                setSoundConeWidth(Number(e.target.value))
+                              }
+                              className="w-full accent-porch-600"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleSoundSave}
+                      className="w-full py-1.5 bg-porch-600 text-white text-sm rounded-lg hover:bg-porch-700"
+                    >
+                      Save Sound Settings
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-600">
+                    <p>Radius: {selectedPorch.sound_radius_meters}m</p>
+                    {selectedPorch.sound_direction_degrees != null ? (
+                      <p>
+                        Direction: {selectedPorch.sound_direction_degrees}° (
+                        {selectedPorch.sound_cone_width_degrees}° cone)
+                      </p>
+                    ) : (
+                      <p>Omnidirectional (360°)</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Bands at this porch (only for approved porches) */}
+            {selectedPorch.status === "approved" && (
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-sm text-gray-700">
+                    Bands ({bandsAtPorch(selectedPorch.id).length})
+                  </h4>
+                  <button
+                    onClick={() => {
+                      setAssigningBand(!assigningBand);
+                      setAssignError(null);
+                    }}
+                    className="text-xs text-porch-600 hover:text-porch-700 font-medium"
+                  >
+                    {assigningBand ? "Cancel" : "+ Add Band"}
+                  </button>
+                </div>
+
+                {bandsAtPorch(selectedPorch.id).length === 0 && !assigningBand && (
+                  <p className="text-sm text-gray-400 italic">No bands assigned yet</p>
+                )}
+                {bandsAtPorch(selectedPorch.id)
+                  .sort((a, b) => (a.set_start_time || "").localeCompare(b.set_start_time || ""))
+                  .map((band) => (
+                    <div
+                      key={band.id}
+                      className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {band.band_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {band.genre}
+                          {band.set_start_time &&
+                            ` · ${formatTime(band.set_start_time)} – ${formatTime(band.set_end_time)}`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleUnassignBand(band.id)}
+                        className="text-gray-400 hover:text-red-500 p-1"
+                        title="Remove assignment"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+
+                {assigningBand && (
+                  <div className="mt-3 space-y-2 bg-gray-50 rounded-lg p-3">
+                    {assignError && (
+                      <p className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                        {assignError}
+                      </p>
+                    )}
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Band</label>
                       <select
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
+                        value={selectedBandId ?? ""}
+                        onChange={(e) =>
+                          setSelectedBandId(
+                            e.target.value ? Number(e.target.value) : null
+                          )
+                        }
                         className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-porch-500 focus:border-porch-500"
                       >
-                        <option value="">--:--</option>
-                        {timeSlots.map((t) => (
-                          <option key={t} value={t}>
-                            {formatTime(t)}
+                        <option value="">Select a band...</option>
+                        {unassignedBands.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.band_name} {b.genre ? `(${b.genre})` : ""}
                           </option>
                         ))}
                       </select>
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">
+                          Start
+                        </label>
+                        <select
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-porch-500 focus:border-porch-500"
+                        >
+                          <option value="">--:--</option>
+                          {timeSlots.map((t) => (
+                            <option key={t} value={t}>
+                              {formatTime(t)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">End</label>
+                        <select
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-porch-500 focus:border-porch-500"
+                        >
+                          <option value="">--:--</option>
+                          {timeSlots.map((t) => (
+                            <option key={t} value={t}>
+                              {formatTime(t)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleAssignBand}
+                      disabled={!selectedBandId || !startTime || !endTime}
+                      className="w-full py-1.5 bg-porch-600 text-white text-sm rounded-lg hover:bg-porch-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Assign Band
+                    </button>
                   </div>
-                  <button
-                    onClick={handleAssignBand}
-                    disabled={!selectedBandId || !startTime || !endTime}
-                    className="w-full py-1.5 bg-porch-600 text-white text-sm rounded-lg hover:bg-porch-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Assign Band
-                  </button>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-4">
@@ -856,7 +983,7 @@ export default function MapSection({
                 <p className="text-xs text-green-600">On Map</p>
               </div>
               <div className="bg-amber-50 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-amber-700">{ungeocodedPorches.length}</p>
+                <p className="text-2xl font-bold text-amber-700">{ungeocodedCount}</p>
                 <p className="text-xs text-amber-600">Need Geocoding</p>
               </div>
               <div className="bg-blue-50 rounded-lg p-3 text-center">
@@ -871,7 +998,7 @@ export default function MapSection({
 
             {/* Porch list */}
             <div className="space-y-1">
-              {approvedPorches.map((porch) => (
+              {visiblePorches.map((porch) => (
                 <button
                   key={porch.id}
                   onClick={() => porch.lat != null ? selectPorch(porch) : undefined}
@@ -882,15 +1009,26 @@ export default function MapSection({
                       : "opacity-50 cursor-not-allowed"
                   }`}
                 >
-                  <p className="font-medium text-gray-900 truncate">
-                    {porch.address}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {porch.owner_name} ·{" "}
-                    {bandsAtPorch(porch.id).length} band
-                    {bandsAtPorch(porch.id).length !== 1 ? "s" : ""}
-                    {porch.lat == null && " · needs geocoding"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{
+                        backgroundColor:
+                          STATUS_MARKER_COLORS[porch.status as Status] || "#9ca3af",
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 truncate">
+                        {porch.address}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {porch.owner_name}
+                        {porch.status === "approved" &&
+                          ` · ${bandsAtPorch(porch.id).length} band${bandsAtPorch(porch.id).length !== 1 ? "s" : ""}`}
+                        {porch.lat == null && " · needs geocoding"}
+                      </p>
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
