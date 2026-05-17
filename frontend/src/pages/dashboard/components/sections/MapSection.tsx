@@ -430,12 +430,13 @@ export default function MapSection({
   };
 
   const selectPorch = (porch: PorchApplication) => {
-    setSelectedPorch({
+    const normalized = {
       ...porch,
       lat: porch.lat != null ? Number(porch.lat) : null,
       lng: porch.lng != null ? Number(porch.lng) : null,
-    });
-    setRelocating(false);
+    };
+    setSelectedPorch(normalized);
+    setRelocating(normalized.lat == null);
     setAssigningBand(false);
     setEditingSound(false);
     setSoundRadius(porch.sound_radius_meters);
@@ -577,7 +578,7 @@ export default function MapSection({
           </div>
         </div>
 
-        {geocodedPorches.length === 0 && !geocoding ? (
+        {geocodedPorches.length === 0 && !geocoding && !relocating ? (
           <div className="flex items-center justify-center h-full bg-gray-50">
             <div className="text-center p-8">
               <svg
@@ -803,7 +804,7 @@ export default function MapSection({
                   {selectedPorch.has_power ? "Yes" : "No"}
                 </p>
               </div>
-              {selectedPorch.lat && (
+              {selectedPorch.lat ? (
                 <div className="bg-gray-50 rounded-lg p-2 col-span-2">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-500">Coordinates</span>
@@ -827,6 +828,15 @@ export default function MapSection({
                       Click on the map or drag the pin to move it
                     </p>
                   )}
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 col-span-2">
+                  <p className="text-sm font-medium text-amber-800">
+                    No coordinates — click on the map to place the pin
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    {selectedPorch.address}
+                  </p>
                 </div>
               )}
             </div>
@@ -1156,14 +1166,9 @@ export default function MapSection({
               {visiblePorches.map((porch) => (
                 <button
                   key={porch.id}
-                  onClick={() =>
-                    porch.lat != null ? selectPorch(porch) : undefined
-                  }
-                  disabled={porch.lat == null}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    porch.lat != null
-                      ? "hover:bg-porch-50 cursor-pointer"
-                      : "opacity-50 cursor-not-allowed"
+                  onClick={() => selectPorch(porch)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors hover:bg-porch-50 cursor-pointer ${
+                    porch.lat == null ? "border border-dashed border-amber-300" : ""
                   }`}
                 >
                   <div className="flex items-center gap-2">
