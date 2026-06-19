@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   bandsFindApproved: vi.fn(),
   bandsFindAll: vi.fn(),
   bandsUpdateStatus: vi.fn(),
+  bandsUpdateAdminNotes: vi.fn(),
   bandsUpdateReview: vi.fn(),
   bandsAssignReviewer: vi.fn(),
   bandsGetReviewerUserIds: vi.fn(),
@@ -34,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   porchesFindApproved: vi.fn(),
   porchesFindById: vi.fn(),
   porchesUpdateStatus: vi.fn(),
+  porchesUpdateAdminNotes: vi.fn(),
   porchesFindAll: vi.fn(),
   timeSlotsFindByEventId: vi.fn(),
   timeSlotsFindAll: vi.fn(),
@@ -100,6 +102,7 @@ vi.mock("../data/db.js", () => ({
       findByReviewerId: mocks.bandsFindByReviewerId,
       findAll: mocks.bandsFindAll,
       updateStatus: mocks.bandsUpdateStatus,
+      updateAdminNotes: mocks.bandsUpdateAdminNotes,
       assignReviewer: mocks.bandsAssignReviewer,
       getReviewerUserIds: mocks.bandsGetReviewerUserIds,
       updateReview: mocks.bandsUpdateReview,
@@ -112,6 +115,7 @@ vi.mock("../data/db.js", () => ({
       findApproved: mocks.porchesFindApproved,
       findAll: mocks.porchesFindAll,
       updateStatus: mocks.porchesUpdateStatus,
+      updateAdminNotes: mocks.porchesUpdateAdminNotes,
       findById: mocks.porchesFindById,
     },
     users: {
@@ -457,15 +461,11 @@ describe("adminRouter", () => {
     const response = await request(app)
       .patch("/api/admin/bands/33/status")
       .set("x-role", "super-duper-admin")
-      .send({ status: "approved", admin_notes: "Looks good" });
+      .send({ status: "approved" });
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ id: 33, status: "approved" });
-    expect(mocks.bandsUpdateStatus).toHaveBeenCalledWith(
-      "33",
-      "approved",
-      "Looks good"
-    );
+    expect(mocks.bandsUpdateStatus).toHaveBeenCalledWith("33", "approved");
   });
 
   it("returns validation errors for invalid band status payload", async () => {
@@ -504,6 +504,68 @@ describe("adminRouter", () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: "Failed to update band status" });
+  });
+
+  it("updates band admin notes as super-duper-admin", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 33, event_id: 5 });
+    mocks.bandsUpdateAdminNotes.mockResolvedValue({ id: 33, admin_notes: "Heads up" });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/33/notes")
+      .set("x-role", "super-duper-admin")
+      .send({ admin_notes: "Heads up" });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ id: 33, admin_notes: "Heads up" });
+    expect(mocks.bandsUpdateAdminNotes).toHaveBeenCalledWith("33", "Heads up");
+  });
+
+  it("updates band admin notes for an organizer", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 33, event_id: 5 });
+    mocks.eventsFindById.mockResolvedValue({ id: 5, organization_id: 9 });
+    mocks.findByUserAndOrg.mockResolvedValue({ user_id: 7, organization_id: 9, role: "organizer" });
+    mocks.bandsUpdateAdminNotes.mockResolvedValue({ id: 33, admin_notes: "ok" });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/33/notes")
+      .set("x-role", "user")
+      .set("x-user-id", "7")
+      .send({ admin_notes: "ok" });
+
+    expect(response.status).toBe(200);
+    expect(mocks.bandsUpdateAdminNotes).toHaveBeenCalledWith("33", "ok");
+  });
+
+  it("forbids band admin notes for a reviewer", async () => {
+    mocks.bandsFindById.mockResolvedValue({ id: 33, event_id: 5 });
+    mocks.eventsFindById.mockResolvedValue({ id: 5, organization_id: 9 });
+    mocks.findByUserAndOrg.mockResolvedValue({ user_id: 7, organization_id: 9, role: "reviewer" });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/33/notes")
+      .set("x-role", "user")
+      .set("x-user-id", "7")
+      .send({ admin_notes: "nope" });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "Organizer access required" });
+    expect(mocks.bandsUpdateAdminNotes).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when band notes target is missing", async () => {
+    mocks.bandsFindById.mockResolvedValue(null);
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/404/notes")
+      .set("x-role", "super-duper-admin")
+      .send({ admin_notes: "x" });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: "Band not found" });
   });
 
   it("returns forbidden for scoped /porches when user lacks membership", async () => {
@@ -2198,6 +2260,41 @@ describe("adminRouter", () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: "Porch not found" });
+  });
+
+  it("updates porch admin notes for an organizer", async () => {
+    mocks.porchesFindById.mockResolvedValue({ id: 8, event_id: 44 });
+    mocks.eventsFindById.mockResolvedValue({ id: 44, organization_id: 9 });
+    mocks.findByUserAndOrg.mockResolvedValue({ user_id: 7, organization_id: 9, role: "owner" });
+    mocks.porchesUpdateAdminNotes.mockResolvedValue({ id: 8, admin_notes: "loud" });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/porches/8/notes")
+      .set("x-role", "user")
+      .set("x-user-id", "7")
+      .send({ admin_notes: "loud" });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ id: 8, admin_notes: "loud" });
+    expect(mocks.porchesUpdateAdminNotes).toHaveBeenCalledWith("8", "loud");
+  });
+
+  it("forbids porch admin notes for a reviewer", async () => {
+    mocks.porchesFindById.mockResolvedValue({ id: 8, event_id: 44 });
+    mocks.eventsFindById.mockResolvedValue({ id: 44, organization_id: 9 });
+    mocks.findByUserAndOrg.mockResolvedValue({ user_id: 7, organization_id: 9, role: "reviewer" });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/porches/8/notes")
+      .set("x-role", "user")
+      .set("x-user-id", "7")
+      .send({ admin_notes: "nope" });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "Organizer access required" });
+    expect(mocks.porchesUpdateAdminNotes).not.toHaveBeenCalled();
   });
 
   it("filters scoped porches by status", async () => {

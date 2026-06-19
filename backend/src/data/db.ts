@@ -637,12 +637,22 @@ export const db = {
 
     async updateStatus(
       id: number | string,
-      status: string,
-      adminNotes?: string | null
+      status: string
     ): Promise<Band | null> {
       const result = await pool.query<Band>(
-        `UPDATE bands SET status = $1, admin_notes = $2 WHERE id = $3 RETURNING *`,
-        [status, adminNotes || null, id]
+        `UPDATE bands SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+        [status, id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async updateAdminNotes(
+      id: number | string,
+      adminNotes: string | null
+    ): Promise<Band | null> {
+      const result = await pool.query<Band>(
+        `UPDATE bands SET admin_notes = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+        [adminNotes, id]
       );
       return result.rows[0] || null;
     },
@@ -811,12 +821,22 @@ export const db = {
 
     async updateStatus(
       id: number | string,
-      status: string,
-      adminNotes?: string | null
+      status: string
     ): Promise<Porch | null> {
       const result = await pool.query<Porch>(
-        `UPDATE porches SET status = $1, admin_notes = $2 WHERE id = $3 RETURNING *`,
-        [status, adminNotes || null, id]
+        `UPDATE porches SET status = $1 WHERE id = $2 RETURNING *`,
+        [status, id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async updateAdminNotes(
+      id: number | string,
+      adminNotes: string | null
+    ): Promise<Porch | null> {
+      const result = await pool.query<Porch>(
+        `UPDATE porches SET admin_notes = $1 WHERE id = $2 RETURNING *`,
+        [adminNotes, id]
       );
       return result.rows[0] || null;
     },

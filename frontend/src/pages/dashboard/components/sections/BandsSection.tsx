@@ -32,6 +32,7 @@ interface BandsSectionProps {
     rating: number | null,
     notes: string | null,
   ) => Promise<void>;
+  onNotesChange: (bandId: number, adminNotes: string | null) => Promise<void>;
 }
 
 const STATUS_PRIORITY: Record<Status, number> = {
@@ -63,8 +64,9 @@ export default function BandsSection({
   onSchedule,
   getPorchAddress,
   onReviewUpdate,
+  onNotesChange,
 }: BandsSectionProps) {
-  const [filter, setFilter] = useState<FilterStatus>("pending");
+  const [filter, setFilter] = useState<FilterStatus>("all");
   const [bandSearch, setBandSearch] = useState("");
   const [bandSort, setBandSort] = useState<BandSortOption>("created_at");
   const [reviewerFilter, setReviewerFilter] = useState<string>("all");
@@ -288,6 +290,8 @@ export default function BandsSection({
               showReviewerInfo={reviewers.length > 0}
               reviewerUsers={reviewers}
               onReviewUpdate={onReviewUpdate}
+              onNotesChange={onNotesChange}
+              showAdminNotes
             />
           ))}
         </div>

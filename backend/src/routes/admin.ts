@@ -30,6 +30,24 @@ async function resolveOrgActiveEvent(
   return { authorized: true, event };
 }
 
+// Returns true if the current user is an organizer or owner of the org that
+// owns the given event. Reviewers are intentionally excluded. Super-duper-admins
+// always pass.
+async function isOrganizerForEvent(
+  req: AuthRequest,
+  eventId: number | string
+): Promise<boolean> {
+  if (req.user?.role === "super-duper-admin") return true;
+  const event = await db.events.findById(eventId);
+  if (!event) return false;
+  const membership = await db.organizationUsers.findByUserAndOrg(
+    req.user!.id,
+    event.organization_id
+  );
+  if (!membership) return false;
+  return membership.role === "owner" || membership.role === "organizer";
+}
+
 // =========================================================================
 // SUPER-DUPER-ADMIN ONLY: Organization management
 // =========================================================================
@@ -419,9 +437,9 @@ adminRouter.patch(
 
     try {
       const { id } = req.params;
-      const { status, admin_notes } = req.body;
+      const { status } = req.body;
 
-      const band = await db.bands.updateStatus(id, status, admin_notes);
+      const band = await db.bands.updateStatus(id, status);
       if (!band) {
         return res.status(404).json({ error: "Band not found" });
       }
@@ -430,6 +448,38 @@ adminRouter.patch(
     } catch (error) {
       logger.error({ err: error }, "Error updating band status");
       res.status(500).json({ error: "Failed to update band status" });
+    }
+  }
+);
+
+// Update band admin notes (organizer/owner only — separate from the review process)
+adminRouter.patch(
+  "/bands/:id/notes",
+  [body("admin_notes").optional({ nullable: true }).isString()],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+
+      const band = await db.bands.findById(id);
+      if (!band) {
+        return res.status(404).json({ error: "Band not found" });
+      }
+
+      const authorized = await isOrganizerForEvent(req, band.event_id);
+      if (!authorized) {
+        return res.status(403).json({ error: "Organizer access required" });
+      }
+
+      const updatedBand = await db.bands.updateAdminNotes(id, req.body.admin_notes ?? null);
+      res.json(updatedBand);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating band admin notes");
+      res.status(500).json({ error: "Failed to update band admin notes" });
     }
   }
 );
@@ -470,9 +520,9 @@ adminRouter.patch(
 
     try {
       const { id } = req.params;
-      const { status, admin_notes } = req.body;
+      const { status } = req.body;
 
-      const porch = await db.porches.updateStatus(id, status, admin_notes);
+      const porch = await db.porches.updateStatus(id, status);
       if (!porch) {
         return res.status(404).json({ error: "Porch not found" });
       }
@@ -481,6 +531,38 @@ adminRouter.patch(
     } catch (error) {
       logger.error({ err: error }, "Error updating porch status");
       res.status(500).json({ error: "Failed to update porch status" });
+    }
+  }
+);
+
+// Update porch admin notes (organizer/owner only — separate from the review process)
+adminRouter.patch(
+  "/porches/:id/notes",
+  [body("admin_notes").optional({ nullable: true }).isString()],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+
+      const porch = await db.porches.findById(id);
+      if (!porch) {
+        return res.status(404).json({ error: "Porch not found" });
+      }
+
+      const authorized = await isOrganizerForEvent(req, porch.event_id);
+      if (!authorized) {
+        return res.status(403).json({ error: "Organizer access required" });
+      }
+
+      const updatedPorch = await db.porches.updateAdminNotes(id, req.body.admin_notes ?? null);
+      res.json(updatedPorch);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating porch admin notes");
+      res.status(500).json({ error: "Failed to update porch admin notes" });
     }
   }
 );

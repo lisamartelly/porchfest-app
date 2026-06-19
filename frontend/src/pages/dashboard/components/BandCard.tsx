@@ -21,6 +21,8 @@ interface BandCardProps {
   showReviewerInfo?: boolean;
   reviewerUsers?: ReviewerUser[];
   onReviewUpdate?: (bandId: number, rating: number | null, notes: string | null) => void;
+  onNotesChange?: (bandId: number, adminNotes: string | null) => Promise<void>;
+  showAdminNotes?: boolean;
   isMyReview?: boolean;
   currentUserId?: number;
 }
@@ -94,6 +96,8 @@ export default function BandCard({
   showReviewerInfo = false,
   reviewerUsers = [],
   onReviewUpdate,
+  onNotesChange,
+  showAdminNotes = false,
   isMyReview = false,
   currentUserId,
 }: BandCardProps) {
@@ -103,6 +107,8 @@ export default function BandCard({
   const [localRating, setLocalRating] = useState<number | null>(band.reviewer_rating);
   const [localNotes, setLocalNotes] = useState(band.reviewer_notes || "");
   const [savingReview, setSavingReview] = useState(false);
+  const [localAdminNotes, setLocalAdminNotes] = useState(band.admin_notes || "");
+  const [savingAdminNotes, setSavingAdminNotes] = useState(false);
 
   const hasNotes = band.scheduling_notes || band.questions_comments;
   const canEditReview = isMyReview && band.assigned_reviewer_id === currentUserId;
@@ -309,8 +315,20 @@ export default function BandCard({
                   </a>
                 )}
 
+                {/* Admin notes indicator */}
+                {showAdminNotes && band.admin_notes && (
+                  <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-slate-600 bg-slate-100 px-2 py-1 rounded-full">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                    Notes
+                  </span>
+                )}
+
                 {/* Expand indicator */}
-                <span className="ml-auto text-xs text-gray-400">
+                <span
+                  className={`text-xs text-gray-400 ${
+                    showAdminNotes && band.admin_notes ? "" : "ml-auto"
+                  }`}
+                >
                   {expanded ? "▲ Less" : "▼ More"}
                 </span>
               </div>
@@ -460,6 +478,39 @@ export default function BandCard({
         {/* Collapsible Extra Details */}
         {expanded && (
           <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
+            {/* Admin Notes - organizer only, separate from review process */}
+            {showAdminNotes && onNotesChange && (
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                  Admin Notes
+                  <span className="text-xs font-normal text-gray-400 normal-case">(internal — not shown to reviewers)</span>
+                </h4>
+                <textarea
+                  value={localAdminNotes}
+                  onChange={(e) => setLocalAdminNotes(e.target.value)}
+                  placeholder="Add internal notes about this band..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
+                  rows={3}
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setSavingAdminNotes(true);
+                    try {
+                      await onNotesChange(band.id, localAdminNotes.trim() || null);
+                    } finally {
+                      setSavingAdminNotes(false);
+                    }
+                  }}
+                  disabled={savingAdminNotes}
+                  className="mt-3 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  {savingAdminNotes ? "Saving..." : "Save Notes"}
+                </button>
+              </div>
+            )}
+
             {/* Bio - Full Width */}
             {band.bio && (
               <div>

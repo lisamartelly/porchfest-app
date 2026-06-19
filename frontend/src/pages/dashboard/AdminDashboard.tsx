@@ -236,6 +236,33 @@ export default function AdminDashboard() {
     [],
   );
 
+  const updateBandNotes = useCallback(
+    async (bandId: number, adminNotes: string | null) => {
+      const updatedBand = await api.patch(
+        `/api/admin/bands/${bandId}/notes`,
+        { admin_notes: adminNotes },
+      );
+      setBands((prev) => prev.map((b) => (b.id === bandId ? updatedBand : b)));
+      setMyReviewBands((prev) =>
+        prev.map((b) => (b.id === bandId ? updatedBand : b)),
+      );
+    },
+    [],
+  );
+
+  const updatePorchNotes = useCallback(
+    async (porchId: number, adminNotes: string | null) => {
+      const updatedPorch = await api.patch(
+        `/api/admin/porches/${porchId}/notes`,
+        { admin_notes: adminNotes },
+      );
+      setPorches((prev) =>
+        prev.map((p) => (p.id === porchId ? updatedPorch : p)),
+      );
+    },
+    [],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -281,6 +308,7 @@ export default function AdminDashboard() {
             onSchedule={scheduleBand}
             getPorchAddress={getPorchAddress}
             onReviewUpdate={updateBandReview}
+            onNotesChange={updateBandNotes}
           />
         );
 
@@ -293,6 +321,7 @@ export default function AdminDashboard() {
             bands={bands}
             eventSettings={eventSettings}
             onStatusChange={updatePorchStatus}
+            onNotesChange={updatePorchNotes}
           />
         );
 
