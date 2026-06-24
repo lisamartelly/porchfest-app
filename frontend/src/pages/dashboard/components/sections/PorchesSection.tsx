@@ -25,6 +25,7 @@ const STATUS_PRIORITY: Record<Status, number> = {
   under_review: 1,
   approved: 2,
   rejected: 3,
+  withdrew: 4,
 };
 
 function parsePorchAddress(address: string) {
@@ -144,6 +145,7 @@ export default function PorchesSection({
                 { value: "under_review", label: `Under Review (${porches.filter((p) => p.status === "under_review").length})` },
                 { value: "approved", label: `Approved (${porches.filter((p) => p.status === "approved").length})` },
                 { value: "rejected", label: `Rejected (${porches.filter((p) => p.status === "rejected").length})` },
+                { value: "withdrew", label: `Withdrew (${porches.filter((p) => p.status === "withdrew").length})` },
               ]}
             />
 

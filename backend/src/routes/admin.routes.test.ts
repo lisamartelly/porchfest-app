@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   bandsFindAll: vi.fn(),
   bandsUpdateStatus: vi.fn(),
   bandsUpdateAdminNotes: vi.fn(),
+  bandsUpdateAcceptance: vi.fn(),
   bandsUpdateReview: vi.fn(),
   bandsAssignReviewer: vi.fn(),
   bandsGetReviewerUserIds: vi.fn(),
@@ -103,6 +104,7 @@ vi.mock("../data/db.js", () => ({
       findAll: mocks.bandsFindAll,
       updateStatus: mocks.bandsUpdateStatus,
       updateAdminNotes: mocks.bandsUpdateAdminNotes,
+      updateAcceptance: mocks.bandsUpdateAcceptance,
       assignReviewer: mocks.bandsAssignReviewer,
       getReviewerUserIds: mocks.bandsGetReviewerUserIds,
       updateReview: mocks.bandsUpdateReview,
@@ -566,6 +568,71 @@ describe("adminRouter", () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: "Band not found" });
+  });
+
+  it("accepts withdrew as a valid band status", async () => {
+    mocks.bandsUpdateStatus.mockResolvedValue({ id: 33, status: "withdrew" });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/33/status")
+      .set("x-role", "super-duper-admin")
+      .send({ status: "withdrew" });
+
+    expect(response.status).toBe(200);
+    expect(mocks.bandsUpdateStatus).toHaveBeenCalledWith("33", "withdrew");
+  });
+
+  it("updates band acceptance to confirmed", async () => {
+    mocks.bandsUpdateAcceptance.mockResolvedValue({ id: 33, acceptance_confirmed: true });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/33/acceptance")
+      .set("x-role", "super-duper-admin")
+      .send({ acceptance_confirmed: true });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ id: 33, acceptance_confirmed: true });
+    expect(mocks.bandsUpdateAcceptance).toHaveBeenCalledWith("33", true);
+  });
+
+  it("resets band acceptance to null", async () => {
+    mocks.bandsUpdateAcceptance.mockResolvedValue({ id: 33, acceptance_confirmed: null });
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/33/acceptance")
+      .set("x-role", "super-duper-admin")
+      .send({ acceptance_confirmed: null });
+
+    expect(response.status).toBe(200);
+    expect(mocks.bandsUpdateAcceptance).toHaveBeenCalledWith("33", null);
+  });
+
+  it("returns 404 when band acceptance target is missing", async () => {
+    mocks.bandsUpdateAcceptance.mockResolvedValue(null);
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/404/acceptance")
+      .set("x-role", "super-duper-admin")
+      .send({ acceptance_confirmed: false });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: "Band not found" });
+  });
+
+  it("rejects non-boolean band acceptance payload", async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .patch("/api/admin/bands/33/acceptance")
+      .set("x-role", "super-duper-admin")
+      .send({ acceptance_confirmed: "yes" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.errors).toBeDefined();
   });
 
   it("returns forbidden for scoped /porches when user lacks membership", async () => {

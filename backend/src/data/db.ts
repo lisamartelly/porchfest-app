@@ -93,6 +93,7 @@ export interface Band {
   questions_comments: string | null;
   status: string;
   admin_notes: string | null;
+  acceptance_confirmed: boolean | null;
   assigned_porch_id: number | null;
   set_start_time: string | null;
   set_end_time: string | null;
@@ -653,6 +654,17 @@ export const db = {
       const result = await pool.query<Band>(
         `UPDATE bands SET admin_notes = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
         [adminNotes, id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async updateAcceptance(
+      id: number | string,
+      confirmed: boolean | null
+    ): Promise<Band | null> {
+      const result = await pool.query<Band>(
+        `UPDATE bands SET acceptance_confirmed = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+        [confirmed, id]
       );
       return result.rows[0] || null;
     },

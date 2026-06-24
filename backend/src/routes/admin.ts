@@ -428,7 +428,7 @@ adminRouter.get("/bands", async (req: AuthRequest, res: Response) => {
 // Update band status
 adminRouter.patch(
   "/bands/:id/status",
-  [body("status").isIn(["pending", "under_review", "approved", "rejected"])],
+  [body("status").isIn(["pending", "under_review", "approved", "rejected", "withdrew"])],
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -484,6 +484,37 @@ adminRouter.patch(
   }
 );
 
+// Update whether an accepted band has confirmed their acceptance.
+// true = confirmed, false = canceled, null = no response yet (reset).
+adminRouter.patch(
+  "/bands/:id/acceptance",
+  [body("acceptance_confirmed").optional({ nullable: true }).isBoolean()],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const confirmed =
+        req.body.acceptance_confirmed === undefined
+          ? null
+          : req.body.acceptance_confirmed;
+
+      const band = await db.bands.updateAcceptance(id, confirmed);
+      if (!band) {
+        return res.status(404).json({ error: "Band not found" });
+      }
+
+      res.json(band);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating band acceptance");
+      res.status(500).json({ error: "Failed to update band acceptance" });
+    }
+  }
+);
+
 // Get porches (scoped by org_id when provided)
 adminRouter.get("/porches", async (req: AuthRequest, res: Response) => {
   try {
@@ -511,7 +542,7 @@ adminRouter.get("/porches", async (req: AuthRequest, res: Response) => {
 // Update porch status
 adminRouter.patch(
   "/porches/:id/status",
-  [body("status").isIn(["pending", "under_review", "approved", "rejected"])],
+  [body("status").isIn(["pending", "under_review", "approved", "rejected", "withdrew"])],
   async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

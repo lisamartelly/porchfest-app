@@ -23,6 +23,8 @@ interface BandCardProps {
   onReviewUpdate?: (bandId: number, rating: number | null, notes: string | null) => void;
   onNotesChange?: (bandId: number, adminNotes: string | null) => Promise<void>;
   showAdminNotes?: boolean;
+  onAcceptanceChange?: (bandId: number, confirmed: boolean | null) => Promise<void>;
+  showAcceptance?: boolean;
   isMyReview?: boolean;
   currentUserId?: number;
 }
@@ -98,6 +100,8 @@ export default function BandCard({
   onReviewUpdate,
   onNotesChange,
   showAdminNotes = false,
+  onAcceptanceChange,
+  showAcceptance = false,
   isMyReview = false,
   currentUserId,
 }: BandCardProps) {
@@ -109,6 +113,7 @@ export default function BandCard({
   const [savingReview, setSavingReview] = useState(false);
   const [localAdminNotes, setLocalAdminNotes] = useState(band.admin_notes || "");
   const [savingAdminNotes, setSavingAdminNotes] = useState(false);
+  const [savingAcceptance, setSavingAcceptance] = useState(false);
 
   const hasNotes = band.scheduling_notes || band.questions_comments;
   const canEditReview = isMyReview && band.assigned_reviewer_id === currentUserId;
@@ -379,6 +384,86 @@ export default function BandCard({
               value={band.status}
               onChange={(status) => onStatusChange(band.id, status)}
             />
+
+            {showAcceptance &&
+              onAcceptanceChange &&
+              band.status === "approved" && (
+                <div data-acceptance>
+                  {band.acceptance_confirmed == null ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-400">Acceptance:</span>
+                      <button
+                        type="button"
+                        disabled={savingAcceptance}
+                        onClick={async () => {
+                          setSavingAcceptance(true);
+                          try {
+                            await onAcceptanceChange(band.id, true);
+                          } finally {
+                            setSavingAcceptance(false);
+                          }
+                        }}
+                        className="px-2.5 py-1 text-xs font-medium rounded-full bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingAcceptance}
+                        onClick={async () => {
+                          setSavingAcceptance(true);
+                          try {
+                            await onAcceptanceChange(band.id, false);
+                          } finally {
+                            setSavingAcceptance(false);
+                          }
+                        }}
+                        className="px-2.5 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${
+                          band.acceptance_confirmed
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {band.acceptance_confirmed ? (
+                          <>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                            Confirmed
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                            Canceled
+                          </>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={savingAcceptance}
+                        title="Reset to no response"
+                        onClick={async () => {
+                          setSavingAcceptance(true);
+                          try {
+                            await onAcceptanceChange(band.id, null);
+                          } finally {
+                            setSavingAcceptance(false);
+                          }
+                        }}
+                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
           </div>
         </div>
 

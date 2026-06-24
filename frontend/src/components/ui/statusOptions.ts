@@ -10,6 +10,7 @@ export const APPLICATION_STATUSES: StatusOption[] = [
   { value: "under_review", label: "Under Review", bg: "bg-porch-100", text: "text-porch-700" },
   { value: "approved", label: "Approved", bg: "bg-green-100", text: "text-green-700" },
   { value: "rejected", label: "Rejected", bg: "bg-red-100", text: "text-red-700" },
+  { value: "withdrew", label: "Withdrew", bg: "bg-slate-100", text: "text-slate-600" },
 ];
 
 export const TASK_STATUSES: StatusOption[] = [

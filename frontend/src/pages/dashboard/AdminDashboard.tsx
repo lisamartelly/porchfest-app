@@ -263,6 +263,20 @@ export default function AdminDashboard() {
     [],
   );
 
+  const updateBandAcceptance = useCallback(
+    async (bandId: number, confirmed: boolean | null) => {
+      const updatedBand = await api.patch(
+        `/api/admin/bands/${bandId}/acceptance`,
+        { acceptance_confirmed: confirmed },
+      );
+      setBands((prev) => prev.map((b) => (b.id === bandId ? updatedBand : b)));
+      setMyReviewBands((prev) =>
+        prev.map((b) => (b.id === bandId ? updatedBand : b)),
+      );
+    },
+    [],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -309,6 +323,7 @@ export default function AdminDashboard() {
             getPorchAddress={getPorchAddress}
             onReviewUpdate={updateBandReview}
             onNotesChange={updateBandNotes}
+            onAcceptanceChange={updateBandAcceptance}
           />
         );
 
