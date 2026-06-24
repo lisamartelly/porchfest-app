@@ -32,6 +32,11 @@ interface BandsSectionProps {
     rating: number | null,
     notes: string | null,
   ) => Promise<void>;
+  onNotesChange: (bandId: number, adminNotes: string | null) => Promise<void>;
+  onAcceptanceChange: (
+    bandId: number,
+    confirmed: boolean | null,
+  ) => Promise<void>;
 }
 
 const STATUS_PRIORITY: Record<Status, number> = {
@@ -39,6 +44,7 @@ const STATUS_PRIORITY: Record<Status, number> = {
   under_review: 1,
   approved: 2,
   rejected: 3,
+  withdrew: 4,
 };
 
 function parseAddress(address: string | null) {
@@ -63,8 +69,10 @@ export default function BandsSection({
   onSchedule,
   getPorchAddress,
   onReviewUpdate,
+  onNotesChange,
+  onAcceptanceChange,
 }: BandsSectionProps) {
-  const [filter, setFilter] = useState<FilterStatus>("pending");
+  const [filter, setFilter] = useState<FilterStatus>("all");
   const [bandSearch, setBandSearch] = useState("");
   const [bandSort, setBandSort] = useState<BandSortOption>("created_at");
   const [reviewerFilter, setReviewerFilter] = useState<string>("all");
@@ -205,6 +213,10 @@ export default function BandsSection({
                   value: "rejected",
                   label: `Rejected (${bands.filter((b) => b.status === "rejected").length})`,
                 },
+                {
+                  value: "withdrew",
+                  label: `Withdrew (${bands.filter((b) => b.status === "withdrew").length})`,
+                },
               ]}
             />
 
@@ -288,6 +300,10 @@ export default function BandsSection({
               showReviewerInfo={reviewers.length > 0}
               reviewerUsers={reviewers}
               onReviewUpdate={onReviewUpdate}
+              onNotesChange={onNotesChange}
+              showAdminNotes
+              onAcceptanceChange={onAcceptanceChange}
+              showAcceptance
             />
           ))}
         </div>

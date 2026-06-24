@@ -22,6 +22,7 @@ export interface BandApplication {
   questions_comments: string | null;
   status: string;
   admin_notes: string | null;
+  acceptance_confirmed: boolean | null;
   created_at: string;
   assigned_porch_id: number | null;
   set_start_time: string | null;
@@ -60,7 +61,12 @@ export interface PorchApplication {
   created_at: string;
 }
 
-export type Status = "pending" | "under_review" | "approved" | "rejected";
+export type Status =
+  | "pending"
+  | "under_review"
+  | "approved"
+  | "rejected"
+  | "withdrew";
 
 export interface EventSettings {
   id: number;
@@ -87,7 +93,8 @@ export type FilterStatus =
   | "pending"
   | "under_review"
   | "approved"
-  | "rejected";
+  | "rejected"
+  | "withdrew";
 
 export type Section =
   | "overview"

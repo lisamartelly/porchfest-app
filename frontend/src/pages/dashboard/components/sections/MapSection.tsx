@@ -33,6 +33,7 @@ const STATUS_MARKER_COLORS: Record<Status, string> = {
   under_review: "#6366f1",
   approved: "#16a34a",
   rejected: "#dc2626",
+  withdrew: "#64748b",
 };
 
 const STATUS_LABELS: Record<Status, string> = {
@@ -40,6 +41,7 @@ const STATUS_LABELS: Record<Status, string> = {
   under_review: "Under Review",
   approved: "Approved",
   rejected: "Rejected",
+  withdrew: "Withdrew",
 };
 
 function createColoredIcon(color: string) {
@@ -61,6 +63,7 @@ const STATUS_ICONS: Record<Status, L.DivIcon> = {
   under_review: createColoredIcon(STATUS_MARKER_COLORS.under_review),
   approved: createColoredIcon(STATUS_MARKER_COLORS.approved),
   rejected: createColoredIcon(STATUS_MARKER_COLORS.rejected),
+  withdrew: createColoredIcon(STATUS_MARKER_COLORS.withdrew),
 };
 
 interface MapSectionProps {
@@ -456,6 +459,7 @@ export default function MapSection({
       under_review: 0,
       approved: 0,
       rejected: 0,
+      withdrew: 0,
     };
     for (const p of porches) {
       if (p.status in counts) counts[p.status as Status]++;
