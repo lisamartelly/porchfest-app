@@ -73,6 +73,7 @@ export default function BandsSection({
   onAcceptanceChange,
 }: BandsSectionProps) {
   const [filter, setFilter] = useState<FilterStatus>("all");
+  const [acceptanceFilter, setAcceptanceFilter] = useState<string>("all");
   const [bandSearch, setBandSearch] = useState("");
   const [bandSort, setBandSort] = useState<BandSortOption>("created_at");
   const [reviewerFilter, setReviewerFilter] = useState<string>("all");
@@ -99,6 +100,15 @@ export default function BandsSection({
 
     if (filter !== "all") {
       result = result.filter((b) => b.status === filter);
+    }
+
+    if (acceptanceFilter !== "all") {
+      result = result.filter((b) => {
+        if (acceptanceFilter === "confirmed") return b.acceptance_confirmed === true;
+        if (acceptanceFilter === "canceled") return b.acceptance_confirmed === false;
+        if (acceptanceFilter === "no_response") return b.acceptance_confirmed == null;
+        return true;
+      });
     }
 
     if (reviewerFilter !== "all") {
@@ -155,6 +165,7 @@ export default function BandsSection({
   }, [
     bands,
     filter,
+    acceptanceFilter,
     bandSearch,
     bandSort,
     reviewerFilter,
@@ -216,6 +227,28 @@ export default function BandsSection({
                 {
                   value: "withdrew",
                   label: `Withdrew (${bands.filter((b) => b.status === "withdrew").length})`,
+                },
+              ]}
+            />
+
+            <FilterPill
+              value={acceptanceFilter}
+              onChange={setAcceptanceFilter}
+              placeholder="Acceptance"
+              color="emerald"
+              options={[
+                { value: "all", label: "All Acceptance" },
+                {
+                  value: "confirmed",
+                  label: `Confirmed (${bands.filter((b) => b.acceptance_confirmed === true).length})`,
+                },
+                {
+                  value: "canceled",
+                  label: `Canceled (${bands.filter((b) => b.acceptance_confirmed === false).length})`,
+                },
+                {
+                  value: "no_response",
+                  label: `No Response (${bands.filter((b) => b.acceptance_confirmed == null).length})`,
                 },
               ]}
             />

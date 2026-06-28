@@ -5,7 +5,7 @@ export interface FilterPillOption {
   label: string;
 }
 
-export type FilterPillColor = "porch" | "amber" | "rose" | "orange" | "pink";
+export type FilterPillColor = "porch" | "amber" | "rose" | "orange" | "pink" | "emerald";
 
 const COLOR_STYLES: Record<FilterPillColor, { active: string; hover: string; dropdown: string }> = {
   porch: {
@@ -32,6 +32,11 @@ const COLOR_STYLES: Record<FilterPillColor, { active: string; hover: string; dro
     active: "bg-rose-300 text-rose-900 border-rose-300 shadow-sm",
     hover: "hover:bg-rose-50 hover:border-rose-200",
     dropdown: "bg-rose-50 text-rose-600",
+  },
+  emerald: {
+    active: "bg-emerald-600 text-white border-emerald-600 shadow-sm",
+    hover: "hover:bg-emerald-50 hover:border-emerald-300",
+    dropdown: "bg-emerald-50 text-emerald-700",
   },
 };
 
