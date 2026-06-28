@@ -13,7 +13,7 @@
     "migrate:up": "node-pg-migrate up",
     "migrate:down": "node-pg-migrate down",
     "migrate:create": "node-pg-migrate create --migration-file-language sql",
-    "db:reset": "docker compose -f ../docker-compose.yml down -v && docker compose -f ../docker-compose.yml up -d db && until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done && pnpm migrate:up && echo 'Database reset complete'",
+    "db:reset": "docker compose -f ../docker-compose.yml down -v && docker compose -f ../docker-compose.yml up -d db && until pg_isready -h localhost -p 5435 -U postgres; do sleep 1; done && pnpm migrate:up && echo 'Database reset complete'",
     "db:seed": "psql $DATABASE_URL -f seed-dev.sql"
   },
   "dependencies": {

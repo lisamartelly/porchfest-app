@@ -144,9 +144,9 @@ export default function VisualScheduler({
     return groups;
   }, [porches]);
 
-  // Get approved bands that can be scheduled
+  // Get approved and confirmed bands that can be scheduled
   const availableBands = useMemo(() => {
-    return bands.filter((b) => b.status === "approved");
+    return bands.filter((b) => b.status === "approved" && b.acceptance_confirmed === true);
   }, [bands]);
 
   // Get unscheduled bands (no porch assigned)
@@ -534,7 +534,7 @@ export default function VisualScheduler({
                 key={slot.time}
                 className={`flex-shrink-0 w-12 py-3 text-center text-xs font-medium ${
                   slot.label ? "text-gray-700" : "text-gray-400"
-                } ${index % 4 === 0 ? "border-l border-gray-300" : ""}`}
+                } ${index % 4 === 0 ? "border-l border-gray-300" : "border-l border-gray-100"}`}
               >
                 {slot.label || ""}
               </div>
@@ -550,7 +550,16 @@ export default function VisualScheduler({
               <div className="flex-shrink-0 w-[200px] px-4 py-2 font-bold text-gray-800 uppercase text-sm tracking-wider border-r border-gray-200">
                 {street}
               </div>
-              <div className="flex-1"></div>
+              <div className="flex">
+                {timeSlots.map((slot, index) => (
+                  <div
+                    key={slot.time}
+                    className={`flex-shrink-0 w-12 h-full ${
+                      index % 4 === 0 ? "border-l border-gray-300" : "border-l border-gray-100"
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* Porch rows for this street */}
@@ -632,8 +641,8 @@ export default function VisualScheduler({
                     return (
                       <div
                         key={slot.time}
-                        className={`flex-shrink-0 w-12 h-12 border-r border-gray-100 cursor-crosshair transition-colors ${
-                          index % 4 === 0 ? "border-l border-l-gray-200" : ""
+                        className={`flex-shrink-0 w-12 h-12 cursor-crosshair transition-colors ${
+                          index % 4 === 0 ? "border-l border-gray-300" : "border-l border-gray-100"
                         } ${
                           isSelected
                             ? "bg-porch-300"
