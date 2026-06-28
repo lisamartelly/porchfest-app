@@ -16,7 +16,7 @@ pg.types.setTypeParser(1082, (val: string) => val);
 const pool = new Pool({
   connectionString:
     process.env.DATABASE_URL ||
-    "postgresql://porchfest:porchfest_dev@localhost:5432/porchfest",
+    "postgresql://porchfest:porchfest_dev@localhost:5435/porchfest",
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
