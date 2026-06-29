@@ -11,15 +11,16 @@ interface PorchCardProps {
   eventEndTime?: string;
 }
 
-const BAND_COLORS = [
-  { bg: "bg-amber-400", text: "text-amber-900" },
-  { bg: "bg-orange-400", text: "text-orange-900" },
-  { bg: "bg-rose-400", text: "text-rose-900" },
-  { bg: "bg-pink-400", text: "text-pink-900" },
-  { bg: "bg-red-300", text: "text-red-900" },
-];
+const SCHEDULE_STATUS_BAND_COLORS: Record<string, { bg: string; text: string }> = {
+  needs_attention: { bg: "bg-rose-400", text: "text-rose-950" },
+  in_progress: { bg: "bg-amber-400", text: "text-amber-950" },
+  finalized: { bg: "bg-emerald-400", text: "text-emerald-950" },
+};
 
-const getBandColor = (index: number) => BAND_COLORS[index % BAND_COLORS.length];
+const getBandColor = (band: BandApplication) => {
+  const status = band.schedule_status || "needs_attention";
+  return SCHEDULE_STATUS_BAND_COLORS[status] || SCHEDULE_STATUS_BAND_COLORS.needs_attention;
+};
 
 const timeToMinutes = (time: string | null): number => {
   if (!time) return 0;
@@ -349,6 +350,19 @@ export default function PorchCard({
                   band in mind
                 </span>
               )}
+              {porch.schedule_status && (
+                <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${
+                  porch.schedule_status === "finalized"
+                    ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                    : porch.schedule_status === "in_progress"
+                    ? "bg-amber-100 text-amber-700 border border-amber-200"
+                    : "bg-rose-100 text-rose-700 border border-rose-200"
+                }`}>
+                  {porch.schedule_status === "finalized" ? "Finalized"
+                    : porch.schedule_status === "in_progress" ? "In Progress"
+                    : "Needs Attention"}
+                </span>
+              )}
               {onNotesChange && porch.admin_notes && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                   <IconPencil className="w-3 h-3" />
@@ -417,14 +431,14 @@ export default function PorchCard({
                   />
                 ))}
 
-                {sortedBands.map((band, index) => {
+                {sortedBands.map((band) => {
                   const startMinutes = timeToMinutes(band.set_start_time);
                   const endMinutes = timeToMinutes(band.set_end_time);
                   const left =
                     ((startMinutes - eventStartMinutes) / totalMinutes) * 100;
                   const width =
                     ((endMinutes - startMinutes) / totalMinutes) * 100;
-                  const color = getBandColor(index);
+                  const color = getBandColor(band);
 
                   return (
                     <div
@@ -448,8 +462,8 @@ export default function PorchCard({
               </div>
 
               <div className="flex flex-wrap gap-2 mt-3">
-                {sortedBands.map((band, index) => {
-                  const color = getBandColor(index);
+                {sortedBands.map((band) => {
+                  const color = getBandColor(band);
                   return (
                     <div
                       key={band.id}

@@ -7,6 +7,7 @@ import {
   BandApplication,
   PorchApplication,
   Status,
+  ScheduleStatus,
   EventSettings,
   Section,
   ReviewerUser,
@@ -277,6 +278,33 @@ export default function AdminDashboard() {
     [],
   );
 
+  const updateBandScheduleStatus = useCallback(
+    async (bandId: number, scheduleStatus: ScheduleStatus | null) => {
+      const updatedBand = await api.patch(
+        `/api/admin/bands/${bandId}/schedule-status`,
+        { schedule_status: scheduleStatus },
+      );
+      setBands((prev) => prev.map((b) => (b.id === bandId ? updatedBand : b)));
+      setMyReviewBands((prev) =>
+        prev.map((b) => (b.id === bandId ? updatedBand : b)),
+      );
+    },
+    [],
+  );
+
+  const updatePorchScheduleStatus = useCallback(
+    async (porchId: number, scheduleStatus: ScheduleStatus | null) => {
+      const updatedPorch = await api.patch(
+        `/api/admin/porches/${porchId}/schedule-status`,
+        { schedule_status: scheduleStatus },
+      );
+      setPorches((prev) =>
+        prev.map((p) => (p.id === porchId ? updatedPorch : p)),
+      );
+    },
+    [],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -324,6 +352,7 @@ export default function AdminDashboard() {
             onReviewUpdate={updateBandReview}
             onNotesChange={updateBandNotes}
             onAcceptanceChange={updateBandAcceptance}
+            onScheduleStatusChange={updateBandScheduleStatus}
           />
         );
 
@@ -377,6 +406,8 @@ export default function AdminDashboard() {
             approvedPorches={approvedPorches}
             eventSettings={eventSettings}
             onScheduleBand={scheduleBand}
+            onBandScheduleStatusChange={updateBandScheduleStatus}
+            onPorchScheduleStatusChange={updatePorchScheduleStatus}
           />
         );
 

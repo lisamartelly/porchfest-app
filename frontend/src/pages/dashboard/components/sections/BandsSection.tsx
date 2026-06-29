@@ -4,6 +4,7 @@ import {
   PorchApplication,
   EventSettings,
   Status,
+  ScheduleStatus,
   FilterStatus,
   BandSortOption,
   ReviewerUser,
@@ -36,6 +37,10 @@ interface BandsSectionProps {
   onAcceptanceChange: (
     bandId: number,
     confirmed: boolean | null,
+  ) => Promise<void>;
+  onScheduleStatusChange: (
+    bandId: number,
+    status: ScheduleStatus | null,
   ) => Promise<void>;
 }
 
@@ -71,6 +76,7 @@ export default function BandsSection({
   onReviewUpdate,
   onNotesChange,
   onAcceptanceChange,
+  onScheduleStatusChange,
 }: BandsSectionProps) {
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [acceptanceFilter, setAcceptanceFilter] = useState<string>("all");
@@ -337,6 +343,7 @@ export default function BandsSection({
               showAdminNotes
               onAcceptanceChange={onAcceptanceChange}
               showAcceptance
+              onScheduleStatusChange={onScheduleStatusChange}
             />
           ))}
         </div>
