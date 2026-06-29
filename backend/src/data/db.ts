@@ -220,6 +220,14 @@ export interface TaskContact {
   created_at: Date;
 }
 
+export interface PorchAvailableTime {
+  id: number;
+  porch_id: number;
+  start_time: string;
+  end_time: string;
+  created_at: Date;
+}
+
 export interface BandMagicToken {
   id: number;
   band_id: number;
@@ -1443,6 +1451,58 @@ export const db = {
         [id]
       );
       return (result.rowCount ?? 0) > 0;
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // PORCH AVAILABLE TIMES
+  // ---------------------------------------------------------------------------
+  porchAvailableTimes: {
+    async findByPorchId(porchId: number | string): Promise<PorchAvailableTime[]> {
+      const result = await pool.query<PorchAvailableTime>(
+        "SELECT * FROM porch_available_times WHERE porch_id = $1 ORDER BY start_time",
+        [porchId]
+      );
+      return result.rows;
+    },
+
+    async findByPorchIds(porchIds: number[]): Promise<PorchAvailableTime[]> {
+      if (porchIds.length === 0) return [];
+      const result = await pool.query<PorchAvailableTime>(
+        "SELECT * FROM porch_available_times WHERE porch_id = ANY($1) ORDER BY porch_id, start_time",
+        [porchIds]
+      );
+      return result.rows;
+    },
+
+    async create(data: {
+      porch_id: number | string;
+      start_time: string;
+      end_time: string;
+    }): Promise<PorchAvailableTime> {
+      const result = await pool.query<PorchAvailableTime>(
+        `INSERT INTO porch_available_times (porch_id, start_time, end_time)
+         VALUES ($1, $2, $3)
+         RETURNING *`,
+        [data.porch_id, data.start_time, data.end_time]
+      );
+      return result.rows[0];
+    },
+
+    async delete(id: number | string): Promise<boolean> {
+      const result = await pool.query(
+        "DELETE FROM porch_available_times WHERE id = $1",
+        [id]
+      );
+      return (result.rowCount ?? 0) > 0;
+    },
+
+    async deleteByPorchId(porchId: number | string): Promise<number> {
+      const result = await pool.query(
+        "DELETE FROM porch_available_times WHERE porch_id = $1",
+        [porchId]
+      );
+      return result.rowCount ?? 0;
     },
   },
 

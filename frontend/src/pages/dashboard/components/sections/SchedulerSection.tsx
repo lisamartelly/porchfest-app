@@ -1,10 +1,11 @@
-import { BandApplication, PorchApplication, EventSettings, ScheduleStatus } from "../../types";
+import { BandApplication, PorchApplication, PorchAvailableTime, EventSettings, ScheduleStatus } from "../../types";
 import VisualScheduler from "../VisualScheduler";
 
 interface SchedulerSectionProps {
   bands: BandApplication[];
   approvedPorches: PorchApplication[];
   eventSettings: EventSettings | null;
+  porchAvailableTimes: PorchAvailableTime[];
   onScheduleBand: (
     bandId: number,
     porchId: number | null,
@@ -19,15 +20,24 @@ interface SchedulerSectionProps {
     porchId: number,
     status: ScheduleStatus | null,
   ) => Promise<void>;
+  onCreateAvailableTime: (
+    porchId: number,
+    startTime: string,
+    endTime: string,
+  ) => Promise<void>;
+  onDeleteAvailableTime: (id: number) => Promise<void>;
 }
 
 export default function SchedulerSection({
   bands,
   approvedPorches,
   eventSettings,
+  porchAvailableTimes,
   onScheduleBand,
   onBandScheduleStatusChange,
   onPorchScheduleStatusChange,
+  onCreateAvailableTime,
+  onDeleteAvailableTime,
 }: SchedulerSectionProps) {
   return (
     <div className="bg-white rounded-xl shadow-md p-6">
@@ -42,9 +52,12 @@ export default function SchedulerSection({
           porches={approvedPorches}
           eventStartTime={eventSettings?.start_time || "12:00"}
           eventEndTime={eventSettings?.end_time || "18:00"}
+          porchAvailableTimes={porchAvailableTimes}
           onScheduleBand={onScheduleBand}
           onBandScheduleStatusChange={onBandScheduleStatusChange}
           onPorchScheduleStatusChange={onPorchScheduleStatusChange}
+          onCreateAvailableTime={onCreateAvailableTime}
+          onDeleteAvailableTime={onDeleteAvailableTime}
         />
       )}
     </div>
