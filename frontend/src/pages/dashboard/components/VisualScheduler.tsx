@@ -1,11 +1,12 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { BandApplication, PorchApplication, ScheduleStatus } from "../types";
+import { BandApplication, PorchApplication, PorchAvailableTime, ScheduleStatus } from "../types";
 
 interface VisualSchedulerProps {
   bands: BandApplication[];
   porches: PorchApplication[];
   eventStartTime: string;
   eventEndTime: string;
+  porchAvailableTimes: PorchAvailableTime[];
   onScheduleBand: (
     bandId: number,
     porchId: number | null,
@@ -20,6 +21,12 @@ interface VisualSchedulerProps {
     porchId: number,
     status: ScheduleStatus | null
   ) => Promise<void>;
+  onCreateAvailableTime: (
+    porchId: number,
+    startTime: string,
+    endTime: string
+  ) => Promise<void>;
+  onDeleteAvailableTime: (id: number) => Promise<void>;
 }
 
 interface TimeSlot {
@@ -82,9 +89,12 @@ export default function VisualScheduler({
   porches,
   eventStartTime,
   eventEndTime,
+  porchAvailableTimes,
   onScheduleBand,
   onBandScheduleStatusChange,
   onPorchScheduleStatusChange,
+  onCreateAvailableTime,
+  onDeleteAvailableTime,
 }: VisualSchedulerProps) {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -95,6 +105,7 @@ export default function VisualScheduler({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [statusPickerBand, setStatusPickerBand] = useState<BandApplication | null>(null);
+  const [markingMode, setMarkingMode] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -168,6 +179,64 @@ export default function VisualScheduler({
     return availableBands.filter((b) => !b.assigned_porch_id);
   }, [availableBands]);
 
+  // Index available times by porch ID for fast lookup
+  const availableTimesByPorch = useMemo(() => {
+    const map = new Map<number, PorchAvailableTime[]>();
+    for (const at of porchAvailableTimes) {
+      const list = map.get(at.porch_id) || [];
+      list.push(at);
+      map.set(at.porch_id, list);
+    }
+    return map;
+  }, [porchAvailableTimes]);
+
+  // Check if a grid slot falls within an available time for a porch
+  const getAvailableTimeAtSlot = useCallback(
+    (porchId: number, slotIndex: number): PorchAvailableTime | null => {
+      const times = availableTimesByPorch.get(porchId);
+      if (!times) return null;
+      const slotTime = timeSlots[slotIndex]?.time;
+      const nextSlotTime = timeSlots[slotIndex + 1]?.time || timeSlots[slotIndex]?.time;
+      if (!slotTime) return null;
+      for (const at of times) {
+        const atStart = normalizeTime(at.start_time) || "";
+        const atEnd = normalizeTime(at.end_time) || "";
+        if (slotTime >= atStart && nextSlotTime <= atEnd) {
+          return at;
+        }
+      }
+      return null;
+    },
+    [availableTimesByPorch, timeSlots]
+  );
+
+  // Count empty vs filled available slots
+  const slotCounts = useMemo(() => {
+    let total = 0;
+    let filled = 0;
+    for (const at of porchAvailableTimes) {
+      const atStart = normalizeTime(at.start_time) || "";
+      const atEnd = normalizeTime(at.end_time) || "";
+      const startIdx = timeSlots.findIndex((s) => s.time === atStart);
+      const endIdx = timeSlots.findIndex((s) => s.time === atEnd);
+      if (startIdx < 0 || endIdx < 0) continue;
+      total++;
+      const porchBands = bands.filter(
+        (b) =>
+          b.assigned_porch_id === at.porch_id &&
+          b.set_start_time &&
+          b.set_end_time
+      );
+      const isFilled = porchBands.some((b) => {
+        const bStart = normalizeTime(b.set_start_time) || "";
+        const bEnd = normalizeTime(b.set_end_time) || "";
+        return bStart < atEnd && bEnd > atStart;
+      });
+      if (isFilled) filled++;
+    }
+    return { total, filled, empty: total - filled };
+  }, [porchAvailableTimes, bands, timeSlots]);
+
   // Filter bands based on search
   const filteredBands = useMemo(() => {
     if (!bandSearch) return unscheduledBands;
@@ -208,7 +277,8 @@ export default function VisualScheduler({
     [bands, timeSlots]
   );
 
-  const handleCellMouseDown = (porchId: number, slotIndex: number) => {
+  const handleCellMouseDown = (e: React.MouseEvent, porchId: number, slotIndex: number) => {
+    if (e.button !== 0) return; // Only handle left-click
     // Check if clicking on a scheduled band
     const scheduledBands = getScheduledBandsForPorch(porchId);
     const clickedBand = scheduledBands.find(
@@ -227,6 +297,23 @@ export default function VisualScheduler({
       });
       setIsSelecting(true);
     } else {
+      // If clicking an available slot (not in marking mode), snap selection to the full slot range
+      if (!markingMode) {
+        const availTime = getAvailableTimeAtSlot(porchId, slotIndex);
+        if (availTime) {
+          const atStart = normalizeTime(availTime.start_time) || "";
+          const atEnd = normalizeTime(availTime.end_time) || "";
+          const startIdx = timeSlots.findIndex((s) => s.time === atStart);
+          const endIdx = timeSlots.findIndex((s) => s.time === atEnd);
+          setSelection({
+            porchId,
+            startIndex: startIdx >= 0 ? startIdx : slotIndex,
+            endIndex: (endIdx >= 0 ? endIdx : slotIndex + 1) - 1,
+          });
+          setIsSelecting(true);
+          return;
+        }
+      }
       // Start selecting empty slots
       setSelection({
         porchId,
@@ -322,15 +409,30 @@ export default function VisualScheduler({
       const end = Math.max(selection.startIndex, selection.endIndex);
       setSelection({ ...selection, startIndex: start, endIndex: end });
 
-      // Show band picker
-      setTimeout(() => {
-        setShowBandPicker(true);
-        setBandSearch("");
-        setTimeout(() => searchInputRef.current?.focus(), 50);
-      }, 10);
+      if (markingMode) {
+        // In marking mode, create an available time instead of opening band picker
+        const startTime = timeSlots[start].time;
+        const endTime = timeSlots[Math.min(end + 1, timeSlots.length - 1)].time;
+        setSaving(true);
+        try {
+          await onCreateAvailableTime(selection.porchId, startTime, endTime);
+        } catch (error) {
+          console.error("Failed to create available time:", error);
+        } finally {
+          setSaving(false);
+          setSelection(null);
+        }
+      } else {
+        // Show band picker
+        setTimeout(() => {
+          setShowBandPicker(true);
+          setBandSearch("");
+          setTimeout(() => searchInputRef.current?.focus(), 50);
+        }, 10);
+      }
     }
     setIsSelecting(false);
-  }, [isSelecting, selection, dragState, timeSlots, onScheduleBand]);
+  }, [isSelecting, selection, dragState, timeSlots, onScheduleBand, markingMode, onCreateAvailableTime]);
 
   // Position the picker near the selection
   useEffect(() => {
@@ -513,7 +615,7 @@ export default function VisualScheduler({
 
   return (
     <div className="relative">
-      {/* Legend */}
+      {/* Legend & Controls */}
       <div className="mb-4 flex flex-wrap gap-3 items-center text-sm">
         <span className="font-medium text-gray-700">Legend:</span>
         {SCHEDULE_STATUS_OPTIONS.map((status) => {
@@ -525,9 +627,25 @@ export default function VisualScheduler({
             </div>
           );
         })}
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 bg-sky-50 border-2 border-sky-300 rounded"></div>
+          <span className="text-gray-600">Open slot</span>
+        </div>
         <span className="text-gray-400 mx-1">|</span>
+        <button
+          onClick={() => setMarkingMode((prev) => !prev)}
+          className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+            markingMode
+              ? "bg-sky-500 text-white shadow-sm"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          {markingMode ? "Marking Open Slots" : "Mark Open Slots"}
+        </button>
         <span className="text-gray-600 italic">
-          Click and drag to select time slots • Click a band to set status
+          {markingMode
+            ? "Drag to mark available time • Right-click to remove"
+            : "Drag to select time slots • Click a band to set status"}
         </span>
       </div>
 
@@ -659,8 +777,8 @@ export default function VisualScheduler({
                                 ? "cursor-grabbing opacity-80 shadow-lg scale-[1.02] ring-2 ring-white" 
                                 : "cursor-grab hover:shadow-md"
                             }`}
-                            onMouseDown={() =>
-                              handleCellMouseDown(porch.id, index)
+                            onMouseDown={(e) =>
+                              handleCellMouseDown(e, porch.id, index)
                             }
                             onMouseEnter={() =>
                               handleCellMouseEnter(porch.id, index)
@@ -681,23 +799,49 @@ export default function VisualScheduler({
                       );
                     }
 
-                    // Empty slot
+                    // Empty slot — check if it's within an available time
+                    const availableTime = getAvailableTimeAtSlot(porch.id, index);
+                    const isAvailable = !!availableTime;
+
+                    // Detect edges of available-time blocks for distinct borders
+                    let isSlotStart = false;
+                    let isSlotEnd = false;
+                    if (availableTime) {
+                      const atStart = normalizeTime(availableTime.start_time) || "";
+                      const atEnd = normalizeTime(availableTime.end_time) || "";
+                      isSlotStart = slot.time === atStart;
+                      const nextSlotTime = timeSlots[index + 1]?.time;
+                      isSlotEnd = !nextSlotTime || nextSlotTime >= atEnd;
+                    }
+
                     return (
                       <div
                         key={slot.time}
-                        className={`flex-shrink-0 w-12 h-12 cursor-crosshair transition-colors ${
-                          index % 4 === 0 ? "border-l border-gray-300" : "border-l border-gray-100"
+                        className={`flex-shrink-0 w-12 h-12 transition-colors ${
+                          markingMode ? "cursor-cell" : "cursor-crosshair"
                         } ${
                           isSelected
-                            ? "bg-porch-300"
+                            ? markingMode ? "bg-sky-200" : "bg-porch-300"
+                            : isAvailable
+                            ? "bg-sky-50 hover:bg-sky-100"
                             : "bg-white hover:bg-porch-50"
+                        } ${
+                          isAvailable && !isSelected
+                            ? `border-y-2 border-sky-300 ${isSlotStart ? "border-l-2 rounded-l-md" : ""} ${isSlotEnd ? "border-r-2 rounded-r-md" : ""}`
+                            : index % 4 === 0 ? "border-l border-gray-300" : "border-l border-gray-100"
                         }`}
-                        onMouseDown={() =>
-                          handleCellMouseDown(porch.id, index)
+                        onMouseDown={(e) =>
+                          handleCellMouseDown(e, porch.id, index)
                         }
                         onMouseEnter={() =>
                           handleCellMouseEnter(porch.id, index)
                         }
+                        onContextMenu={(e) => {
+                          if (availableTime) {
+                            e.preventDefault();
+                            onDeleteAvailableTime(availableTime.id);
+                          }
+                        }}
                       />
                     );
                   })}
@@ -972,6 +1116,17 @@ export default function VisualScheduler({
             <strong>{porches.length}</strong> porches
           </span>
         </div>
+        {slotCounts.total > 0 && (
+          <>
+            <span className="text-gray-300">|</span>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-sky-400"></div>
+              <span>
+                <strong>{slotCounts.empty}</strong> open slot{slotCounts.empty !== 1 ? "s" : ""}
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

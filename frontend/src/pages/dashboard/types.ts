@@ -92,6 +92,14 @@ export interface EventSettings {
   map_published: boolean;
 }
 
+export interface PorchAvailableTime {
+  id: number;
+  porch_id: number;
+  start_time: string;
+  end_time: string;
+  created_at: string;
+}
+
 export type FilterStatus =
   | "all"
   | "pending"
