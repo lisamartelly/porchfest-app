@@ -515,6 +515,82 @@ adminRouter.patch(
   }
 );
 
+const VALID_SCHEDULE_STATUSES = ["needs_attention", "in_progress", "finalized"];
+
+// Update band schedule status (needs_attention / in_progress / finalized)
+adminRouter.patch(
+  "/bands/:id/schedule-status",
+  [body("schedule_status").optional({ nullable: true }).isString()],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const { schedule_status } = req.body;
+
+      if (schedule_status !== null && !VALID_SCHEDULE_STATUSES.includes(schedule_status)) {
+        return res.status(400).json({
+          error: `Invalid schedule_status. Must be one of: ${VALID_SCHEDULE_STATUSES.join(", ")}`,
+        });
+      }
+
+      const band = await db.bands.findById(id);
+      if (!band) {
+        return res.status(404).json({ error: "Band not found" });
+      }
+
+      if (schedule_status && !band.assigned_porch_id) {
+        return res.status(400).json({
+          error: "Cannot set schedule status on an unscheduled band",
+        });
+      }
+
+      const updatedBand = await db.bands.updateScheduleStatus(id, schedule_status);
+      res.json(updatedBand);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating band schedule status");
+      res.status(500).json({ error: "Failed to update band schedule status" });
+    }
+  }
+);
+
+// Update porch schedule status (needs_attention / in_progress / finalized)
+adminRouter.patch(
+  "/porches/:id/schedule-status",
+  [body("schedule_status").optional({ nullable: true }).isString()],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const { schedule_status } = req.body;
+
+      if (schedule_status !== null && !VALID_SCHEDULE_STATUSES.includes(schedule_status)) {
+        return res.status(400).json({
+          error: `Invalid schedule_status. Must be one of: ${VALID_SCHEDULE_STATUSES.join(", ")}`,
+        });
+      }
+
+      const porch = await db.porches.findById(id);
+      if (!porch) {
+        return res.status(404).json({ error: "Porch not found" });
+      }
+
+      const updatedPorch = await db.porches.updateScheduleStatus(id, schedule_status);
+      res.json(updatedPorch);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating porch schedule status");
+      res.status(500).json({ error: "Failed to update porch schedule status" });
+    }
+  }
+);
+
 // Get porches (scoped by org_id when provided)
 adminRouter.get("/porches", async (req: AuthRequest, res: Response) => {
   try {

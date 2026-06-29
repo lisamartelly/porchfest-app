@@ -652,14 +652,34 @@ export default function BandCard({
                   band.set_start_time &&
                   band.set_end_time && (
                     <div className="mb-4 p-3 bg-white rounded-lg border border-porch-200">
-                      <p className="text-sm">
-                        <span className="font-medium">Currently scheduled at:</span>{" "}
-                        {getPorchAddress(band.assigned_porch_id)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {formatTime(band.set_start_time)} -{" "}
-                        {formatTime(band.set_end_time)}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm">
+                            <span className="font-medium">Currently scheduled at:</span>{" "}
+                            {getPorchAddress(band.assigned_porch_id)}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {formatTime(band.set_start_time)} -{" "}
+                            {formatTime(band.set_end_time)}
+                          </p>
+                        </div>
+                        {band.schedule_status && (
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${
+                            band.schedule_status === "finalized"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : band.schedule_status === "in_progress"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-rose-100 text-rose-700"
+                          }`}>
+                            {band.schedule_status === "finalized" && (
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                            )}
+                            {band.schedule_status === "finalized" ? "Finalized"
+                              : band.schedule_status === "in_progress" ? "In Progress"
+                              : "Needs Attention"}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
 

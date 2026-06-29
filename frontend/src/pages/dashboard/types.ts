@@ -23,6 +23,7 @@ export interface BandApplication {
   status: string;
   admin_notes: string | null;
   acceptance_confirmed: boolean | null;
+  schedule_status: ScheduleStatus | null;
   created_at: string;
   assigned_porch_id: number | null;
   set_start_time: string | null;
@@ -58,8 +59,11 @@ export interface PorchApplication {
   sound_cone_width_degrees: number;
   status: string;
   admin_notes: string | null;
+  schedule_status: ScheduleStatus | null;
   created_at: string;
 }
+
+export type ScheduleStatus = "needs_attention" | "in_progress" | "finalized";
 
 export type Status =
   | "pending"

@@ -97,6 +97,7 @@ export interface Band {
   assigned_porch_id: number | null;
   set_start_time: string | null;
   set_end_time: string | null;
+  schedule_status: string | null;
   assigned_reviewer_id: number | null;
   reviewer_rating: number | null;
   reviewer_notes: string | null;
@@ -129,6 +130,7 @@ export interface Porch {
   sound_cone_width_degrees: number;
   status: string;
   admin_notes: string | null;
+  schedule_status: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -677,16 +679,34 @@ export const db = {
         set_end_time?: string | null;
       }
     ): Promise<Band | null> {
+      const porchId = data.assigned_porch_id || null;
+      const startTime = data.set_start_time || null;
+      const endTime = data.set_end_time || null;
+
+      let scheduleStatusExpr: string;
+      if (!porchId) {
+        scheduleStatusExpr = "NULL";
+      } else {
+        scheduleStatusExpr = "COALESCE(schedule_status, 'needs_attention')";
+      }
+
       const result = await pool.query<Band>(
         `UPDATE bands 
-         SET assigned_porch_id = $1, set_start_time = $2, set_end_time = $3
+         SET assigned_porch_id = $1, set_start_time = $2, set_end_time = $3,
+             schedule_status = ${scheduleStatusExpr}
          WHERE id = $4 RETURNING *`,
-        [
-          data.assigned_porch_id || null,
-          data.set_start_time || null,
-          data.set_end_time || null,
-          id,
-        ]
+        [porchId, startTime, endTime, id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async updateScheduleStatus(
+      id: number | string,
+      scheduleStatus: string | null
+    ): Promise<Band | null> {
+      const result = await pool.query<Band>(
+        `UPDATE bands SET schedule_status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+        [scheduleStatus, id]
       );
       return result.rows[0] || null;
     },
@@ -849,6 +869,17 @@ export const db = {
       const result = await pool.query<Porch>(
         `UPDATE porches SET admin_notes = $1 WHERE id = $2 RETURNING *`,
         [adminNotes, id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async updateScheduleStatus(
+      id: number | string,
+      scheduleStatus: string | null
+    ): Promise<Porch | null> {
+      const result = await pool.query<Porch>(
+        `UPDATE porches SET schedule_status = $1 WHERE id = $2 RETURNING *`,
+        [scheduleStatus, id]
       );
       return result.rows[0] || null;
     },

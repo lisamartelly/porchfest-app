@@ -1,4 +1,4 @@
-import { BandApplication, PorchApplication, EventSettings } from "../../types";
+import { BandApplication, PorchApplication, EventSettings, ScheduleStatus } from "../../types";
 import VisualScheduler from "../VisualScheduler";
 
 interface SchedulerSectionProps {
@@ -11,6 +11,14 @@ interface SchedulerSectionProps {
     startTime: string | null,
     endTime: string | null,
   ) => Promise<void>;
+  onBandScheduleStatusChange: (
+    bandId: number,
+    status: ScheduleStatus | null,
+  ) => Promise<void>;
+  onPorchScheduleStatusChange: (
+    porchId: number,
+    status: ScheduleStatus | null,
+  ) => Promise<void>;
 }
 
 export default function SchedulerSection({
@@ -18,6 +26,8 @@ export default function SchedulerSection({
   approvedPorches,
   eventSettings,
   onScheduleBand,
+  onBandScheduleStatusChange,
+  onPorchScheduleStatusChange,
 }: SchedulerSectionProps) {
   return (
     <div className="bg-white rounded-xl shadow-md p-6">
@@ -33,6 +43,8 @@ export default function SchedulerSection({
           eventStartTime={eventSettings?.start_time || "12:00"}
           eventEndTime={eventSettings?.end_time || "18:00"}
           onScheduleBand={onScheduleBand}
+          onBandScheduleStatusChange={onBandScheduleStatusChange}
+          onPorchScheduleStatusChange={onPorchScheduleStatusChange}
         />
       )}
     </div>
