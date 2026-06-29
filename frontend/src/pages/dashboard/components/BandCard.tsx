@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
-import { BandApplication, PorchApplication, Status, ReviewerUser } from "../types";
+import { BandApplication, PorchApplication, Status, ScheduleStatus, ReviewerUser } from "../types";
 import { formatTime } from "../utils";
-import StatusSelect from "./StatusSelect";
 import SchedulingForm from "./SchedulingForm";
+import BandStatusBar from "./BandStatusBar";
 
 interface BandCardProps {
   band: BandApplication;
@@ -25,6 +25,7 @@ interface BandCardProps {
   showAdminNotes?: boolean;
   onAcceptanceChange?: (bandId: number, confirmed: boolean | null) => Promise<void>;
   showAcceptance?: boolean;
+  onScheduleStatusChange?: (bandId: number, status: ScheduleStatus | null) => Promise<void>;
   isMyReview?: boolean;
   currentUserId?: number;
 }
@@ -102,6 +103,7 @@ export default function BandCard({
   showAdminNotes = false,
   onAcceptanceChange,
   showAcceptance = false,
+  onScheduleStatusChange,
   isMyReview = false,
   currentUserId,
 }: BandCardProps) {
@@ -113,7 +115,6 @@ export default function BandCard({
   const [savingReview, setSavingReview] = useState(false);
   const [localAdminNotes, setLocalAdminNotes] = useState(band.admin_notes || "");
   const [savingAdminNotes, setSavingAdminNotes] = useState(false);
-  const [savingAcceptance, setSavingAcceptance] = useState(false);
 
   const hasNotes = band.scheduling_notes || band.questions_comments;
   const canEditReview = isMyReview && band.assigned_reviewer_id === currentUserId;
@@ -340,29 +341,25 @@ export default function BandCard({
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-3">
-            {/* Reviewer Info - Top Right */}
+          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+            <BandStatusBar
+              band={band}
+              onStatusChange={onStatusChange}
+              onAcceptanceChange={onAcceptanceChange}
+              onScheduleStatusChange={onScheduleStatusChange}
+              showAcceptance={showAcceptance}
+            />
+
             {showReviewerInfo && band.assigned_reviewer_id != null && reviewerName && (
-              <div className="flex flex-col items-end gap-2">
-                <div className="flex items-center gap-1.5 text-sm bg-porch-50 text-porch-700 px-3 py-1.5 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs bg-porch-50 text-porch-700 px-2.5 py-1 rounded-lg">
                   <PersonIcon />
-                  <span className="font-medium">
-                    {reviewerName}
-                  </span>
+                  <span className="font-medium">{reviewerName}</span>
                 </div>
                 {band.reviewer_rating !== null && (
-                  <div className="flex items-center gap-1 text-sm bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg">
+                  <div className="flex items-center gap-0.5 text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg">
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <span
-                        key={star}
-                        className={
-                          star <= band.reviewer_rating!
-                            ? "text-amber-500"
-                            : "text-gray-300"
-                        }
-                      >
-                        ★
-                      </span>
+                      <span key={star} className={star <= band.reviewer_rating! ? "text-amber-500" : "text-gray-300"}>★</span>
                     ))}
                   </div>
                 )}
@@ -371,99 +368,14 @@ export default function BandCard({
                     type="button"
                     data-review-toggle
                     onClick={() => setReviewExpanded(!reviewExpanded)}
-                    className="flex items-center gap-1.5 text-sm bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+                    className="flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
-                    <span>{reviewExpanded ? "Hide Notes" : "Show Notes"}</span>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                    <span>{reviewExpanded ? "Hide" : "Notes"}</span>
                   </button>
                 )}
               </div>
             )}
-
-            <StatusSelect
-              value={band.status}
-              onChange={(status) => onStatusChange(band.id, status)}
-            />
-
-            {showAcceptance &&
-              onAcceptanceChange &&
-              band.status === "approved" && (
-                <div data-acceptance>
-                  {band.acceptance_confirmed == null ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-gray-400">Acceptance:</span>
-                      <button
-                        type="button"
-                        disabled={savingAcceptance}
-                        onClick={async () => {
-                          setSavingAcceptance(true);
-                          try {
-                            await onAcceptanceChange(band.id, true);
-                          } finally {
-                            setSavingAcceptance(false);
-                          }
-                        }}
-                        className="px-2.5 py-1 text-xs font-medium rounded-full bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        type="button"
-                        disabled={savingAcceptance}
-                        onClick={async () => {
-                          setSavingAcceptance(true);
-                          try {
-                            await onAcceptanceChange(band.id, false);
-                          } finally {
-                            setSavingAcceptance(false);
-                          }
-                        }}
-                        className="px-2.5 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${
-                          band.acceptance_confirmed
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {band.acceptance_confirmed ? (
-                          <>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                            Confirmed
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                            Canceled
-                          </>
-                        )}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={savingAcceptance}
-                        title="Reset to no response"
-                        onClick={async () => {
-                          setSavingAcceptance(true);
-                          try {
-                            await onAcceptanceChange(band.id, null);
-                          } finally {
-                            setSavingAcceptance(false);
-                          }
-                        }}
-                        className="text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
-                      >
-                        Reset
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
           </div>
         </div>
 
@@ -652,34 +564,14 @@ export default function BandCard({
                   band.set_start_time &&
                   band.set_end_time && (
                     <div className="mb-4 p-3 bg-white rounded-lg border border-porch-200">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm">
-                            <span className="font-medium">Currently scheduled at:</span>{" "}
-                            {getPorchAddress(band.assigned_porch_id)}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {formatTime(band.set_start_time)} -{" "}
-                            {formatTime(band.set_end_time)}
-                          </p>
-                        </div>
-                        {band.schedule_status && (
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${
-                            band.schedule_status === "finalized"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : band.schedule_status === "in_progress"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-rose-100 text-rose-700"
-                          }`}>
-                            {band.schedule_status === "finalized" && (
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                            )}
-                            {band.schedule_status === "finalized" ? "Finalized"
-                              : band.schedule_status === "in_progress" ? "In Progress"
-                              : "Needs Attention"}
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-sm">
+                        <span className="font-medium">Currently scheduled at:</span>{" "}
+                        {getPorchAddress(band.assigned_porch_id)}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {formatTime(band.set_start_time)} -{" "}
+                        {formatTime(band.set_end_time)}
+                      </p>
                     </div>
                   )}
 

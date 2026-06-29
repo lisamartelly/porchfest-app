@@ -352,6 +352,7 @@ export default function AdminDashboard() {
             onReviewUpdate={updateBandReview}
             onNotesChange={updateBandNotes}
             onAcceptanceChange={updateBandAcceptance}
+            onScheduleStatusChange={updateBandScheduleStatus}
           />
         );
 
