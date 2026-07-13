@@ -90,6 +90,8 @@ export interface EventSettings {
   default_city: string | null;
   default_state: string | null;
   map_published: boolean;
+  band_late_apply_password_hash: string | null;
+  band_late_apply_enabled: boolean;
 }
 
 export interface PorchAvailableTime {

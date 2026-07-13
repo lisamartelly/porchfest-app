@@ -272,6 +272,8 @@ app.get("/api/events/org/:slug", async (req, res) => {
       porch_app_photo_url: activeEvent.porch_app_photo_key
         ? getPublicUrl(activeEvent.porch_app_photo_key)
         : null,
+      band_late_apply_available:
+        !!(activeEvent.band_late_apply_enabled && activeEvent.band_late_apply_password_hash),
     });
   } catch (error) {
     logger.error({ err: error }, "Error fetching org event");
