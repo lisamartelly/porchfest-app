@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   bandsFindApproved: vi.fn(),
   porchesFindById: vi.fn(),
   bandsCreate: vi.fn(),
+  eventsFindById: vi.fn(),
   getPresignedUploadUrl: vi.fn(),
   loggerError: vi.fn(),
   loggerWarn: vi.fn(),
@@ -20,6 +21,9 @@ vi.mock("../data/db.js", () => ({
     },
     porches: {
       findById: mocks.porchesFindById,
+    },
+    events: {
+      findById: mocks.eventsFindById,
     },
   },
 }));
@@ -192,6 +196,11 @@ describe("bandsRouter", () => {
   });
 
   it("creates a band application", async () => {
+    mocks.eventsFindById.mockResolvedValue({
+      id: 12,
+      band_applications_open: "2020-01-01",
+      band_applications_close: "2099-12-31",
+    });
     mocks.bandsCreate.mockResolvedValue({ id: 300 });
 
     const app = buildApp();
@@ -248,6 +257,11 @@ describe("bandsRouter", () => {
   });
 
   it("handles errors for apply endpoint", async () => {
+    mocks.eventsFindById.mockResolvedValue({
+      id: 12,
+      band_applications_open: "2020-01-01",
+      band_applications_close: "2099-12-31",
+    });
     mocks.bandsCreate.mockRejectedValue(new Error("db down"));
 
     const app = buildApp();
