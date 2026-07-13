@@ -1323,3 +1323,114 @@ adminRouter.patch(
     }
   }
 );
+
+// =========================================================================
+// LATE APPLY PASSWORD
+// =========================================================================
+
+// Set or update the late-apply password for an event
+adminRouter.post(
+  "/events/:eventId/late-apply-password",
+  [
+    body("password").trim().isLength({ min: 4 }).withMessage("Password must be at least 4 characters"),
+    body("enabled").isBoolean().withMessage("enabled must be a boolean"),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { eventId } = req.params;
+      const authorized = await isOrganizerForEvent(req, eventId);
+      if (!authorized) {
+        return res.status(403).json({ error: "Organizer access required" });
+      }
+
+      const hash = await bcrypt.hash(req.body.password, 10);
+      const updatedEvent = await db.events.update(eventId, {
+        band_late_apply_password_hash: hash,
+        band_late_apply_enabled: req.body.enabled,
+      });
+
+      if (!updatedEvent) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      res.json({
+        success: true,
+        band_late_apply_enabled: updatedEvent.band_late_apply_enabled,
+        has_password: !!updatedEvent.band_late_apply_password_hash,
+      });
+    } catch (error) {
+      logger.error({ err: error }, "Error setting late-apply password");
+      res.status(500).json({ error: "Failed to set late-apply password" });
+    }
+  }
+);
+
+// Toggle late-apply enabled/disabled (without changing the password)
+adminRouter.patch(
+  "/events/:eventId/late-apply-password",
+  [body("enabled").isBoolean().withMessage("enabled must be a boolean")],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { eventId } = req.params;
+      const authorized = await isOrganizerForEvent(req, eventId);
+      if (!authorized) {
+        return res.status(403).json({ error: "Organizer access required" });
+      }
+
+      const updatedEvent = await db.events.update(eventId, {
+        band_late_apply_enabled: req.body.enabled,
+      });
+
+      if (!updatedEvent) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      res.json({
+        success: true,
+        band_late_apply_enabled: updatedEvent.band_late_apply_enabled,
+        has_password: !!updatedEvent.band_late_apply_password_hash,
+      });
+    } catch (error) {
+      logger.error({ err: error }, "Error toggling late-apply");
+      res.status(500).json({ error: "Failed to toggle late-apply" });
+    }
+  }
+);
+
+// Remove the late-apply password entirely
+adminRouter.delete(
+  "/events/:eventId/late-apply-password",
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { eventId } = req.params;
+      const authorized = await isOrganizerForEvent(req, eventId);
+      if (!authorized) {
+        return res.status(403).json({ error: "Organizer access required" });
+      }
+
+      const updatedEvent = await db.events.update(eventId, {
+        band_late_apply_password_hash: null,
+        band_late_apply_enabled: false,
+      });
+
+      if (!updatedEvent) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error({ err: error }, "Error removing late-apply password");
+      res.status(500).json({ error: "Failed to remove late-apply password" });
+    }
+  }
+);

@@ -1,9 +1,13 @@
 import { Router, type Router as ExpressRouter, type Request, type Response } from "express";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import { body, validationResult } from "express-validator";
 import { db } from "../data/db.js";
 import { getPresignedUploadUrl } from "../services/s3.js";
 import logger from "../lib/logger.js";
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
 export const bandsRouter: ExpressRouter = Router();
 
@@ -71,6 +75,57 @@ bandsRouter.get("/upload-url", async (req: Request, res: Response) => {
   }
 });
 
+// Public: Verify late-apply password and return a short-lived JWT
+bandsRouter.post(
+  "/verify-late-password",
+  [
+    body("event_id").trim().notEmpty().withMessage("Event ID is required"),
+    body("password").trim().notEmpty().withMessage("Password is required"),
+  ],
+  async (req: Request, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const event = await db.events.findById(req.body.event_id);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      if (!event.band_late_apply_enabled || !event.band_late_apply_password_hash) {
+        return res.status(403).json({ error: "Late applications are not available" });
+      }
+
+      const valid = await bcrypt.compare(req.body.password, event.band_late_apply_password_hash);
+      if (!valid) {
+        return res.status(401).json({ error: "Invalid password" });
+      }
+
+      const token = jwt.sign(
+        { type: "late-apply", event_id: event.id },
+        JWT_SECRET,
+        { expiresIn: "2h" }
+      );
+
+      res.json({ success: true, token });
+    } catch (error) {
+      logger.error({ err: error }, "Error verifying late-apply password");
+      res.status(500).json({ error: "Failed to verify password" });
+    }
+  }
+);
+
+function isApplicationWindowOpen(event: { band_applications_open: string | null; band_applications_close: string | null }): boolean {
+  const now = new Date();
+  const openDate = event.band_applications_open;
+  const closeDate = event.band_applications_close;
+  const opened = openDate ? new Date(openDate) <= now : false;
+  const notClosed = closeDate ? new Date(closeDate) >= now : false;
+  return opened && notClosed;
+}
+
 // Public: Submit band application (no auth required)
 bandsRouter.post(
   "/apply",
@@ -108,9 +163,30 @@ bandsRouter.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    logger.info({ body: req.body }, "Band application received");
-
     try {
+      const event = await db.events.findById(req.body.event_id);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      if (!isApplicationWindowOpen(event)) {
+        const lateToken = req.body.late_apply_token;
+        if (!lateToken) {
+          return res.status(403).json({ error: "Band applications are closed" });
+        }
+
+        try {
+          const decoded = jwt.verify(lateToken, JWT_SECRET) as { type: string; event_id: number };
+          if (decoded.type !== "late-apply" || decoded.event_id !== event.id) {
+            return res.status(403).json({ error: "Invalid late-apply token" });
+          }
+        } catch {
+          return res.status(403).json({ error: "Late-apply token is invalid or expired" });
+        }
+      }
+
+      logger.info({ body: req.body }, "Band application received");
+
       const band = await db.bands.create({
         event_id: req.body.event_id,
         band_name: req.body.band_name,

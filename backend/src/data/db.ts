@@ -151,6 +151,8 @@ export interface Event {
   default_city: string | null;
   default_state: string | null;
   map_published: boolean;
+  band_late_apply_password_hash: string | null;
+  band_late_apply_enabled: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -1046,6 +1048,14 @@ export const db = {
       if (data.map_published !== undefined) {
         setClauses.push(`map_published = $${paramIndex++}`);
         values.push(data.map_published);
+      }
+      if (data.band_late_apply_password_hash !== undefined) {
+        setClauses.push(`band_late_apply_password_hash = $${paramIndex++}`);
+        values.push(data.band_late_apply_password_hash);
+      }
+      if (data.band_late_apply_enabled !== undefined) {
+        setClauses.push(`band_late_apply_enabled = $${paramIndex++}`);
+        values.push(data.band_late_apply_enabled);
       }
 
       if (setClauses.length === 0) return this.findById(id);

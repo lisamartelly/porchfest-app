@@ -19,6 +19,7 @@ interface OrgEventInfo {
   band_applications_close_date: string | null;
   porch_applications_open_date: string | null;
   porch_applications_close_date: string | null;
+  band_late_apply_available?: boolean;
 }
 
 export default function BandApplyPage() {
@@ -31,6 +32,11 @@ export default function BandApplyPage() {
   const [orgEvent, setOrgEvent] = useState<OrgEventInfo | null>(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [lateApplyToken, setLateApplyToken] = useState<string | null>(null);
+  const [latePassword, setLatePassword] = useState("");
+  const [latePasswordError, setLatePasswordError] = useState<string | null>(null);
+  const [verifyingPassword, setVerifyingPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     band_name: "",
@@ -199,6 +205,7 @@ export default function BandApplyPage() {
         ...formData,
         event_id: orgEvent!.event!.id,
         photo_key: photoKey,
+        ...(lateApplyToken ? { late_apply_token: lateApplyToken } : {}),
       });
       setSubmitted(true);
     } catch (err) {
@@ -253,7 +260,25 @@ export default function BandApplyPage() {
     );
   }
 
-  if (!orgEvent.band_applications_open) {
+  const handleLatePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLatePasswordError(null);
+    setVerifyingPassword(true);
+
+    try {
+      const result = await api.post("/api/bands/verify-late-password", {
+        event_id: orgEvent!.event!.id,
+        password: latePassword,
+      });
+      setLateApplyToken(result.token);
+    } catch {
+      setLatePasswordError("Invalid password. Please try again.");
+    } finally {
+      setVerifyingPassword(false);
+    }
+  };
+
+  if (!orgEvent.band_applications_open && !lateApplyToken) {
     const hasWindow =
       orgEvent.band_applications_open_date ||
       orgEvent.band_applications_close_date;
@@ -285,6 +310,36 @@ export default function BandApplyPage() {
             Band applications for <strong>{orgEvent.event.name}</strong>.{" "}
             {windowMessage}
           </p>
+
+          {orgEvent.band_late_apply_available && (
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <p className="text-sm text-gray-700 mb-4">
+                Have a password? Enter it below to submit a late application.
+              </p>
+              <form onSubmit={handleLatePasswordSubmit} className="space-y-3">
+                <input
+                  type="password"
+                  value={latePassword}
+                  onChange={(e) => {
+                    setLatePassword(e.target.value);
+                    setLatePasswordError(null);
+                  }}
+                  placeholder="Enter password"
+                  className={`w-full px-4 py-3 border rounded-lg text-black placeholder-gray-400 focus:ring-2 focus:ring-porch-500 focus:border-porch-500 transition-all ${latePasswordError ? "border-red-400" : "border-gray-300"}`}
+                />
+                {latePasswordError && (
+                  <p className="text-sm text-red-600">{latePasswordError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={verifyingPassword || !latePassword.trim()}
+                  className="w-full bg-porch-600 hover:bg-porch-700 text-white font-semibold py-3 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {verifyingPassword ? "Verifying..." : "Unlock Application"}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     );

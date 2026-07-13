@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { EventSettings as EventSettingsType } from "../types";
 import TimeSelect from "./TimeSelect";
 import { api } from "../../../lib/api";
@@ -35,6 +35,17 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [lateApplyEnabled, setLateApplyEnabled] = useState(event.band_late_apply_enabled ?? false);
+  const [lateApplyPassword, setLateApplyPassword] = useState("");
+  const [lateApplyHasPassword, setLateApplyHasPassword] = useState(!!event.band_late_apply_password_hash);
+  const [savingLateApply, setSavingLateApply] = useState(false);
+  const [lateApplyMessage, setLateApplyMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLateApplyEnabled(event.band_late_apply_enabled ?? false);
+    setLateApplyHasPassword(!!event.band_late_apply_password_hash);
+  }, [event.band_late_apply_enabled, event.band_late_apply_password_hash]);
 
   const hasChanges =
     name !== event.name ||
@@ -188,6 +199,116 @@ export default function EventSettings({ event, onSave }: EventSettingsProps) {
               />
             </div>
           </div>
+        </div>
+
+        {/* Late Apply Password */}
+        <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-3 mb-3">
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={lateApplyEnabled}
+                onChange={async (e) => {
+                  const enabled = e.target.checked;
+                  setLateApplyEnabled(enabled);
+                  if (lateApplyHasPassword) {
+                    setSavingLateApply(true);
+                    try {
+                      await api.patch(
+                        `/api/admin/events/${event.id}/late-apply-password`,
+                        { enabled }
+                      );
+                      setLateApplyMessage(enabled ? "Late applications enabled" : "Late applications disabled");
+                    } catch {
+                      setLateApplyEnabled(!enabled);
+                      setLateApplyMessage("Failed to update");
+                    } finally {
+                      setSavingLateApply(false);
+                      setTimeout(() => setLateApplyMessage(null), 3000);
+                    }
+                  }
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-porch-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-porch-600"></div>
+            </label>
+            <div>
+              <span className="text-sm font-medium text-gray-700">Password-protected late applications</span>
+              <p className="text-xs text-gray-500">
+                Allow specific bands to apply after the window closes using a shared password
+              </p>
+            </div>
+          </div>
+
+          {lateApplyEnabled && (
+            <div className="mt-3 space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={lateApplyPassword}
+                  onChange={(e) => setLateApplyPassword(e.target.value)}
+                  placeholder={lateApplyHasPassword ? "Enter new password to change" : "Set a password"}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-porch-500 focus:border-porch-500"
+                />
+                <button
+                  type="button"
+                  disabled={savingLateApply || lateApplyPassword.length < 4}
+                  onClick={async () => {
+                    setSavingLateApply(true);
+                    setLateApplyMessage(null);
+                    try {
+                      await api.post(
+                        `/api/admin/events/${event.id}/late-apply-password`,
+                        { password: lateApplyPassword, enabled: true }
+                      );
+                      setLateApplyHasPassword(true);
+                      setLateApplyPassword("");
+                      setLateApplyMessage("Password saved");
+                    } catch {
+                      setLateApplyMessage("Failed to save password");
+                    } finally {
+                      setSavingLateApply(false);
+                      setTimeout(() => setLateApplyMessage(null), 3000);
+                    }
+                  }}
+                  className="px-4 py-2 bg-porch-600 text-white rounded-lg hover:bg-porch-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {savingLateApply ? "Saving..." : lateApplyHasPassword ? "Update Password" : "Set Password"}
+                </button>
+              </div>
+              {lateApplyHasPassword && (
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-green-600 font-medium">Password is set</p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setSavingLateApply(true);
+                      try {
+                        await api.delete(`/api/admin/events/${event.id}/late-apply-password`);
+                        setLateApplyHasPassword(false);
+                        setLateApplyEnabled(false);
+                        setLateApplyPassword("");
+                        setLateApplyMessage("Password removed");
+                      } catch {
+                        setLateApplyMessage("Failed to remove password");
+                      } finally {
+                        setSavingLateApply(false);
+                        setTimeout(() => setLateApplyMessage(null), 3000);
+                      }
+                    }}
+                    className="text-xs text-red-600 hover:text-red-700 font-medium"
+                  >
+                    Remove password
+                  </button>
+                </div>
+              )}
+              {lateApplyMessage && (
+                <p className={`text-xs font-medium ${lateApplyMessage.includes("Failed") ? "text-red-600" : "text-green-600"}`}>
+                  {lateApplyMessage}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div>
