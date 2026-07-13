@@ -515,6 +515,82 @@ adminRouter.patch(
   }
 );
 
+const VALID_SCHEDULE_STATUSES = ["needs_attention", "in_progress", "finalized"];
+
+// Update band schedule status (needs_attention / in_progress / finalized)
+adminRouter.patch(
+  "/bands/:id/schedule-status",
+  [body("schedule_status").optional({ nullable: true }).isString()],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const { schedule_status } = req.body;
+
+      if (schedule_status !== null && !VALID_SCHEDULE_STATUSES.includes(schedule_status)) {
+        return res.status(400).json({
+          error: `Invalid schedule_status. Must be one of: ${VALID_SCHEDULE_STATUSES.join(", ")}`,
+        });
+      }
+
+      const band = await db.bands.findById(id);
+      if (!band) {
+        return res.status(404).json({ error: "Band not found" });
+      }
+
+      if (schedule_status && !band.assigned_porch_id) {
+        return res.status(400).json({
+          error: "Cannot set schedule status on an unscheduled band",
+        });
+      }
+
+      const updatedBand = await db.bands.updateScheduleStatus(id, schedule_status);
+      res.json(updatedBand);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating band schedule status");
+      res.status(500).json({ error: "Failed to update band schedule status" });
+    }
+  }
+);
+
+// Update porch schedule status (needs_attention / in_progress / finalized)
+adminRouter.patch(
+  "/porches/:id/schedule-status",
+  [body("schedule_status").optional({ nullable: true }).isString()],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const { schedule_status } = req.body;
+
+      if (schedule_status !== null && !VALID_SCHEDULE_STATUSES.includes(schedule_status)) {
+        return res.status(400).json({
+          error: `Invalid schedule_status. Must be one of: ${VALID_SCHEDULE_STATUSES.join(", ")}`,
+        });
+      }
+
+      const porch = await db.porches.findById(id);
+      if (!porch) {
+        return res.status(404).json({ error: "Porch not found" });
+      }
+
+      const updatedPorch = await db.porches.updateScheduleStatus(id, schedule_status);
+      res.json(updatedPorch);
+    } catch (error) {
+      logger.error({ err: error }, "Error updating porch schedule status");
+      res.status(500).json({ error: "Failed to update porch schedule status" });
+    }
+  }
+);
+
 // Get porches (scoped by org_id when provided)
 adminRouter.get("/porches", async (req: AuthRequest, res: Response) => {
   try {
@@ -1290,6 +1366,107 @@ adminRouter.patch(
     }
   }
 );
+
+// =========================================================================
+// PORCH AVAILABLE TIMES
+// =========================================================================
+
+// Get available times for a specific porch
+adminRouter.get("/porches/:id/available-times", async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const porch = await db.porches.findById(id);
+    if (!porch) {
+      return res.status(404).json({ error: "Porch not found" });
+    }
+    const times = await db.porchAvailableTimes.findByPorchId(id);
+    res.json(times);
+  } catch (error) {
+    logger.error({ err: error }, "Error fetching porch available times");
+    res.status(500).json({ error: "Failed to fetch porch available times" });
+  }
+});
+
+// Get available times for all porches in the active event (bulk, for scheduler)
+adminRouter.get("/porch-available-times", async (req: AuthRequest, res: Response) => {
+  try {
+    const { org_id } = req.query;
+    let porches;
+    if (org_id) {
+      const { authorized, event } = await resolveOrgActiveEvent(req, Number(org_id));
+      if (!authorized) {
+        return res.status(403).json({ error: "Not a member of this organization" });
+      }
+      if (!event) return res.json([]);
+      porches = await db.porches.findByEventId(event.id);
+    } else {
+      porches = await db.porches.findAll("approved");
+    }
+    const porchIds = porches
+      .filter((p) => p.status === "approved")
+      .map((p) => p.id);
+    const times = await db.porchAvailableTimes.findByPorchIds(porchIds);
+    res.json(times);
+  } catch (error) {
+    logger.error({ err: error }, "Error fetching all porch available times");
+    res.status(500).json({ error: "Failed to fetch porch available times" });
+  }
+});
+
+// Create an available time for a porch
+adminRouter.post(
+  "/porches/:id/available-times",
+  [
+    body("start_time").isString().notEmpty(),
+    body("end_time").isString().notEmpty(),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const { start_time, end_time } = req.body;
+
+      const porch = await db.porches.findById(id);
+      if (!porch) {
+        return res.status(404).json({ error: "Porch not found" });
+      }
+
+      const authorized = await isOrganizerForEvent(req, porch.event_id);
+      if (!authorized) {
+        return res.status(403).json({ error: "Organizer access required" });
+      }
+
+      const availableTime = await db.porchAvailableTimes.create({
+        porch_id: id,
+        start_time,
+        end_time,
+      });
+      res.json(availableTime);
+    } catch (error) {
+      logger.error({ err: error }, "Error creating porch available time");
+      res.status(500).json({ error: "Failed to create porch available time" });
+    }
+  }
+);
+
+// Delete an available time
+adminRouter.delete("/porch-available-times/:id", async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const deleted = await db.porchAvailableTimes.delete(id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Available time not found" });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    logger.error({ err: error }, "Error deleting porch available time");
+    res.status(500).json({ error: "Failed to delete porch available time" });
+  }
+});
 
 // Update porch sound settings
 adminRouter.patch(

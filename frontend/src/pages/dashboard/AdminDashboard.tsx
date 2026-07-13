@@ -6,7 +6,9 @@ import { useOrgStore } from "../../stores/orgStore";
 import {
   BandApplication,
   PorchApplication,
+  PorchAvailableTime,
   Status,
+  ScheduleStatus,
   EventSettings,
   Section,
   ReviewerUser,
@@ -90,6 +92,7 @@ export default function AdminDashboard() {
   const [schedulingError, setSchedulingError] = useState<string | null>(null);
   const [reviewers, setReviewers] = useState<ReviewerUser[]>([]);
   const [myReviewBands, setMyReviewBands] = useState<BandApplication[]>([]);
+  const [porchAvailableTimes, setPorchAvailableTimes] = useState<PorchAvailableTime[]>([]);
 
   const isSuperDuperAdmin = user?.role === "super-duper-admin";
   const isOrganizer = activeOrgRole === "owner" || activeOrgRole === "organizer" || isSuperDuperAdmin;
@@ -98,11 +101,12 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const qs = activeOrgId ? `?org_id=${activeOrgId}` : "";
-      const [bandData, porchData, eventData, reviewerData] = await Promise.all([
+      const [bandData, porchData, eventData, reviewerData, availTimesData] = await Promise.all([
         api.get(`/api/admin/bands${qs}`),
         api.get(`/api/admin/porches${qs}`),
         api.get(`/api/admin/event${qs}`).catch(() => null),
         api.get(`/api/admin/reviewers${qs}`),
+        api.get(`/api/admin/porch-available-times${qs}`).catch(() => []),
       ]);
       setBands(bandData || []);
       setPorches(porchData || []);
@@ -113,6 +117,7 @@ export default function AdminDashboard() {
       );
       setEventSettings(eventData);
       setReviewers(reviewerData || []);
+      setPorchAvailableTimes(availTimesData || []);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -277,6 +282,52 @@ export default function AdminDashboard() {
     [],
   );
 
+  const updateBandScheduleStatus = useCallback(
+    async (bandId: number, scheduleStatus: ScheduleStatus | null) => {
+      const updatedBand = await api.patch(
+        `/api/admin/bands/${bandId}/schedule-status`,
+        { schedule_status: scheduleStatus },
+      );
+      setBands((prev) => prev.map((b) => (b.id === bandId ? updatedBand : b)));
+      setMyReviewBands((prev) =>
+        prev.map((b) => (b.id === bandId ? updatedBand : b)),
+      );
+    },
+    [],
+  );
+
+  const createPorchAvailableTime = useCallback(
+    async (porchId: number, startTime: string, endTime: string) => {
+      const created = await api.post(
+        `/api/admin/porches/${porchId}/available-times`,
+        { start_time: startTime, end_time: endTime },
+      );
+      setPorchAvailableTimes((prev) => [...prev, created]);
+    },
+    [],
+  );
+
+  const deletePorchAvailableTime = useCallback(
+    async (id: number) => {
+      await api.delete(`/api/admin/porch-available-times/${id}`);
+      setPorchAvailableTimes((prev) => prev.filter((t) => t.id !== id));
+    },
+    [],
+  );
+
+  const updatePorchScheduleStatus = useCallback(
+    async (porchId: number, scheduleStatus: ScheduleStatus | null) => {
+      const updatedPorch = await api.patch(
+        `/api/admin/porches/${porchId}/schedule-status`,
+        { schedule_status: scheduleStatus },
+      );
+      setPorches((prev) =>
+        prev.map((p) => (p.id === porchId ? updatedPorch : p)),
+      );
+    },
+    [],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -324,6 +375,7 @@ export default function AdminDashboard() {
             onReviewUpdate={updateBandReview}
             onNotesChange={updateBandNotes}
             onAcceptanceChange={updateBandAcceptance}
+            onScheduleStatusChange={updateBandScheduleStatus}
           />
         );
 
@@ -376,7 +428,12 @@ export default function AdminDashboard() {
             bands={bands}
             approvedPorches={approvedPorches}
             eventSettings={eventSettings}
+            porchAvailableTimes={porchAvailableTimes}
             onScheduleBand={scheduleBand}
+            onBandScheduleStatusChange={updateBandScheduleStatus}
+            onPorchScheduleStatusChange={updatePorchScheduleStatus}
+            onCreateAvailableTime={createPorchAvailableTime}
+            onDeleteAvailableTime={deletePorchAvailableTime}
           />
         );
 

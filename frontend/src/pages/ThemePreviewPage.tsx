@@ -94,6 +94,7 @@ const DUMMY_PORCH: PorchApplication = {
   sound_cone_width_degrees: 360,
   status: "approved",
   admin_notes: null,
+  schedule_status: null,
   created_at: "2026-04-15T14:30:00Z",
 };
 
@@ -123,6 +124,7 @@ const DUMMY_BANDS: BandApplication[] = [
     status: "approved",
     admin_notes: null,
     acceptance_confirmed: null,
+    schedule_status: "finalized",
     created_at: "2026-04-10T10:00:00Z",
     assigned_porch_id: 42,
     set_start_time: "14:00",
@@ -156,6 +158,7 @@ const DUMMY_BANDS: BandApplication[] = [
     status: "approved",
     admin_notes: null,
     acceptance_confirmed: null,
+    schedule_status: "in_progress",
     created_at: "2026-04-12T09:00:00Z",
     assigned_porch_id: 42,
     set_start_time: "15:15",
@@ -189,6 +192,7 @@ const DUMMY_BANDS: BandApplication[] = [
     status: "approved",
     admin_notes: null,
     acceptance_confirmed: null,
+    schedule_status: "needs_attention",
     created_at: "2026-04-14T11:00:00Z",
     assigned_porch_id: 42,
     set_start_time: "16:15",

@@ -97,6 +97,7 @@ export interface Band {
   assigned_porch_id: number | null;
   set_start_time: string | null;
   set_end_time: string | null;
+  schedule_status: string | null;
   assigned_reviewer_id: number | null;
   reviewer_rating: number | null;
   reviewer_notes: string | null;
@@ -129,6 +130,7 @@ export interface Porch {
   sound_cone_width_degrees: number;
   status: string;
   admin_notes: string | null;
+  schedule_status: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -217,6 +219,14 @@ export interface TaskContact {
   phone: string | null;
   business: string | null;
   notes: string | null;
+  created_at: Date;
+}
+
+export interface PorchAvailableTime {
+  id: number;
+  porch_id: number;
+  start_time: string;
+  end_time: string;
   created_at: Date;
 }
 
@@ -679,16 +689,34 @@ export const db = {
         set_end_time?: string | null;
       }
     ): Promise<Band | null> {
+      const porchId = data.assigned_porch_id || null;
+      const startTime = data.set_start_time || null;
+      const endTime = data.set_end_time || null;
+
+      let scheduleStatusExpr: string;
+      if (!porchId) {
+        scheduleStatusExpr = "NULL";
+      } else {
+        scheduleStatusExpr = "COALESCE(schedule_status, 'needs_attention')";
+      }
+
       const result = await pool.query<Band>(
         `UPDATE bands 
-         SET assigned_porch_id = $1, set_start_time = $2, set_end_time = $3
+         SET assigned_porch_id = $1, set_start_time = $2, set_end_time = $3,
+             schedule_status = ${scheduleStatusExpr}
          WHERE id = $4 RETURNING *`,
-        [
-          data.assigned_porch_id || null,
-          data.set_start_time || null,
-          data.set_end_time || null,
-          id,
-        ]
+        [porchId, startTime, endTime, id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async updateScheduleStatus(
+      id: number | string,
+      scheduleStatus: string | null
+    ): Promise<Band | null> {
+      const result = await pool.query<Band>(
+        `UPDATE bands SET schedule_status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+        [scheduleStatus, id]
       );
       return result.rows[0] || null;
     },
@@ -851,6 +879,17 @@ export const db = {
       const result = await pool.query<Porch>(
         `UPDATE porches SET admin_notes = $1 WHERE id = $2 RETURNING *`,
         [adminNotes, id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async updateScheduleStatus(
+      id: number | string,
+      scheduleStatus: string | null
+    ): Promise<Porch | null> {
+      const result = await pool.query<Porch>(
+        `UPDATE porches SET schedule_status = $1 WHERE id = $2 RETURNING *`,
+        [scheduleStatus, id]
       );
       return result.rows[0] || null;
     },
@@ -1422,6 +1461,58 @@ export const db = {
         [id]
       );
       return (result.rowCount ?? 0) > 0;
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // PORCH AVAILABLE TIMES
+  // ---------------------------------------------------------------------------
+  porchAvailableTimes: {
+    async findByPorchId(porchId: number | string): Promise<PorchAvailableTime[]> {
+      const result = await pool.query<PorchAvailableTime>(
+        "SELECT * FROM porch_available_times WHERE porch_id = $1 ORDER BY start_time",
+        [porchId]
+      );
+      return result.rows;
+    },
+
+    async findByPorchIds(porchIds: number[]): Promise<PorchAvailableTime[]> {
+      if (porchIds.length === 0) return [];
+      const result = await pool.query<PorchAvailableTime>(
+        "SELECT * FROM porch_available_times WHERE porch_id = ANY($1) ORDER BY porch_id, start_time",
+        [porchIds]
+      );
+      return result.rows;
+    },
+
+    async create(data: {
+      porch_id: number | string;
+      start_time: string;
+      end_time: string;
+    }): Promise<PorchAvailableTime> {
+      const result = await pool.query<PorchAvailableTime>(
+        `INSERT INTO porch_available_times (porch_id, start_time, end_time)
+         VALUES ($1, $2, $3)
+         RETURNING *`,
+        [data.porch_id, data.start_time, data.end_time]
+      );
+      return result.rows[0];
+    },
+
+    async delete(id: number | string): Promise<boolean> {
+      const result = await pool.query(
+        "DELETE FROM porch_available_times WHERE id = $1",
+        [id]
+      );
+      return (result.rowCount ?? 0) > 0;
+    },
+
+    async deleteByPorchId(porchId: number | string): Promise<number> {
+      const result = await pool.query(
+        "DELETE FROM porch_available_times WHERE porch_id = $1",
+        [porchId]
+      );
+      return result.rowCount ?? 0;
     },
   },
 
