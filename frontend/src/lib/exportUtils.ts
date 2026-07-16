@@ -130,6 +130,116 @@ export function exportBands(
   exportToFile(enriched, BAND_EXPORT_COLUMNS, "bands-export", format);
 }
 
+const normalizeTime = (t: string | null): string | null =>
+  t ? t.substring(0, 5) : null;
+
+function formatTime12Hour(time24: string): string {
+  const [hourStr, min] = time24.split(":");
+  const hour = parseInt(hourStr, 10);
+  const period = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  return `${hour12}:${min} ${period}`;
+}
+
+function buildTimeSlots(start: string, end: string): string[] {
+  const slots: string[] = [];
+  const [startHour, startMin] = (normalizeTime(start) || "12:00")
+    .split(":")
+    .map(Number);
+  const [endHour, endMin] = (normalizeTime(end) || "18:00").split(":").map(Number);
+
+  let currentHour = startHour;
+  let currentMin = startMin;
+  while (
+    currentHour < endHour ||
+    (currentHour === endHour && currentMin < endMin)
+  ) {
+    slots.push(
+      `${currentHour.toString().padStart(2, "0")}:${currentMin
+        .toString()
+        .padStart(2, "0")}`,
+    );
+    currentMin += 15;
+    if (currentMin >= 60) {
+      currentMin = 0;
+      currentHour += 1;
+    }
+  }
+  return slots;
+}
+
+function groupPorchesByStreet(
+  porches: PorchApplication[],
+): Record<string, PorchApplication[]> {
+  const groups: Record<string, PorchApplication[]> = {};
+  porches.forEach((porch) => {
+    const addressParts = porch.address.split(" ");
+    const street = addressParts.slice(1).join(" ") || "Other";
+    if (!groups[street]) groups[street] = [];
+    groups[street].push(porch);
+  });
+  Object.keys(groups).forEach((street) => {
+    groups[street].sort((a, b) => {
+      const numA = parseInt(a.address) || 0;
+      const numB = parseInt(b.address) || 0;
+      return numA - numB;
+    });
+  });
+  return groups;
+}
+
+export function exportSchedule(
+  bands: BandApplication[],
+  porches: PorchApplication[],
+  eventStartTime: string,
+  eventEndTime: string,
+) {
+  const slots = buildTimeSlots(eventStartTime, eventEndTime);
+  const grouped = groupPorchesByStreet(porches);
+
+  const aoa: (string | number)[][] = [
+    ["Porch", ...slots.map(formatTime12Hour)],
+  ];
+  const merges: XLSX.Range[] = [];
+  let r = 1; // row 0 is the header
+
+  for (const street of Object.keys(grouped)) {
+    aoa.push([street, ...slots.map(() => "")]);
+    merges.push({ s: { r, c: 0 }, e: { r, c: slots.length } });
+    r++;
+
+    for (const porch of grouped[street]) {
+      const row: (string | number)[] = new Array(slots.length + 1).fill("");
+      row[0] = `${porch.address} — ${porch.owner_name}`;
+
+      bands
+        .filter((b) => b.assigned_porch_id === porch.id && b.set_start_time)
+        .forEach((b) => {
+          const startIdx = slots.indexOf(normalizeTime(b.set_start_time) || "");
+          let endIdx = slots.indexOf(normalizeTime(b.set_end_time) || "");
+          if (startIdx < 0) return;
+          if (endIdx < 0) endIdx = slots.length; // clamp overruns
+
+          row[startIdx + 1] = b.band_name; // +1 for the porch label column
+          if (endIdx > startIdx + 1) {
+            merges.push({ s: { r, c: startIdx + 1 }, e: { r, c: endIdx } });
+          }
+        });
+
+      aoa.push(row);
+      r++;
+    }
+  }
+
+  const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+  worksheet["!merges"] = merges;
+  worksheet["!cols"] = [{ wch: 28 }, ...slots.map(() => ({ wch: 12 }))];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Schedule");
+  XLSX.writeFile(workbook, "schedule-export.xlsx");
+}
+
 export function exportPorches(
   porches: PorchApplication[],
   bands: BandApplication[],

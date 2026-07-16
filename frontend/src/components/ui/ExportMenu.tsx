@@ -2,9 +2,13 @@ import { useState, useRef, useEffect } from "react";
 
 interface ExportMenuProps {
   onExport: (format: "csv" | "xlsx") => void;
+  formats?: ("csv" | "xlsx")[];
 }
 
-export default function ExportMenu({ onExport }: ExportMenuProps) {
+export default function ExportMenu({
+  onExport,
+  formats = ["csv", "xlsx"],
+}: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -60,32 +64,36 @@ export default function ExportMenu({ onExport }: ExportMenuProps) {
       {open && (
         <div className="absolute top-full right-0 mt-2 z-50 min-w-[160px] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-1">
           <div className="py-1">
-            <button
-              type="button"
-              onClick={() => {
-                onExport("csv");
-                setOpen(false);
-              }}
-              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
-            >
-              <span className="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                .csv
-              </span>
-              Export as CSV
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onExport("xlsx");
-                setOpen(false);
-              }}
-              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
-            >
-              <span className="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                .xlsx
-              </span>
-              Export as Excel
-            </button>
+            {formats.includes("csv") && (
+              <button
+                type="button"
+                onClick={() => {
+                  onExport("csv");
+                  setOpen(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+              >
+                <span className="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                  .csv
+                </span>
+                Export as CSV
+              </button>
+            )}
+            {formats.includes("xlsx") && (
+              <button
+                type="button"
+                onClick={() => {
+                  onExport("xlsx");
+                  setOpen(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+              >
+                <span className="text-xs font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                  .xlsx
+                </span>
+                Export as Excel
+              </button>
+            )}
           </div>
         </div>
       )}
