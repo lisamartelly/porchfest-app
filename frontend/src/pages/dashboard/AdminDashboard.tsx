@@ -23,6 +23,7 @@ import EventsSection from "./components/sections/EventsSection";
 import OrganizationsSection from "./components/sections/OrganizationsSection";
 import ManageUsersSection from "./components/sections/ManageUsersSection";
 import TasksSection from "./components/sections/TasksSection";
+import EmailsSection from "./components/sections/EmailsSection";
 import MapSection from "./components/sections/MapSection";
 
 const SECTION_META: Record<Section, { title: string; description: string }> = {
@@ -62,6 +63,10 @@ const SECTION_META: Record<Section, { title: string; description: string }> = {
   tasks: {
     title: "Tasks",
     description: "Manage to-do items, contacts, and recurring tasks across events",
+  },
+  emails: {
+    title: "Emails",
+    description: "Generate band/host connection emails for scheduled porches",
   },
   organizations: {
     title: "Organizations",
@@ -465,6 +470,17 @@ export default function AdminDashboard() {
         if (!isOrganizer)
           return <div className="text-gray-500">Access denied. Reviewers do not have access to tasks.</div>;
         return <TasksSection />;
+
+      case "emails":
+        if (!isOrganizer)
+          return <div className="text-gray-500">Access denied. Reviewers do not have access to emails.</div>;
+        return (
+          <EmailsSection
+            porches={porches}
+            bands={bands}
+            eventSettings={eventSettings}
+          />
+        );
 
       case "organizations":
         if (!isSuperDuperAdmin)

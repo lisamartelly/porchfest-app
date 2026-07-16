@@ -120,6 +120,7 @@ export type Section =
   | "map"
   | "events"
   | "tasks"
+  | "emails"
   | "organizations"
   | "manage-users";
 

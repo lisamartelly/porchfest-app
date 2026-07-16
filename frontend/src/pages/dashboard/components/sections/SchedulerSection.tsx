@@ -1,5 +1,7 @@
 import { BandApplication, PorchApplication, PorchAvailableTime, EventSettings, ScheduleStatus } from "../../types";
 import VisualScheduler from "../VisualScheduler";
+import ExportMenu from "../../../../components/ui/ExportMenu";
+import { exportSchedule } from "../../../../lib/exportUtils";
 
 interface SchedulerSectionProps {
   bands: BandApplication[];
@@ -41,6 +43,21 @@ export default function SchedulerSection({
 }: SchedulerSectionProps) {
   return (
     <div className="bg-white rounded-xl shadow-md p-6">
+      {approvedPorches.length > 0 && (
+        <div className="mb-4 flex items-center justify-end">
+          <ExportMenu
+            formats={["xlsx"]}
+            onExport={() =>
+              exportSchedule(
+                bands,
+                approvedPorches,
+                eventSettings?.start_time || "12:00",
+                eventSettings?.end_time || "18:00",
+              )
+            }
+          />
+        </div>
+      )}
       {approvedPorches.length === 0 ? (
         <div className="p-8 text-center text-gray-500">
           No approved porches available. Approve some porches first to start
