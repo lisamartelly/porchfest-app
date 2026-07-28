@@ -257,3 +257,89 @@ export function exportPorches(
 
   exportToFile(enriched, PORCH_EXPORT_COLUMNS, "porches-export", format);
 }
+
+// ============================================================================
+// WEBSITE EXPORT (bands.json for porchfest-website)
+// ============================================================================
+
+const S3_BUCKET =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_S3_BUCKET) ||
+  "porchfest-band-photos-dev";
+const AWS_REGION =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_AWS_REGION) ||
+  "us-east-2";
+
+function getS3PublicUrl(photoKey: string): string {
+  return `https://${S3_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${photoKey}`;
+}
+
+function formatTimeRange(
+  startTime: string | null,
+  endTime: string | null,
+): string | null {
+  if (!startTime || !endTime) return null;
+  return `${formatTime12Hour(startTime.substring(0, 5))} - ${formatTime12Hour(endTime.substring(0, 5))}`;
+}
+
+interface WebsiteBandEntry {
+  band_name: string;
+  object_position_value: null;
+  genre: string | null;
+  img_id: null;
+  img_url: string | null;
+  facebook_link: string | null;
+  instagram_link: string | null;
+  bandcamp_link: string | null;
+  soundcloud_link: string | null;
+  spotify_link: string | null;
+  website_link: string | null;
+  venmo: string | null;
+  porch_address: string | null;
+  time_lookup: string | null;
+  time: string | null;
+  bio: string | null;
+}
+
+export function exportWebsiteBands(
+  bands: BandApplication[],
+  porches: PorchApplication[],
+) {
+  const porchMap = new Map(porches.map((p) => [p.id, p.address]));
+
+  const approvedBands = bands.filter((b) => b.status === "approved");
+
+  const websiteBands: WebsiteBandEntry[] = approvedBands.map((band) => {
+    const timeStr = formatTimeRange(band.set_start_time, band.set_end_time);
+    return {
+      band_name: band.band_name,
+      object_position_value: null,
+      genre: band.genre || null,
+      img_id: null,
+      img_url: band.photo_key ? getS3PublicUrl(band.photo_key) : null,
+      facebook_link: band.facebook || null,
+      instagram_link: band.instagram || null,
+      bandcamp_link: band.bandcamp || null,
+      soundcloud_link: band.soundcloud || null,
+      spotify_link: band.spotify || null,
+      website_link: band.website || null,
+      venmo: band.venmo_handle || null,
+      porch_address: band.assigned_porch_id
+        ? (porchMap.get(band.assigned_porch_id) ?? null)
+        : null,
+      time_lookup: timeStr,
+      time: timeStr,
+      bio: band.bio || null,
+    };
+  });
+
+  const json = JSON.stringify(websiteBands, null, 4);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "bands.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
