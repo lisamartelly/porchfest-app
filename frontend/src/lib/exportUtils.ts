@@ -306,7 +306,9 @@ export function exportWebsiteBands(
 ) {
   const porchMap = new Map(porches.map((p) => [p.id, p.address]));
 
-  const approvedBands = bands.filter((b) => b.status === "approved");
+  const approvedBands = bands.filter(
+    (b) => b.status === "approved" && b.assigned_porch_id && b.set_start_time && b.set_end_time,
+  );
 
   const websiteBands: WebsiteBandEntry[] = approvedBands.map((band) => {
     const timeStr = formatTimeRange(band.set_start_time, band.set_end_time);
