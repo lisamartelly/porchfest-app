@@ -861,6 +861,36 @@ export const db = {
       return result.rows[0];
     },
 
+    async update(id: number | string, data: Partial<Porch>): Promise<Porch | null> {
+      const setClauses: string[] = [];
+      const values: (string | number | boolean | null)[] = [];
+      let paramIndex = 1;
+
+      const fields: (keyof Porch)[] = [
+        "owner_name", "email", "phone", "address", "city",
+        "capacity", "has_power", "parking_notes", "accessibility_notes",
+        "space_description", "has_band_in_mind", "music_preferences",
+        "band_count_preference", "rain_date_available", "comments",
+      ];
+
+      for (const field of fields) {
+        if (data[field] !== undefined) {
+          setClauses.push(`${field} = $${paramIndex++}`);
+          values.push(data[field] as string | number | boolean | null);
+        }
+      }
+
+      if (setClauses.length === 0) return this.findById(id);
+
+      setClauses.push(`updated_at = NOW()`);
+      values.push(id as number);
+      const result = await pool.query<Porch>(
+        `UPDATE porches SET ${setClauses.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      );
+      return result.rows[0] || null;
+    },
+
     async updateStatus(
       id: number | string,
       status: string

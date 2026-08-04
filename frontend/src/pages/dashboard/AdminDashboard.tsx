@@ -333,6 +333,36 @@ export default function AdminDashboard() {
     [],
   );
 
+  const editBand = useCallback(
+    async (bandId: number, data: Partial<BandApplication>) => {
+      const updatedBand = await api.patch(
+        `/api/admin/bands/${bandId}/edit`,
+        data,
+      );
+      setBands((prev) => prev.map((b) => (b.id === bandId ? updatedBand : b)));
+      setMyReviewBands((prev) =>
+        prev.map((b) => (b.id === bandId ? updatedBand : b)),
+      );
+    },
+    [],
+  );
+
+  const editPorch = useCallback(
+    async (porchId: number, data: Partial<PorchApplication>) => {
+      const updatedPorch = await api.patch(
+        `/api/admin/porches/${porchId}/edit`,
+        data,
+      );
+      setPorches((prev) =>
+        prev.map((p) => (p.id === porchId ? updatedPorch : p)),
+      );
+      setApprovedPorches((prev) =>
+        prev.map((p) => (p.id === porchId ? updatedPorch : p)),
+      );
+    },
+    [],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -381,6 +411,7 @@ export default function AdminDashboard() {
             onNotesChange={updateBandNotes}
             onAcceptanceChange={updateBandAcceptance}
             onScheduleStatusChange={updateBandScheduleStatus}
+            onBandEdit={editBand}
           />
         );
 
@@ -394,6 +425,7 @@ export default function AdminDashboard() {
             eventSettings={eventSettings}
             onStatusChange={updatePorchStatus}
             onNotesChange={updatePorchNotes}
+            onPorchEdit={editPorch}
           />
         );
 

@@ -484,6 +484,58 @@ adminRouter.patch(
   }
 );
 
+// Edit band application fields (organizer/owner only)
+adminRouter.patch(
+  "/bands/:id/edit",
+  [
+    body("band_name").optional().trim().notEmpty().isLength({ max: 255 }),
+    body("contact_name").optional().trim().notEmpty().isLength({ max: 255 }),
+    body("contact_email").optional().isEmail().isLength({ max: 255 }),
+    body("contact_phone").optional().trim().notEmpty().isLength({ max: 50 }),
+    body("genre").optional().trim().notEmpty().isLength({ max: 100 }),
+    body("member_count").optional().trim().notEmpty().isLength({ max: 100 }),
+    body("music_sample_link").optional().trim().notEmpty(),
+    body("bio").optional().trim(),
+    body("set_length").optional().trim().isLength({ max: 100 }),
+    body("venmo_handle").optional({ nullable: true }).isLength({ max: 100 }),
+    body("instagram").optional({ nullable: true }).isLength({ max: 100 }),
+    body("spotify").optional({ nullable: true }).isLength({ max: 100 }),
+    body("soundcloud").optional({ nullable: true }).isLength({ max: 100 }),
+    body("bandcamp").optional({ nullable: true }).isLength({ max: 100 }),
+    body("facebook").optional({ nullable: true }).isLength({ max: 100 }),
+    body("website").optional({ nullable: true }),
+    body("scheduling_notes").optional({ nullable: true }),
+    body("photo_key").optional({ nullable: true }).isString(),
+    body("questions_comments").optional({ nullable: true }),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+
+      const band = await db.bands.findById(id);
+      if (!band) {
+        return res.status(404).json({ error: "Band not found" });
+      }
+
+      const authorized = await isOrganizerForEvent(req, band.event_id);
+      if (!authorized) {
+        return res.status(403).json({ error: "Organizer access required" });
+      }
+
+      const updatedBand = await db.bands.update(id, req.body);
+      res.json(updatedBand);
+    } catch (error) {
+      logger.error({ err: error }, "Error editing band");
+      res.status(500).json({ error: "Failed to edit band" });
+    }
+  }
+);
+
 // Update whether an accepted band has confirmed their acceptance.
 // true = confirmed, false = canceled, null = no response yet (reset).
 adminRouter.patch(
@@ -670,6 +722,54 @@ adminRouter.patch(
     } catch (error) {
       logger.error({ err: error }, "Error updating porch admin notes");
       res.status(500).json({ error: "Failed to update porch admin notes" });
+    }
+  }
+);
+
+// Edit porch application fields (organizer/owner only)
+adminRouter.patch(
+  "/porches/:id/edit",
+  [
+    body("owner_name").optional().trim().notEmpty().isLength({ max: 255 }),
+    body("email").optional().isEmail().isLength({ max: 255 }),
+    body("phone").optional({ nullable: true }).trim().isLength({ max: 50 }),
+    body("address").optional().trim().notEmpty().isLength({ max: 255 }),
+    body("city").optional().trim(),
+    body("capacity").optional({ nullable: true }).isInt({ min: 0 }),
+    body("has_power").optional().isBoolean(),
+    body("parking_notes").optional({ nullable: true }),
+    body("accessibility_notes").optional({ nullable: true }),
+    body("space_description").optional({ nullable: true }),
+    body("has_band_in_mind").optional({ nullable: true }),
+    body("music_preferences").optional({ nullable: true }),
+    body("band_count_preference").optional({ nullable: true }),
+    body("rain_date_available").optional({ nullable: true }),
+    body("comments").optional({ nullable: true }),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+
+      const porch = await db.porches.findById(id);
+      if (!porch) {
+        return res.status(404).json({ error: "Porch not found" });
+      }
+
+      const authorized = await isOrganizerForEvent(req, porch.event_id);
+      if (!authorized) {
+        return res.status(403).json({ error: "Organizer access required" });
+      }
+
+      const updatedPorch = await db.porches.update(id, req.body);
+      res.json(updatedPorch);
+    } catch (error) {
+      logger.error({ err: error }, "Error editing porch");
+      res.status(500).json({ error: "Failed to edit porch" });
     }
   }
 );
