@@ -8,6 +8,7 @@ import {
   PorchSortOption,
 } from "../../types";
 import PorchCard from "../PorchCard";
+import EditPorchModal from "../EditPorchModal";
 import FilterPill from "../../../../components/ui/FilterPill";
 import { exportPorches } from "../../../../lib/exportUtils";
 import ExportMenu from "../../../../components/ui/ExportMenu";
@@ -18,6 +19,7 @@ interface PorchesSectionProps {
   eventSettings: EventSettings | null;
   onStatusChange: (porchId: number, status: Status) => Promise<void>;
   onNotesChange: (porchId: number, adminNotes: string | null) => Promise<void>;
+  onPorchEdit?: (porchId: number, data: Partial<PorchApplication>) => Promise<void>;
 }
 
 const STATUS_PRIORITY: Record<Status, number> = {
@@ -45,10 +47,12 @@ export default function PorchesSection({
   eventSettings,
   onStatusChange,
   onNotesChange,
+  onPorchEdit,
 }: PorchesSectionProps) {
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [porchSearch, setPorchSearch] = useState("");
   const [porchSort, setPorchSort] = useState<PorchSortOption>("address");
+  const [editingPorch, setEditingPorch] = useState<PorchApplication | null>(null);
 
   const getBandsAtPorch = (porchId: number) => {
     return bands
@@ -201,9 +205,18 @@ export default function PorchesSection({
               onNotesChange={onNotesChange}
               eventStartTime={eventSettings?.start_time || "12:00"}
               eventEndTime={eventSettings?.end_time || "18:00"}
+              onEdit={onPorchEdit ? setEditingPorch : undefined}
             />
           ))}
         </div>
+      )}
+
+      {editingPorch && onPorchEdit && (
+        <EditPorchModal
+          porch={editingPorch}
+          onClose={() => setEditingPorch(null)}
+          onSave={onPorchEdit}
+        />
       )}
     </>
   );

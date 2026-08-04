@@ -28,6 +28,7 @@ interface BandCardProps {
   onScheduleStatusChange?: (bandId: number, status: ScheduleStatus | null) => Promise<void>;
   isMyReview?: boolean;
   currentUserId?: number;
+  onEdit?: (band: BandApplication) => void;
 }
 
 const S3_BUCKET = import.meta.env.VITE_S3_BUCKET || "porchfest-band-photos-dev";
@@ -106,6 +107,7 @@ export default function BandCard({
   onScheduleStatusChange,
   isMyReview = false,
   currentUserId,
+  onEdit,
 }: BandCardProps) {
   const [showPhoto, setShowPhoto] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -214,6 +216,16 @@ export default function BandCard({
                 <span className="text-xs font-medium text-porch-700 bg-porch-100 px-2.5 py-1 rounded-md border border-porch-200">
                   {band.genre}
                 </span>
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={() => onEdit(band)}
+                    className="inline-flex items-center justify-center w-7 h-7 rounded-full text-gray-400 hover:text-porch-600 hover:bg-porch-50 transition-colors"
+                    title="Edit band info"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /></svg>
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-4 text-sm text-gray-500 mb-2">

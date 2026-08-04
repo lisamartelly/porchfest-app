@@ -10,6 +10,7 @@ import {
   ReviewerUser,
 } from "../../types";
 import BandCard from "../BandCard";
+import EditBandModal from "../EditBandModal";
 import FilterPill from "../../../../components/ui/FilterPill";
 import { exportBands, exportWebsiteBands } from "../../../../lib/exportUtils";
 import ExportMenu from "../../../../components/ui/ExportMenu";
@@ -42,6 +43,7 @@ interface BandsSectionProps {
     bandId: number,
     status: ScheduleStatus | null,
   ) => Promise<void>;
+  onBandEdit?: (bandId: number, data: Partial<BandApplication>) => Promise<void>;
 }
 
 const STATUS_PRIORITY: Record<Status, number> = {
@@ -77,12 +79,14 @@ export default function BandsSection({
   onNotesChange,
   onAcceptanceChange,
   onScheduleStatusChange,
+  onBandEdit,
 }: BandsSectionProps) {
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [acceptanceFilter, setAcceptanceFilter] = useState<string>("all");
   const [bandSearch, setBandSearch] = useState("");
   const [bandSort, setBandSort] = useState<BandSortOption>("created_at");
   const [reviewerFilter, setReviewerFilter] = useState<string>("all");
+  const [editingBand, setEditingBand] = useState<BandApplication | null>(null);
 
   const reviewerMap = useMemo(
     () => new Map(reviewers.map((r) => [r.id, r])),
@@ -366,9 +370,18 @@ export default function BandsSection({
               onAcceptanceChange={onAcceptanceChange}
               showAcceptance
               onScheduleStatusChange={onScheduleStatusChange}
+              onEdit={onBandEdit ? setEditingBand : undefined}
             />
           ))}
         </div>
+      )}
+
+      {editingBand && onBandEdit && (
+        <EditBandModal
+          band={editingBand}
+          onClose={() => setEditingBand(null)}
+          onSave={onBandEdit}
+        />
       )}
     </>
   );
