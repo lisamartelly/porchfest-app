@@ -5,6 +5,20 @@
 
 BEGIN;
 
+-- ============================================================
+-- ADMIN USER (super-duper-admin)
+-- Email: admin@porchfest.org  Password: admin123
+-- ============================================================
+INSERT INTO users (email, password_hash, role, first_name, last_name)
+VALUES (
+  'admin@porchfest.org',
+  '$2a$10$8D8V0UqF63GtxYCTwlYHPO3ApWPKEpcZw27Hx5k1.RtOskvu.YM2a',
+  'super-duper-admin',
+  'Admin',
+  'User'
+)
+ON CONFLICT (email) DO NOTHING;
+
 -- Ensure we have an organization
 INSERT INTO organizations (name, slug, description, city, state, contact_email, website)
 VALUES (
@@ -36,12 +50,12 @@ AND NOT EXISTS (
   WHERE o.slug = 'somerville-porchfest' AND e.name = 'Somerville Porchfest 2026'
 );
 
--- Link first user to this org if not already linked
+-- Link admin user to this org
 INSERT INTO organization_users (user_id, organization_id, role)
 SELECT u.id, o.id, 'owner'
-FROM (SELECT id FROM users ORDER BY id LIMIT 1) u
+FROM users u
 CROSS JOIN (SELECT id FROM organizations WHERE slug = 'somerville-porchfest') o
-WHERE EXISTS (SELECT 1 FROM users)
+WHERE u.email = 'admin@porchfest.org'
 AND NOT EXISTS (
   SELECT 1 FROM organization_users ou WHERE ou.user_id = u.id AND ou.organization_id = o.id
 );

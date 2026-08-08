@@ -207,6 +207,11 @@ export default function MapSection({
   const [soundDirection, setSoundDirection] = useState<number | null>(null);
   const [soundConeWidth, setSoundConeWidth] = useState(360);
 
+  // Porch number editing state
+  const [editingPorchNumber, setEditingPorchNumber] = useState(false);
+  const [porchNumberInput, setPorchNumberInput] = useState("");
+  const [porchNumberError, setPorchNumberError] = useState<string | null>(null);
+
   // Pin relocation state
   const [relocating, setRelocating] = useState(false);
 
@@ -446,6 +451,33 @@ export default function MapSection({
     setSoundDirection(porch.sound_direction_degrees);
     setSoundConeWidth(porch.sound_cone_width_degrees);
     setAssignError(null);
+    setEditingPorchNumber(false);
+    setPorchNumberInput(porch.porch_number?.toString() ?? "");
+    setPorchNumberError(null);
+  };
+
+  const handleSavePorchNumber = async () => {
+    if (!selectedPorch) return;
+    setPorchNumberError(null);
+    const value = porchNumberInput.trim() === "" ? null : Number(porchNumberInput);
+    if (value !== null && (isNaN(value) || value < 1 || !Number.isInteger(value))) {
+      setPorchNumberError("Must be a positive whole number");
+      return;
+    }
+    try {
+      const updated = await api.patch(
+        `/api/admin/porches/${selectedPorch.id}/porch-number`,
+        { porch_number: value },
+      );
+      onPorchesUpdate((prev: PorchApplication[]) =>
+        prev.map((p: PorchApplication) => (p.id === updated.id ? updated : p)),
+      );
+      setSelectedPorch(updated);
+      setEditingPorchNumber(false);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setPorchNumberError(error.message || "Failed to save");
+    }
   };
 
   const defaultCenter: [number, number] =
@@ -792,6 +824,63 @@ export default function MapSection({
                   />
                 </svg>
               </button>
+            </div>
+
+            {/* Porch number */}
+            <div className="border-t pt-3 mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="font-medium text-sm text-gray-700">Porch #</h4>
+                {!editingPorchNumber && (
+                  <button
+                    onClick={() => {
+                      setPorchNumberInput(selectedPorch.porch_number?.toString() ?? "");
+                      setEditingPorchNumber(true);
+                      setPorchNumberError(null);
+                    }}
+                    className="text-xs text-porch-600 hover:text-porch-700 font-medium"
+                  >
+                    {selectedPorch.porch_number ? "Change" : "Assign"}
+                  </button>
+                )}
+              </div>
+              {editingPorchNumber ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={porchNumberInput}
+                    onChange={(e) => setPorchNumberInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSavePorchNumber();
+                      if (e.key === "Escape") setEditingPorchNumber(false);
+                    }}
+                    placeholder="#"
+                    className="w-20 text-sm border border-gray-300 rounded-lg px-2 py-1 focus:ring-1 focus:ring-porch-500 focus:border-porch-500"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSavePorchNumber}
+                    className="text-xs text-white bg-porch-600 hover:bg-porch-700 px-2.5 py-1 rounded-lg font-medium"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingPorchNumber(false)}
+                    className="text-xs text-gray-500 hover:text-gray-700 font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600">
+                  {selectedPorch.porch_number
+                    ? `#${selectedPorch.porch_number}`
+                    : "Not assigned"}
+                </p>
+              )}
+              {porchNumberError && (
+                <p className="text-xs text-red-600 mt-1">{porchNumberError}</p>
+              )}
             </div>
 
             {/* Porch details */}
@@ -1186,6 +1275,11 @@ export default function MapSection({
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
+                        {porch.porch_number != null && (
+                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-700 text-white text-[10px] font-bold flex items-center justify-center">
+                            {porch.porch_number}
+                          </span>
+                        )}
                         <p className="font-medium text-gray-900 truncate">
                           {porch.address}
                         </p>

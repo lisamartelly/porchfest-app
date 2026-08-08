@@ -134,10 +134,20 @@ app.get("/api/venues", async (req, res) => {
   }
 });
 
+// In-memory cache for public map data (avoids DB hits on event day traffic spikes)
+const mapCache = new Map<string, { data: unknown; expiry: number }>();
+const MAP_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 // Public: Map data for a published event (no auth)
 app.get("/api/events/org/:slug/map", async (req, res) => {
   try {
     const { slug } = req.params;
+
+    const cached = mapCache.get(slug);
+    if (cached && Date.now() < cached.expiry) {
+      res.set("Cache-Control", "public, max-age=300, s-maxage=3600");
+      return res.json(cached.data);
+    }
 
     const org = await db.organizations.findBySlug(slug);
     if (!org) {
@@ -165,6 +175,7 @@ app.get("/api/events/org/:slug/map", async (req, res) => {
 
     const porchesWithBands = approvedPorches.map((p) => ({
       id: p.id,
+      porch_number: p.porch_number,
       address: p.address,
       city: p.city,
       lat: p.lat,
@@ -189,7 +200,7 @@ app.get("/api/events/org/:slug/map", async (req, res) => {
         })),
     }));
 
-    res.json({
+    const responseData = {
       event: {
         id: activeEvent.id,
         name: activeEvent.name,
@@ -200,7 +211,11 @@ app.get("/api/events/org/:slug/map", async (req, res) => {
       },
       organization: { id: org.id, name: org.name, slug: org.slug },
       porches: porchesWithBands,
-    });
+    };
+
+    mapCache.set(slug, { data: responseData, expiry: Date.now() + MAP_CACHE_TTL_MS });
+    res.set("Cache-Control", "public, max-age=300, s-maxage=3600");
+    res.json(responseData);
   } catch (error) {
     logger.error({ err: error }, "Error fetching public map data");
     res.status(500).json({ error: "Failed to fetch map data" });

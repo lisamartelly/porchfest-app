@@ -18,9 +18,6 @@ delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIcon
 L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl });
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
-const MD_BREAKPOINT = 768;
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface PublicBand {
   id: number;
@@ -66,51 +63,12 @@ interface PublicMapData {
   porches: PublicPorch[];
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function formatTime(time: string | null): string {
   if (!time) return "";
   const [h, m] = time.split(":").map(Number);
   const period = h >= 12 ? "PM" : "AM";
   return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${period}`;
 }
-
-function formatTimeShort(time: string): string {
-  const [h, m] = time.split(":").map(Number);
-  const period = h >= 12 ? "p" : "a";
-  const hour = h % 12 || 12;
-  return m === 0 ? `${hour}${period}` : `${hour}:${m.toString().padStart(2, "0")}${period}`;
-}
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00");
-  return d.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
-
-// ─── Hooks ───────────────────────────────────────────────────────────────────
-
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== "undefined" && window.innerWidth < MD_BREAKPOINT
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${MD_BREAKPOINT - 1}px)`);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    setIsMobile(mq.matches);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  return isMobile;
-}
-
-// ─── Map sub-components ──────────────────────────────────────────────────────
 
 function FitBounds({ porches }: { porches: PublicPorch[] }) {
   const map = useMap();
@@ -124,34 +82,6 @@ function FitBounds({ porches }: { porches: PublicPorch[] }) {
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
     fitted.current = true;
   }, [porches, map]);
-
-  return null;
-}
-
-function PanToSelected({
-  porch,
-  sheetHeight,
-}: {
-  porch: PublicPorch | null;
-  sheetHeight: number;
-}) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!porch) return;
-    const target = L.latLng(porch.lat, porch.lng);
-    map.panTo(target, { animate: true });
-
-    // After pan completes, offset for the sheet covering the bottom of the map
-    setTimeout(() => {
-      const px = map.latLngToContainerPoint(target);
-      const mapH = map.getSize().y;
-      const visibleBottom = mapH - sheetHeight;
-      if (px.y > visibleBottom) {
-        map.panBy([0, px.y - visibleBottom + 30], { animate: true });
-      }
-    }, 350);
-  }, [porch, map, sheetHeight]);
 
   return null;
 }
@@ -266,148 +196,15 @@ function LocateUser() {
   );
 }
 
-// ─── Bottom Sheet ────────────────────────────────────────────────────────────
-
-type SheetSnap = "peek" | "half" | "full";
-
-const SNAP_PX = {
-  peek: 56,
-  half: () => window.innerHeight * 0.4,
-  full: () => window.innerHeight * 0.85,
-};
-
-function getSnapHeight(snap: SheetSnap): number {
-  return snap === "peek" ? SNAP_PX.peek : snap === "half" ? SNAP_PX.half() : SNAP_PX.full();
-}
-
-function nearestSnap(y: number, velocity: number): SheetSnap {
-  const half = SNAP_PX.half();
-  const full = SNAP_PX.full();
-
-  // Strong swipe overrides position
-  if (velocity > 600) return "peek";
-  if (velocity < -600) return "full";
-
-  const dists: [SheetSnap, number][] = [
-    ["peek", Math.abs(y - SNAP_PX.peek)],
-    ["half", Math.abs(y - half)],
-    ["full", Math.abs(y - full)],
-  ];
-  dists.sort((a, b) => a[1] - b[1]);
-  return dists[0][0];
-}
-
-function MobileBottomSheet({
-  snap,
-  onSnapChange,
-  children,
-}: {
-  snap: SheetSnap;
-  onSnapChange: (s: SheetSnap) => void;
-  children: React.ReactNode;
-}) {
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const dragState = useRef<{
-    startY: number;
-    startHeight: number;
-    lastY: number;
-    lastTime: number;
-    velocity: number;
-  } | null>(null);
-  const [currentHeight, setCurrentHeight] = useState(() => getSnapHeight(snap));
-  const [isDragging, setIsDragging] = useState(false);
-
-  useEffect(() => {
-    if (!isDragging) {
-      setCurrentHeight(getSnapHeight(snap));
-    }
-  }, [snap, isDragging]);
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    dragState.current = {
-      startY: touch.clientY,
-      startHeight: getSnapHeight(snap),
-      lastY: touch.clientY,
-      lastTime: Date.now(),
-      velocity: 0,
-    };
-    setIsDragging(true);
-  }, [snap]);
-
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    const ds = dragState.current;
-    if (!ds) return;
-    const touch = e.touches[0];
-    const delta = ds.startY - touch.clientY;
-    const now = Date.now();
-    const dt = now - ds.lastTime;
-    if (dt > 0) {
-      ds.velocity = (ds.lastY - touch.clientY) / dt * 1000;
-    }
-    ds.lastY = touch.clientY;
-    ds.lastTime = now;
-    const newH = Math.max(SNAP_PX.peek, Math.min(SNAP_PX.full(), ds.startHeight + delta));
-    setCurrentHeight(newH);
-  }, []);
-
-  const onTouchEnd = useCallback(() => {
-    const ds = dragState.current;
-    if (!ds) return;
-    // Positive velocity = swiping down (toward peek)
-    const next = nearestSnap(currentHeight, -ds.velocity);
-    dragState.current = null;
-    setIsDragging(false);
-    onSnapChange(next);
-  }, [currentHeight, onSnapChange]);
-
-  const translateY = `calc(100% - ${currentHeight}px)`;
-
-  return (
-    <div
-      ref={sheetRef}
-      className="md:hidden absolute inset-x-0 bottom-0 z-[500] bg-white rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.12)]"
-      style={{
-        transform: `translateY(${translateY})`,
-        transition: isDragging ? "none" : "transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)",
-        height: "100%",
-        touchAction: "none",
-      }}
-    >
-      {/* Drag handle */}
-      <div
-        className="flex justify-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-      >
-        <div className="w-10 h-1 rounded-full bg-gray-300" />
-      </div>
-
-      {/* Scrollable content */}
-      <div
-        className="overflow-y-auto overscroll-contain"
-        style={{ height: `calc(100% - 24px)` }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Component ──────────────────────────────────────────────────────────
-
-export default function PublicMapPage() {
+export default function PublicMapEmbed() {
   const { slug } = useParams<{ slug: string }>();
-  const isMobile = useIsMobile();
   const [data, setData] = useState<PublicMapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPorch, setSelectedPorch] = useState<PublicPorch | null>(null);
   const [timeFilter, setTimeFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [panelOpen, setPanelOpen] = useState(false);
-  const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
-  const pillsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchMap() {
@@ -450,8 +247,21 @@ export default function PublicMapPage() {
         .filter((p) => p.bands.length > 0);
     }
 
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      porches = porches
+        .map((p) => ({
+          ...p,
+          bands: p.bands.filter((b) =>
+            b.band_name.toLowerCase().includes(q) ||
+            b.genre?.toLowerCase().includes(q)
+          ),
+        }))
+        .filter((p) => p.bands.length > 0);
+    }
+
     return porches;
-  }, [data, timeFilter]);
+  }, [data, timeFilter, searchQuery]);
 
   const timeSlots = useMemo(() => {
     if (!data) return [];
@@ -467,7 +277,7 @@ export default function PublicMapPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading map...</p>
@@ -478,7 +288,7 @@ export default function PublicMapPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md">
           <svg
             className="w-16 h-16 mx-auto text-gray-300 mb-4"
@@ -508,14 +318,8 @@ export default function PublicMapPage() {
 
   const handleSelectPorch = (porch: PublicPorch) => {
     setSelectedPorch(porch);
-    if (isMobile) {
-      setSheetSnap("half");
-    } else {
-      setPanelOpen(true);
-    }
+    setPanelOpen(true);
   };
-
-  const sheetHeightForPan = sheetSnap === "peek" ? SNAP_PX.peek : SNAP_PX.half();
 
   const panelContent = selectedPorch ? (
     <div className="p-4">
@@ -536,14 +340,7 @@ export default function PublicMapPage() {
           )}
         </div>
         <button
-          onClick={() => {
-            setSelectedPorch(null);
-            if (isMobile) {
-              setSheetSnap("peek");
-            } else {
-              setPanelOpen(false);
-            }
-          }}
+          onClick={() => { setSelectedPorch(null); setPanelOpen(false); }}
           className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0 ml-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -636,107 +433,45 @@ export default function PublicMapPage() {
     </div>
   );
 
-  // Summary line for the mobile sheet peek state
-  const sheetPeekSummary = selectedPorch ? (
-    <div className="px-4 pb-2">
-      <p className="text-sm font-semibold text-gray-900 truncate flex items-center gap-1.5">
-        {selectedPorch.porch_number != null && (
-          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold inline-flex items-center justify-center">
-            {selectedPorch.porch_number}
-          </span>
-        )}
-        {selectedPorch.address}
-      </p>
-      <p className="text-xs text-gray-500 truncate">
-        {selectedPorch.bands.length > 0
-          ? selectedPorch.bands
-              .sort((a, b) => (a.set_start_time || "").localeCompare(b.set_start_time || ""))
-              .map((b) =>
-                b.set_start_time
-                  ? `${formatTime(b.set_start_time)}: ${b.band_name}`
-                  : b.band_name
-              )
-              .join(" · ")
-          : "No bands scheduled"}
-      </p>
-    </div>
-  ) : (
-    <div className="px-4 pb-2">
-      <p className="text-sm font-semibold text-gray-900">
-        {filteredPorches.length} Porch{filteredPorches.length !== 1 ? "es" : ""}
-      </p>
-      <p className="text-xs text-gray-500">Swipe up to browse</p>
-    </div>
-  );
-
   return (
     <div className="h-screen flex flex-col bg-gray-50" style={{ height: "100dvh" }}>
-      {/* ─── Header ─── */}
-      <header className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0 z-10">
-        <div className="px-3 py-1.5 md:px-4 md:py-3 max-w-screen-2xl mx-auto flex items-center justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-sm md:text-xl font-bold text-gray-900 truncate">
-              {data.event.name}
-            </h1>
-            <p className="text-[11px] md:text-sm text-gray-500 truncate">
-              {formatDate(data.event.date)} · {formatTime(data.event.start_time)} – {formatTime(data.event.end_time)}
-            </p>
-          </div>
-
-          {/* Desktop: time select dropdown */}
-          {!isMobile && (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="text-xs text-gray-400">Filter by set time</span>
-              <select
-                value={timeFilter || ""}
-                onChange={(e) => setTimeFilter(e.target.value || null)}
-                className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">All Times</option>
-                {timeSlots.map((t) => (
-                  <option key={t} value={t}>{formatTime(t)}</option>
-                ))}
-              </select>
-            </div>
+      {/* Compact filter bar instead of full header */}
+      <div className="bg-white border-b border-gray-200 px-3 py-2 flex-shrink-0 z-10 flex items-center gap-2">
+        <div className="relative flex-1">
+          <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search bands..."
+            className="text-sm border border-gray-300 rounded-lg pl-7 pr-2 py-1.5 w-full focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
           )}
         </div>
+        <select
+          value={timeFilter || ""}
+          onChange={(e) => setTimeFilter(e.target.value || null)}
+          className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">All Times</option>
+          {timeSlots.map((t) => (
+            <option key={t} value={t}>{formatTime(t)}</option>
+          ))}
+        </select>
+      </div>
 
-        {/* Mobile: scrollable time pills */}
-        {isMobile && timeSlots.length > 0 && (<>
-          <p className="text-[11px] text-gray-400 px-3 pb-1">Filter by set time</p>
-          <div
-            ref={pillsRef}
-            className="flex gap-1.5 overflow-x-auto px-3 pb-2 scrollbar-hide"
-            style={{ WebkitOverflowScrolling: "touch" }}
-          >
-            <button
-              onClick={() => setTimeFilter(null)}
-              className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                timeFilter === null
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              All
-            </button>
-            {timeSlots.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTimeFilter(timeFilter === t ? null : t)}
-                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  timeFilter === t
-                    ? "bg-indigo-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {formatTimeShort(t)}
-              </button>
-            ))}
-          </div>
-        </>)}
-      </header>
-
-      {/* ─── Map + Panels ─── */}
+      {/* Map + sidebar/bottom sheet */}
       <div className="flex-1 relative overflow-hidden">
         <div className="absolute inset-0">
           <MapContainer
@@ -749,9 +484,6 @@ export default function PublicMapPage() {
               url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
             />
             <FitBounds porches={filteredPorches} />
-            {isMobile && (
-              <PanToSelected porch={selectedPorch} sheetHeight={sheetHeightForPan} />
-            )}
 
             {filteredPorches.map((porch) => (
               <Marker
@@ -762,32 +494,29 @@ export default function PublicMapPage() {
                   click: () => handleSelectPorch(porch),
                 }}
               >
-                {/* Desktop-only Leaflet popup */}
-                {!isMobile && (
-                  <Popup>
-                    <div className="text-sm">
-                      <p className="font-semibold">
-                        {porch.porch_number ? `#${porch.porch_number} · ` : ""}{porch.address}
-                      </p>
-                      {porch.bands.length === 0 ? (
-                        <p className="text-gray-500">No bands scheduled</p>
-                      ) : (
-                        <div className="mt-1 space-y-0.5">
-                          {[...porch.bands]
-                            .sort((a, b) => (a.set_start_time || "").localeCompare(b.set_start_time || ""))
-                            .map((band) => (
-                              <p key={band.id} className="text-gray-700">
-                                {band.set_start_time
-                                  ? `${formatTime(band.set_start_time)} – ${formatTime(band.set_end_time)}: `
-                                  : ""}
-                                {band.band_name}
-                              </p>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  </Popup>
-                )}
+                <Popup>
+                  <div className="text-sm">
+                    <p className="font-semibold">
+                      {porch.porch_number ? `#${porch.porch_number} · ` : ""}{porch.address}
+                    </p>
+                    {porch.bands.length === 0 ? (
+                      <p className="text-gray-500">No bands scheduled</p>
+                    ) : (
+                      <div className="mt-1 space-y-0.5">
+                        {[...porch.bands]
+                          .sort((a, b) => (a.set_start_time || "").localeCompare(b.set_start_time || ""))
+                          .map((band) => (
+                            <p key={band.id} className="text-gray-700">
+                              {band.set_start_time
+                                ? `${formatTime(band.set_start_time)} – ${formatTime(band.set_end_time)}: `
+                                : ""}
+                              {band.band_name}
+                            </p>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </Popup>
               </Marker>
             ))}
             <LocateUser />
@@ -800,11 +529,56 @@ export default function PublicMapPage() {
         </div>
 
         {/* Mobile bottom sheet */}
-        {isMobile && (
-          <MobileBottomSheet snap={sheetSnap} onSnapChange={setSheetSnap}>
-            {sheetSnap === "peek" ? sheetPeekSummary : panelContent}
-          </MobileBottomSheet>
-        )}
+        <div className="md:hidden absolute left-0 right-0 bottom-0 z-[500]">
+          <button
+            onClick={() => setPanelOpen(!panelOpen)}
+            className="w-full bg-white border-t border-gray-200 px-4 py-2.5 flex items-center justify-between shadow-[0_-2px_8px_rgba(0,0,0,0.08)]"
+          >
+            <div className="min-w-0 flex-1 text-left">
+              {selectedPorch ? (
+                <>
+                  <p className="text-sm font-semibold text-gray-900 truncate flex items-center gap-1.5">
+                    {selectedPorch.porch_number != null && (
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold inline-flex items-center justify-center">
+                        {selectedPorch.porch_number}
+                      </span>
+                    )}
+                    {selectedPorch.address}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {selectedPorch.bands.length} band{selectedPorch.bands.length !== 1 ? "s" : ""}
+                    {selectedPorch.bands.length > 0 &&
+                      ` · ${selectedPorch.bands.map((b) => b.band_name).join(", ")}`}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {filteredPorches.length} Porch{filteredPorches.length !== 1 ? "es" : ""}
+                  </p>
+                  <p className="text-xs text-gray-500">Tap to browse</p>
+                </>
+              )}
+            </div>
+            <svg
+              className={`w-5 h-5 text-gray-400 flex-shrink-0 ml-2 transition-transform ${panelOpen ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+            </svg>
+          </button>
+
+          <div
+            className={`bg-white overflow-y-auto transition-all duration-300 ease-in-out ${
+              panelOpen ? "max-h-[60vh]" : "max-h-0"
+            }`}
+          >
+            {panelContent}
+          </div>
+        </div>
       </div>
     </div>
   );

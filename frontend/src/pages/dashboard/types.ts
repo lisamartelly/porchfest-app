@@ -57,6 +57,7 @@ export interface PorchApplication {
   sound_radius_meters: number;
   sound_direction_degrees: number | null;
   sound_cone_width_degrees: number;
+  porch_number: number | null;
   status: string;
   admin_notes: string | null;
   schedule_status: ScheduleStatus | null;
