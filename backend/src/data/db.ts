@@ -128,6 +128,7 @@ export interface Porch {
   sound_radius_meters: number;
   sound_direction_degrees: number | null;
   sound_cone_width_degrees: number;
+  porch_number: number | null;
   status: string;
   admin_notes: string | null;
   schedule_status: string | null;
@@ -932,6 +933,17 @@ export const db = {
       const result = await pool.query<Porch>(
         `UPDATE porches SET lat = $1, lng = $2 WHERE id = $3 RETURNING *`,
         [lat, lng, id]
+      );
+      return result.rows[0] || null;
+    },
+
+    async updatePorchNumber(
+      id: number | string,
+      porchNumber: number | null
+    ): Promise<Porch | null> {
+      const result = await pool.query<Porch>(
+        `UPDATE porches SET porch_number = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+        [porchNumber, id]
       );
       return result.rows[0] || null;
     },

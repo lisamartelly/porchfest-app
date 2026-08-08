@@ -1568,6 +1568,40 @@ adminRouter.delete("/porch-available-times/:id", async (req: AuthRequest, res: R
   }
 });
 
+// Update porch number
+adminRouter.patch(
+  "/porches/:id/porch-number",
+  [body("porch_number").optional({ nullable: true }).isInt({ min: 1 })],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const { id } = req.params;
+      const porchNumber = req.body.porch_number ?? null;
+
+      const porch = await db.porches.findById(id);
+      if (!porch) {
+        return res.status(404).json({ error: "Porch not found" });
+      }
+
+      const updated = await db.porches.updatePorchNumber(id, porchNumber);
+      res.json(updated);
+    } catch (error: unknown) {
+      const pgError = error as { code?: string; constraint?: string };
+      if (pgError.code === "23505" && pgError.constraint?.includes("porch_number")) {
+        return res.status(400).json({
+          error: `Porch number ${req.body.porch_number} is already assigned to another porch in this event`,
+        });
+      }
+      logger.error({ err: error }, "Error updating porch number");
+      res.status(500).json({ error: "Failed to update porch number" });
+    }
+  }
+);
+
 // Update porch sound settings
 adminRouter.patch(
   "/porches/:id/sound",
