@@ -155,6 +155,12 @@ server {
         proxy_set_header Host $host;
     }
 
+    location ~ ^/events/[^/]+/embed$ {
+        try_files /index.html =404;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
     }
