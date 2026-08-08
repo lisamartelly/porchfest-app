@@ -72,6 +72,7 @@ const THEMES: Record<ThemeName, ThemeConfig> = {
 const DUMMY_PORCH: PorchApplication = {
   id: 42,
   event_id: 1,
+  porch_number: 7,
   owner_name: "Jane Doe",
   email: "jane.doe@email.com",
   phone: "(617) 555-1234",

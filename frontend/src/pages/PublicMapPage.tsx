@@ -405,7 +405,7 @@ export default function PublicMapPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPorch, setSelectedPorch] = useState<PublicPorch | null>(null);
   const [timeFilter, setTimeFilter] = useState<string | null>(null);
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [_panelOpen, setPanelOpen] = useState(false);
   const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
   const pillsRef = useRef<HTMLDivElement>(null);
 
